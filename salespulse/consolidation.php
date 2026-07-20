@@ -155,12 +155,17 @@ function sp_group_reduce(array $rows, callable $keyFn, callable $seed, callable 
 
 /**
  * Port of `num(v).toLocaleString('id-ID')` for the KG/qty DISPLAY strings
- * (server.js:488-501). Indonesian locale groups thousands with '.'; per the
- * plan's simplification note we render 0 fraction digits (these are
- * integer-ish physical quantities in practice).
+ * (server.js:488-501). Replicates toLocaleString('id-ID') faithfully: '.'
+ * thousands grouping, ',' decimal separator, up to 3 fraction digits with
+ * trailing zeros (and a dangling separator) trimmed off.
  */
 function sp_id_number($n): string {
-    return number_format((float) $n, 0, ',', '.');
+    $s = number_format((float) $n, 3, ',', '.'); // up to 3 frac digits, id-ID grouping
+    if (strpos($s, ',') !== false) {             // trim trailing zeros, then dangling comma
+        $s = rtrim($s, '0');
+        $s = rtrim($s, ',');
+    }
+    return $s;
 }
 
 /**
@@ -364,6 +369,7 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
         $da = ($a['po_date'] ?? null) ?: "\u{FFFF}";
         $db = ($b['po_date'] ?? null) ?: "\u{FFFF}";
         if ($da !== $db) return $da < $db ? -1 : 1;
+        // strcmp vs JS localeCompare: identical ordering for the uniform "PSF26-..." ps_number format (no digit-adjacent-to-hyphen ambiguity); documented divergence otherwise.
         return strcmp((string) ($a['ps_number'] ?? ''), (string) ($b['ps_number'] ?? ''));
     });
 

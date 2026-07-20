@@ -78,4 +78,9 @@ chk('QTY_DATA totalWeight = "1.000 KG (1 MT)" (id-ID thousands = dot)', $qty['to
 chk('QTY_DATA color from COLORS[0]', $qty['color'] === SP_COLORS[0]);
 chk('QTY_DATA product = HRC', $qty['product'] === 'HRC');
 
+chk('id_number fractional', sp_id_number(1234.56) === '1.234,56');
+chk('id_number integer', sp_id_number(1000) === '1.000');
+chk('id_number trailing zero', sp_id_number(1234.5) === '1.234,5');
+chk('id_number small int', sp_id_number(10) === '10');
+
 echo $fail?"\n$fail FAILURES\n":"\nALL PASS\n"; exit($fail?1:0);
