@@ -30,8 +30,44 @@ try {
             break;
 
         case 'shipments':
+            if ($id === 'bulk' && $method === 'POST') {
+                $b = json_body();
+                $updates = is_array($b['updates'] ?? null) ? $b['updates'] : [];
+                $inserts = is_array($b['inserts'] ?? null) ? $b['inserts'] : [];
+                $res2 = scot_with_lock(function () use ($gs, $SID, $updates, $inserts) {
+                    $updated = 0; $inserted = 0;
+                    foreach ($updates as $u) {
+                        $uid = $u['id'] ?? null;
+                        if ($uid === null) continue;
+                        $data = scot_sanitize($u['data'] ?? []);
+                        $cur = find_by_id($gs, $SID, 'shipments', $uid);
+                        if (!$cur) continue;
+                        $merged = array_merge($cur, $data);
+                        $merged['updated_at'] = date('c');
+                        $gs->updateAssoc($SID, 'shipments', $cur['_row'], $merged);
+                        $updated++;
+                    }
+                    if ($inserts) {
+                        $nextId = scot_next_id($gs, $SID, 'shipments', 'id');
+                        $nextNo = scot_next_id($gs, $SID, 'shipments', 'no');
+                        $rows = [];
+                        foreach ($inserts as $ins) {
+                            $clean = scot_sanitize($ins);
+                            $now = date('c');
+                            $no = array_key_exists('no', $clean) && $clean['no'] !== null ? $clean['no'] : $nextNo++;
+                            $rows[] = array_merge($clean, [
+                                'id' => $nextId++, 'no' => $no,
+                                'created_at' => $now, 'updated_at' => $now,
+                            ]);
+                            $inserted++;
+                        }
+                        $gs->appendAssocBulk($SID, 'shipments', $rows);
+                    }
+                    return ['inserted' => $inserted, 'updated' => $updated];
+                });
+                json_out(['success' => true] + $res2);
+            }
             if ($id !== null && $action === 'documents') break;  // documents -> Task 7 block
-            if ($id === 'bulk') break;                           // bulk -> Task 6 block
 
             if ($method === 'GET' && $id === null) {
                 $out = [];
