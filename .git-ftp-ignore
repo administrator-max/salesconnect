@@ -1,0 +1,19 @@
+# ── SalesConnect — file yang ADA di repo tapi TIDAK di-deploy ke web root ──
+# git-ftp hanya meng-upload file yang di-track git; ini pengecualian tambahan
+# meniru deploy manual (lihat logs/deploy-niagahoster_2026-07-09_log.md).
+
+# Dokumentasi & catatan (juga sudah diblok .htaccess) — jangan taruh di web
+*.md
+docs/*
+logs/*
+
+# Initializer & tools CLI — kurangi attack surface di produksi
+setup.php
+tools/*
+
+# Contoh config, artifak build, file bantu
+config.sample.php
+*_deploy.zip
+deploy.sh
+.gitignore
+.git-ftp-ignore

@@ -1,0 +1,37 @@
+# ── Secrets (JANGAN pernah di-commit) ────────────────────────────────
+secure/
+config.php
+*service_account*.json
+.env
+.env.*
+*.env
+
+# ── Cache & token OAuth ──────────────────────────────────────────────
+cache/
+
+# ── Node (tool migrasi) ──────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ── Dev-only (JANGAN upload ke host produksi) ────────────────────────
+# Local PHP built-in server helpers; produksi pakai Apache/.htaccess.
+router.dev.php
+start-local.bat
+
+# ── OS / editor ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ── CATATAN ──────────────────────────────────────────────────────────
+# - logs/ SENGAJA TIDAK diabaikan: file [update]_[date]_log.md adalah
+#   riwayat perubahan dan harus ikut ter-commit.
+# - config.php diabaikan karena berisi hash password + ID spreadsheet.
+#   Pakai config.sample.php sebagai acuan; salin ke config.php di server.
+
+# Build artifacts — never commit (may embed config.php)
+*_deploy.zip
