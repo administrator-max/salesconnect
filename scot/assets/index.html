@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCOT - Shipment Control Tower</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="hdr"><div class="hdr-in">
+  <div class="brand"><img src="assets/assets/logo.png" alt="SCOT Logo" style="width:40px;height:40px;border-radius:8px;object-fit:cover"><div><h1>SCOT</h1><p>Shipment Control Tower</p></div></div>
+  <div class="today" id="td">Loading...</div>
+</div></div>
+<div class="nav">
+  <button class="nb act" data-tab="exec">Executive Summary</button>
+  <button class="nb" data-tab="ongoing">In Progress <span class="pl" id="og-c"></span></button>
+  <button class="nb" data-tab="done">Completed <span class="pl" id="dn-c"></span></button>
+  <button class="nb" data-tab="alerts">⚠️ Alerts <span class="pl" id="al-c" style="background:#dc2626;color:#fff"></span></button>
+  <button class="nb" data-tab="analytics">Analytics</button>
+  <button class="nb" data-tab="consignee">Consignee</button>
+  <button class="nb" data-tab="stats">Statistics</button>
+  <button class="nb" data-tab="upload" style="background:#059669;color:white;border-color:#059669">Update & Export</button>
+</div>
+<div class="ct">
+  <div id="p-exec">
+    <div class="flt-wrap" id="flt-exec-wrap">
+      <button class="flt-btn" id="flt-exec-btn" onclick="toggleFlt('exec')">
+        <span class="flt-ico">📅</span>
+        <span id="flt-exec-label">All Time</span>
+        <span class="flt-arrow">▼</span>
+      </button>
+      <div class="flt-dd" id="flt-exec-dd">
+        <div class="flt-dd-title">Time Period</div>
+        <div class="flt-year-row" id="flt-exec-years">
+          <button class="flt-yr act" data-yr="all">All Time</button>
+          <button class="flt-yr" data-yr="2025">2025</button>
+          <button class="flt-yr" data-yr="2026">2026</button>
+        </div>
+        <div class="flt-month-row" id="flt-exec-months" style="display:none">
+          <button class="flt-mo act" data-mo="all">All Months</button>
+          <button class="flt-mo" data-mo="01">Jan</button><button class="flt-mo" data-mo="02">Feb</button><button class="flt-mo" data-mo="03">Mar</button><button class="flt-mo" data-mo="04">Apr</button><button class="flt-mo" data-mo="05">May</button><button class="flt-mo" data-mo="06">Jun</button><button class="flt-mo" data-mo="07">Jul</button><button class="flt-mo" data-mo="08">Aug</button><button class="flt-mo" data-mo="09">Sep</button><button class="flt-mo" data-mo="10">Oct</button><button class="flt-mo" data-mo="11">Nov</button><button class="flt-mo" data-mo="12">Dec</button>
+        </div>
+        <hr class="flt-sep">
+        <div class="flt-dd-title">Custom Range</div>
+        <div class="flt-range">
+          <span>From</span><input type="date" id="flt-exec-from">
+          <span>To</span><input type="date" id="flt-exec-to">
+        </div>
+        <button class="flt-apply" onclick="applyFltRange('fp-exec','exec')">Apply Range</button>
+      </div>
+    </div>
+    <div class="fp hid" id="fp-exec" style="display:none"></div>
+    <div id="exec-kpi" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px"></div>
+    <div class="ch-row"><div class="ch-sec"><h3>📊 Tonnage by Status</h3><div id="ex-ton"></div></div><div class="ch-sec"><h3>📦 Shipments by Status</h3><div id="ex-st"></div></div></div>
+    <div class="ch-row"><div class="ch-sec"><h3>⏱️ Sailing Time Analysis (Import)</h3><div id="ex-sail"></div></div><div class="ch-sec"><h3>⚠️ Delay Analysis</h3><div id="ex-delay"></div></div></div>
+    <div class="ch-row"><div class="ch-sec"><h3>📋 Lead Time: Container vs Breakbulk (%)</h3><div id="ex-lead"></div></div><div class="ch-sec"><h3>🏢 Clearance by Consignee</h3><div id="ex-cons"></div></div></div>
+  </div>
+  <div id="p-analytics" class="hid">
+    <div class="flt-wrap" id="flt-ana-wrap">
+      <button class="flt-btn" id="flt-ana-btn" onclick="toggleFlt('ana')">
+        <span class="flt-ico">📅</span>
+        <span id="flt-ana-label">All Time</span>
+        <span class="flt-arrow">▼</span>
+      </button>
+      <div class="flt-dd" id="flt-ana-dd">
+        <div class="flt-dd-title">Time Period</div>
+        <div class="flt-year-row" id="flt-ana-years">
+          <button class="flt-yr act" data-yr="all">All Time</button>
+          <button class="flt-yr" data-yr="2025">2025</button>
+          <button class="flt-yr" data-yr="2026">2026</button>
+        </div>
+        <div class="flt-month-row" id="flt-ana-months" style="display:none">
+          <button class="flt-mo act" data-mo="all">All Months</button>
+          <button class="flt-mo" data-mo="01">Jan</button><button class="flt-mo" data-mo="02">Feb</button><button class="flt-mo" data-mo="03">Mar</button><button class="flt-mo" data-mo="04">Apr</button><button class="flt-mo" data-mo="05">May</button><button class="flt-mo" data-mo="06">Jun</button><button class="flt-mo" data-mo="07">Jul</button><button class="flt-mo" data-mo="08">Aug</button><button class="flt-mo" data-mo="09">Sep</button><button class="flt-mo" data-mo="10">Oct</button><button class="flt-mo" data-mo="11">Nov</button><button class="flt-mo" data-mo="12">Dec</button>
+        </div>
+        <hr class="flt-sep">
+        <div class="flt-dd-title">Custom Range</div>
+        <div class="flt-range">
+          <span>From</span><input type="date" id="flt-ana-from">
+          <span>To</span><input type="date" id="flt-ana-to">
+        </div>
+        <button class="flt-apply" onclick="applyFltRange('fp-ana','ana')">Apply Range</button>
+      </div>
+    </div>
+    <div class="fp hid" id="fp-ana" style="display:none"></div>
+    <div class="ch-sec" style="margin-bottom:16px"><h3>⏱️ Lead Time Analysis: Container vs Breakbulk</h3><div id="an-lead"></div></div>
+    <div class="ch-sec" style="margin-bottom:16px"><h3>🚢 Import Sailing Time Analysis</h3><div id="an-sail"></div></div>
+    <div class="ch-sec" style="margin-bottom:16px"><h3>⚠️ Delayed Shipment Analysis</h3><div id="an-delay"></div></div>
+    <div class="ch-sec" style="margin-bottom:16px"><h3>🏢 Consignee Clearance Summary (SPJM & SPPB)</h3><div id="an-cons"></div></div>
+  </div>
+  <div id="p-ongoing" class="hid">
+    <div class="sum" id="s-og"></div>
+    <div class="tb"><input class="sbox" id="q-og" placeholder="Search project, product, vessel..."></div>
+    <div class="rc" id="c-og"></div><div id="bp-og"></div>
+    <div class="split"><div><div class="split-h"><span class="split-badge imp">Import</span> Import</div><div class="sl" id="l-og-i"></div></div><div><div class="split-h"><span class="split-badge dom">Domestic</span> Domestic</div><div class="sl" id="l-og-d"></div></div></div>
+  </div>
+  <div id="p-done" class="hid">
+    <div class="sum" id="s-dn"></div>
+    <div class="tb"><input class="sbox" id="q-dn" placeholder="Search project, product, BL, warehouse..."><button class="fb act" data-ds="all">All</button><button class="fb" data-ds="import">Import</button><button class="fb" data-ds="domestic">Domestic</button><select class="fsel" id="y-dn"><option value="all">All Years</option><option value="2025">2025</option><option value="2026">2026</option></select></div>
+    <div class="rc" id="c-dn"></div>
+    <div class="split"><div><div class="split-h"><span class="split-badge imp">Import</span> Import</div><div class="sl" id="l-dn-i"></div></div><div><div class="split-h"><span class="split-badge dom">Domestic</span> Domestic</div><div class="sl" id="l-dn-d"></div></div></div>
+  </div>
+  <div id="p-consignee" class="hid">
+    <div class="ch-sec" style="margin-bottom:16px">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">📊 All Consignees Overview</h3>
+      <div class="tb" style="margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div style="position:relative;display:inline-block" id="cns-pt-wrap"><button class="fsel" id="cns-pt-btn" style="cursor:pointer;min-width:200px;text-align:left">All Consignees ▾</button><div id="cns-pt-dd" style="display:none;position:absolute;top:100%;left:0;background:var(--white);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:50;max-height:300px;overflow-y:auto;min-width:240px;padding:6px 0"><label style="display:block;padding:6px 12px;font-size:11px;cursor:pointer;border-bottom:1px solid var(--border);font-weight:700"><input type="checkbox" id="cns-pt-all" checked style="margin-right:6px">Select All</label><div id="cns-pt-list"></div></div></div>
+        <select class="fsel" id="cns-data"><option value="status">By Status</option><option value="cargo">By Cargo Type</option><option value="tonnage">By Tonnage</option><option value="clearance">Clearance</option></select>
+        <select class="fsel" id="cns-period"><option value="all">All Time</option><option value="2025">2025</option><option value="2026">2026</option></select><select class="fsel" id="cns-month"><option value="all">All Months</option><option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option><option value="04">Apr</option><option value="05">May</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Aug</option><option value="09">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select></div>
+      <div class="fp hid" id="fp-cns" style="display:none"></div>
+      <div class="flt-wrap" id="flt-cns-wrap" style="margin-bottom:10px">
+      <button class="flt-btn" id="flt-cns-btn" onclick="toggleFlt('cns')">
+        <span class="flt-ico">📅</span>
+        <span id="flt-cns-label">All Time</span>
+        <span class="flt-arrow">▼</span>
+      </button>
+      <div class="flt-dd" id="flt-cns-dd">
+        <div class="flt-dd-title">Time Period</div>
+        <div class="flt-year-row" id="flt-cns-years">
+          <button class="flt-yr act" data-yr="all">All Time</button>
+          <button class="flt-yr" data-yr="2025">2025</button>
+          <button class="flt-yr" data-yr="2026">2026</button>
+        </div>
+        <div class="flt-month-row" id="flt-cns-months" style="display:none">
+          <button class="flt-mo act" data-mo="all">All Months</button>
+          <button class="flt-mo" data-mo="01">Jan</button><button class="flt-mo" data-mo="02">Feb</button><button class="flt-mo" data-mo="03">Mar</button><button class="flt-mo" data-mo="04">Apr</button><button class="flt-mo" data-mo="05">May</button><button class="flt-mo" data-mo="06">Jun</button><button class="flt-mo" data-mo="07">Jul</button><button class="flt-mo" data-mo="08">Aug</button><button class="flt-mo" data-mo="09">Sep</button><button class="flt-mo" data-mo="10">Oct</button><button class="flt-mo" data-mo="11">Nov</button><button class="flt-mo" data-mo="12">Dec</button>
+        </div>
+        <hr class="flt-sep">
+        <div class="flt-dd-title">Custom Range</div>
+        <div class="flt-range">
+          <span>From</span><input type="date" id="flt-cns-from">
+          <span>To</span><input type="date" id="flt-cns-to">
+        </div>
+        <button class="flt-apply" onclick="applyFltRange('fp-cns','cns')">Apply Range</button>
+      </div>
+    </div>
+      <div id="cns-pie" style="margin-bottom:12px"></div>
+      <div id="cns-table"></div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin-bottom:16px">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">🔍 Consignee Detail</h3>
+    <div style="margin-bottom:12px"><select class="fsel" id="cn-sel" style="min-width:200px;margin-bottom:8px"><option value="all">All Consignees</option></select></div>
+    <div class="flt-wrap" id="flt-cndetail-wrap" style="margin-bottom:14px">
+      <button class="flt-btn" id="flt-cndetail-btn" onclick="toggleFlt('cndetail')">
+        <span class="flt-ico">📅</span>
+        <span id="flt-cndetail-label">All Time</span>
+        <span class="flt-arrow">▼</span>
+      </button>
+      <div class="flt-dd" id="flt-cndetail-dd">
+        <div class="flt-dd-title">Time Period</div>
+        <div class="flt-year-row" id="flt-cndetail-years">
+          <button class="flt-yr act" data-yr="all">All Time</button>
+          <button class="flt-yr" data-yr="2025">2025</button>
+          <button class="flt-yr" data-yr="2026">2026</button>
+        </div>
+        <div class="flt-month-row" id="flt-cndetail-months" style="display:none">
+          <button class="flt-mo act" data-mo="all">All Months</button>
+          <button class="flt-mo" data-mo="01">Jan</button><button class="flt-mo" data-mo="02">Feb</button><button class="flt-mo" data-mo="03">Mar</button><button class="flt-mo" data-mo="04">Apr</button><button class="flt-mo" data-mo="05">May</button><button class="flt-mo" data-mo="06">Jun</button><button class="flt-mo" data-mo="07">Jul</button><button class="flt-mo" data-mo="08">Aug</button><button class="flt-mo" data-mo="09">Sep</button><button class="flt-mo" data-mo="10">Oct</button><button class="flt-mo" data-mo="11">Nov</button><button class="flt-mo" data-mo="12">Dec</button>
+        </div>
+        <hr class="flt-sep">
+        <div class="flt-dd-title">Custom Range</div>
+        <div class="flt-range">
+          <span>From</span><input type="date" id="flt-cndetail-from">
+          <span>To</span><input type="date" id="flt-cndetail-to">
+        </div>
+        <button class="flt-apply" onclick="applyFltRange('fp-cndetail','cndetail')">Apply Range</button>
+      </div>
+    </div>
+    <div class="fp hid" id="fp-cndetail" style="display:none"></div>
+    <div id="cn-kpi" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px"></div>
+    <div class="ch-row"><div class="ch-sec"><h3>📦 Products Imported</h3><div id="cn-prod"></div></div><div class="ch-sec"><h3>📋 Clearance History (SPJM & SPPB)</h3><div id="cn-clear"></div></div></div>
+    <div class="ch-sec" style="margin-top:16px"><h3>📄 Shipment Details</h3><div id="cn-detail"></div></div>
+  </div>
+  <div id="p-stats" class="hid">
+    <div class="ch-row"><div class="ch-sec"><h3>Shipments by Product</h3><div id="cp"></div></div><div class="ch-sec"><h3>Shipments by Shipping Line</h3><div id="cl"></div></div></div>
+    <div class="ch-row"><div class="ch-sec"><h3>Shipments by Warehouse</h3><div id="cw"></div></div><div class="ch-sec"><h3>Performance Summary</h3><div id="cs"></div></div></div>
+    <div class="ch-row"><div class="ch-sec"><h3>🚛 Shipments by Trucking Vendor</h3><div id="cv"></div></div><div class="ch-sec"><h3>⚓ Shipments by Port of Loading</h3><div id="cpl"></div></div></div>
+    <div class="sc" style="margin-bottom:14px"><p style="font-size:12px;color:var(--muted)"><strong>On Time</strong> = all within schedule. <strong>Delayed</strong> = sailing >2d over est, customs >3d, or unloading >3d. Click numbers for details.</p></div>
+    <div class="mg" id="mg"></div>
+  </div>
+  <div id="p-alerts" class="hid"></div>
+  <div id="p-upload" class="hid">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="ch-sec" style="cursor:pointer" id="tab-upd-og"><div style="text-align:center;padding:10px"><div style="font-size:28px;margin-bottom:6px">✏️</div><div style="font-size:13px;font-weight:700">Update On Going Shipment</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Update Contract, Booked & On Going shipments</div></div></div>
+      <div class="ch-sec" style="cursor:pointer" id="tab-upd-new"><div style="text-align:center;padding:10px"><div style="font-size:28px;margin-bottom:6px">➕</div><div style="font-size:13px;font-weight:700">Add New Shipment</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Register a new shipment entry</div></div></div>
+    </div>
+    <div id="frm-og" class="ch-sec hid" style="margin-bottom:16px">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">✏️ Update Active Shipment</h3>
+      <div style="margin-bottom:10px"><label style="font-size:11px;font-weight:600;color:var(--muted)">Select Shipment</label><select id="sel-og" class="sbox" style="margin-top:4px;width:100%"></select></div>
+      <div id="frm-og-fields"></div>
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="abtn" id="btn-upd-og">💾 Save Update</button><button class="cbtn" id="btn-can-og">Cancel</button></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+      <h4 style="font-size:13px;font-weight:700;margin-bottom:8px">📎 Document Links <span style="font-weight:400;color:var(--muted)">(Google Drive — no file stored)</span></h4>
+      <div id="og-docs" style="font-size:12px;color:var(--muted)">Select a shipment to manage document links.</div>
+    </div>
+    <div id="frm-new" class="ch-sec hid" style="margin-bottom:16px">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">➕ Add New Shipment</h3>
+      <div id="frm-new-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="abtn" id="btn-add-new">💾 Save New Shipment</button><button class="cbtn" id="btn-can-new">Cancel</button></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="ch-sec" style="cursor:pointer" id="tab-ocr"><div style="text-align:center;padding:10px"><div style="font-size:28px;margin-bottom:6px">📄</div><div style="font-size:13px;font-weight:700">Scan Document (OCR)</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Upload B/L, PIB, Surat Jalan → auto-fill new shipment</div></div></div>
+      <div class="ch-sec" style="cursor:pointer" id="tab-upl"><div style="text-align:center;padding:10px"><div style="font-size:28px;margin-bottom:6px">📎</div><div style="font-size:13px;font-weight:700">Upload Excel File</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Bulk update from Excel template</div></div></div>
+      <div class="ch-sec" style="cursor:pointer" id="tab-exp"><div style="text-align:center;padding:10px"><div style="font-size:28px;margin-bottom:6px">📊</div><div style="font-size:13px;font-weight:700">Export to Excel</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Download full database as .xlsx</div></div></div>
+    </div>
+    <div id="sec-ocr" class="hid">
+      <div class="upl" id="oz"><div style="font-size:36px;margin-bottom:8px">📄</div><p style="font-size:14px;font-weight:700;margin-bottom:4px">Select or drag & drop a PDF / image</p><p style="font-size:11px;color:var(--muted)">Ocean B/L, PIB, Surat Jalan — fields are extracted for you to review before saving</p><input type="file" id="ofi" accept=".pdf,image/*" style="display:none"></div>
+      <div id="ocr-status"></div>
+    </div>
+    <div id="sec-upl" class="hid">
+      <div class="upl" id="uz"><div style="font-size:36px;margin-bottom:8px">📎</div><p style="font-size:14px;font-weight:700;margin-bottom:4px">Select or drag & drop Excel file</p><p style="font-size:11px;color:var(--muted)">Column A–AG format must match database template (.xlsx)</p><input type="file" id="fi" accept=".xlsx,.xls" style="display:none"></div>
+      <div id="ur"></div>
+    </div>
+  </div>
+</div>
+<div class="ov hid" id="mo"><div class="mdl"><div class="mdl-t"><h3 id="mt"></h3><button class="mdl-x" id="mc">✕</button></div><div id="mb"></div></div></div>
+<button class="cf" id="cf">💬</button>
+<div class="cb hid" id="cb">
+  <div class="cb-t"><h4>💬 Shipment Analytics</h4><button id="cx">✕</button></div>
+  <div class="cb-m" id="cm"><div class="bbl a">Hi! I can help analyze your cargo data — ask about average times, delays, product comparisons, and more.</div></div>
+  <div class="ch-h" id="chs"><button class="ch-ht">Avg shipping time per product?</button><button class="ch-ht">Most delayed shipping line?</button><button class="ch-ht">Busiest warehouse?</button><button class="ch-ht">Delay trends?</button><button class="ch-ht">Active shipments?</button><button class="ch-ht">Trucking vendor breakdown?</button></div>
+  <div class="cb-b"><textarea class="cb-in" id="ci" rows="1" placeholder="Ask about shipment data..."></textarea><button class="cb-go" id="cg">➤</button></div>
+</div>
+
+<!-- REMOVE <script src="app.js"></script> AND REPLACE WITH THESE 6 LINES -->
+<script src="assets/state.js"></script>
+<script src="assets/filters.js"></script>
+<script src="assets/ui.js"></script>
+<script src="assets/forms.js"></script>
+<script src="assets/ai.js"></script>
+<script src="assets/alerts.js"></script>
+<script src="assets/main.js"></script>
+
+</body>
+</html>

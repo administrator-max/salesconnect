@@ -1,0 +1,7 @@
+# Route /taskflow/api/<anything> to api.php (front controller)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^api/(.*)$ api.php?_route=$1 [QSA,L]
+  RewriteRule ^api$ api.php [QSA,L]
+</IfModule>
