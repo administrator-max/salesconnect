@@ -549,3 +549,49 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
         'QTY_DATA' => $QTY_DATA,
     ];
 }
+
+/**
+ * Port of server.js reaggregateActuals (:682-701). Re-derives monthly_actuals
+ * margin/revenue for one (month, year) bucket from ps_headers, after a PS
+ * upsert/delete. Mutates $actualsAll in place (upsert-or-clear the matching
+ * row) and returns the summary the caller echoes back to the client.
+ */
+function sp_reaggregate_actuals(array &$actualsAll, array $headersAll, int $monthIdx, int $psYear): array {
+    $inBucket = array_values(array_filter($headersAll, function ($h) use ($monthIdx, $psYear) {
+        return ($h['dashboard_month_idx'] ?? null) === $monthIdx && ($h['dashboard_year'] ?? null) === $psYear;
+    }));
+    $idx = null;
+    foreach ($actualsAll as $i => $r) {
+        if (($r['month_idx'] ?? null) === $monthIdx && ($r['year'] ?? null) === $psYear) { $idx = $i; break; }
+    }
+    $now = date('c');
+
+    if (count($inBucket) > 0) {
+        $m = 0.0; $r = 0.0;
+        foreach ($inBucket as $h) {
+            $m += sp_num($h['margin'] ?? null);
+            $r += sp_num($h['sales_revenue'] ?? null);
+        }
+        $m /= 1e6; $r /= 1e6;
+        if ($idx !== null) {
+            $actualsAll[$idx]['actual_margin'] = $m;
+            $actualsAll[$idx]['revenue'] = $r;
+            $actualsAll[$idx]['updated_at'] = $now;
+        } else {
+            $actualsAll[] = [
+                'month_idx' => $monthIdx, 'year' => $psYear,
+                'actual_margin' => $m, 'plan_margin' => null, 'revenue' => $r,
+                'notes' => '', 'updated_at' => $now,
+            ];
+        }
+        return ['mMIDR' => $m, 'rMIDR' => $r, 'remaining' => count($inBucket)];
+    }
+
+    // No PS left in this bucket -> clear actual_margin/revenue if the row exists.
+    if ($idx !== null) {
+        $actualsAll[$idx]['actual_margin'] = null;
+        $actualsAll[$idx]['revenue'] = null;
+        $actualsAll[$idx]['updated_at'] = $now;
+    }
+    return ['mMIDR' => 0.0, 'rMIDR' => 0.0, 'remaining' => 0];
+}
