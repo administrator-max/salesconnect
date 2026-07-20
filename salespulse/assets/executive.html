@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <title>Executive Summary — Sales Pulse 2026</title>
+  <style>
+    /* ═══════════════════════════════════════════════════════════════════
+       Executive Summary — Gunung Prisma brand
+       Palette: #373896 (dark blue) · #2077BD (blue) · #0A6A36 (dark green)
+                #2AB675 (green) · #231F20 (text) · #6D6E71 (gray)
+       Font: Helvetica (400 / 700)
+       ═══════════════════════════════════════════════════════════════════ */
+    :root {
+      --bg:           #F8F9FA;
+      --s1:           #FFFFFF;
+      --s2:           #F8F9FA;
+      --s3:           #F1F3F5;
+      --border:       #E5E7EB;
+      --border2:      #D1D5DB;
+      --text:         #231F20;
+      --muted:        #6D6E71;
+      --muted2:       #4B5563;
+
+      --brand-dark:   #373896;
+      --brand-blue:   #2077BD;
+      --brand-green:  #2AB675;
+      --brand-green-dark: #0A6A36;
+
+      /* Legacy tokens mapped to brand */
+      --blue:         #373896;
+      --blue-mid:     #2077BD;
+      --blue-lt:      rgba(32,119,189,0.10);
+      --green:        #0A6A36;
+      --green-mid:    #2AB675;
+      --green-lt:     rgba(42,182,117,0.10);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background:var(--bg); color:var(--text);
+      font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-weight:400; min-height:100vh;
+      -webkit-font-smoothing:antialiased;
+    }
+
+    /* ── Header ── */
+    .exec-header {
+      background:var(--brand-dark);
+      padding:16px 32px;
+      display:flex; align-items:center; justify-content:space-between;
+      box-shadow:0 1px 3px rgba(35,31,32,0.06);
+    }
+    .exec-logo {
+      font-family:inherit; font-size:24px; font-weight:700;
+      color:#FFFFFF; letter-spacing:-0.3px; line-height:1;
+    }
+    .exec-logo span { color:#FFFFFF; opacity:0.7; }
+    .exec-subtitle {
+      font-size:11px; color:rgba(255,255,255,0.65);
+      letter-spacing:0.6px; text-transform:uppercase;
+      margin-top:4px; font-weight:400;
+    }
+    .exec-page-title {
+      font-family:inherit; font-size:16px; font-weight:700;
+      color:#FFFFFF; opacity:0.85; letter-spacing:0;
+    }
+    .exec-nav-link {
+      display:flex; align-items:center; gap:6px;
+      padding:8px 14px; border-radius:8px;
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.4);
+      color:#FFFFFF; font-size:12px; font-weight:700;
+      text-decoration:none; transition:background 0.15s, border-color 0.15s;
+    }
+    .exec-nav-link:hover {
+      background:rgba(255,255,255,0.10);
+      border-color:rgba(255,255,255,0.7);
+    }
+
+    /* ── Page ── */
+    .page { max-width:1480px; margin:0 auto; padding:24px 32px; }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display:flex; align-items:center; gap:12px;
+      margin-bottom:20px; padding:12px 16px;
+      background:var(--s1); border:1px solid var(--border);
+      border-radius:8px;
+    }
+    .filter-label {
+      font-size:11px; color:var(--muted);
+      letter-spacing:1px; text-transform:uppercase; font-weight:700;
+    }
+    .filter-select {
+      height:34px; padding:0 12px;
+      background:var(--s1); border:1px solid var(--border);
+      border-radius:8px; color:var(--text);
+      font-family:inherit; font-size:13px; font-weight:700;
+      cursor:pointer; outline:none;
+      transition:border-color 0.15s;
+    }
+    .filter-select:focus { border-color:var(--brand-blue); }
+    .filter-ytd-badge {
+      margin-left:auto; padding:5px 12px;
+      border-radius:6px;
+      background:var(--blue-lt); color:var(--brand-blue);
+      font-size:11px; font-weight:700; letter-spacing:0;
+      border:1px solid rgba(32,119,189,0.20);
+    }
+    /* ── Refresh controls ── */
+    .filter-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .filter-right .filter-ytd-badge { margin-left:0; }
+    .refresh-btn {
+      display:inline-flex; align-items:center; gap:6px;
+      height:34px; padding:0 12px;
+      background:var(--s1); border:1px solid var(--border);
+      border-radius:8px; color:var(--text);
+      font-family:inherit; font-size:12px; font-weight:700;
+      cursor:pointer; outline:none; transition:border-color .15s, background .15s;
+    }
+    .refresh-btn:hover  { border-color:var(--brand-blue); }
+    .refresh-btn:active { background:var(--blue-lt); }
+    .refresh-btn.spinning svg { animation:exec-spin .8s linear infinite; transform-origin:50% 50%; }
+    @keyframes exec-spin { to { transform:rotate(360deg); } }
+    .auto-pill {
+      display:inline-flex; align-items:center; gap:6px;
+      height:34px; padding:0 12px; border-radius:8px;
+      cursor:pointer; user-select:none;
+      font-size:11px; font-weight:700; letter-spacing:.3px;
+      border:1px solid var(--border); background:var(--s1); color:var(--muted);
+      transition:all .15s;
+    }
+    .auto-pill.on { color:#16a34a; border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.08); }
+    .auto-dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .auto-pill.on .auto-dot { box-shadow:0 0 0 3px rgba(34,197,94,.18); }
+    .refresh-stamp { font-size:10px; color:var(--muted); font-weight:600; min-width:96px; text-align:right; }
+
+    /* ── KPI Cards grid ── */
+    .kpi-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:20px; }
+    .kpi-card {
+      background:var(--s1); border:1px solid var(--border);
+      border-radius:12px; overflow:visible;
+      box-shadow:0 1px 2px rgba(35,31,32,0.04);
+      display:flex; flex-direction:column;
+    }
+
+    /* ── Card header (3 brand-aligned variants) ── */
+    .kpi-card-head {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 18px; color:#FFFFFF;
+      border-radius:12px 12px 0 0;
+    }
+    .kpi-card-head.blue   { background:var(--brand-blue); }
+    .kpi-card-head.green  { background:var(--brand-green-dark); }
+    .kpi-card-head.orange { background:var(--brand-dark); }   /* mapped to brand-dark since no orange in brand */
+
+    .kpi-head-left { display:flex; align-items:center; gap:10px; }
+    .kpi-icon {
+      width:34px; height:34px; border-radius:8px;
+      background:rgba(255,255,255,0.18);
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    }
+    .kpi-title { font-family:inherit; font-size:15px; font-weight:700; line-height:1; letter-spacing:-0.1px; }
+    .kpi-unit  { font-size:10px; opacity:0.7; letter-spacing:1px; text-transform:uppercase; margin-top:3px; font-weight:400; }
+    .kpi-period-badge {
+      padding:4px 10px; border-radius:6px;
+      background:rgba(255,255,255,0.18);
+      font-size:11px; font-weight:700; white-space:nowrap; letter-spacing:0;
+    }
+
+    /* ── Card body: 2-col grid ── */
+    .kpi-card-body { padding:14px 16px; flex:1; }
+    .kpi-cols {
+      display:grid; grid-template-columns:1fr 1fr; gap:1px;
+      background:var(--border); border-radius:8px;
+      overflow:visible; height:100%;
+    }
+
+    .kpi-col {
+      background:var(--s1); padding:14px;
+      display:flex; flex-direction:column; min-height:140px;
+    }
+    .kpi-col.alt { background:var(--s2); }
+    .kpi-col-label {
+      font-size:10px; letter-spacing:1.2px; text-transform:uppercase;
+      color:var(--muted); font-weight:700; margin-bottom:8px;
+    }
+    .kpi-big {
+      font-family:inherit; font-size:26px; font-weight:700;
+      line-height:1; margin-bottom:10px; letter-spacing:-0.4px;
+      position:relative; cursor:default; display:inline-block;
+    }
+    #kpi-float-tip {
+      display:none; position:fixed;
+      background:var(--text); color:#FFFFFF;
+      font-family:inherit; font-size:12px; font-weight:400;
+      padding:7px 12px; border-radius:6px; white-space:nowrap;
+      z-index:9999; box-shadow:0 4px 12px rgba(35,31,32,0.20);
+      pointer-events:none; transform:translateY(-8px);
+    }
+    #kpi-float-tip::after {
+      content:''; position:absolute; top:100%; left:16px;
+      border:5px solid transparent; border-top-color:var(--text);
+    }
+    .kpi-big.blue   { color:var(--brand-blue); }
+    .kpi-big.green  { color:var(--brand-green-dark); }
+    .kpi-big.orange { color:var(--brand-dark); }
+
+    .vs-budget-row { display:flex; flex-direction:column; align-items:flex-start; gap:5px; margin-bottom:4px; }
+    .vs-badge {
+      padding:3px 8px; border-radius:6px;
+      font-size:9px; font-weight:700; letter-spacing:0.5px;
+      white-space:nowrap;
+    }
+    .vs-badge.blue   { background:var(--brand-blue);        color:#FFFFFF; }
+    .vs-badge.green  { background:var(--brand-green-dark);  color:#FFFFFF; }
+    .vs-badge.orange { background:var(--brand-dark);        color:#FFFFFF; }
+    .vs-budget-text  { font-size:11px; color:var(--muted); font-weight:400; }
+    .vs-neg { color:var(--text); font-weight:700; }              /* no red — bold dark text */
+    .vs-pos { color:var(--brand-green-dark); font-weight:700; }
+
+    /* ── Progress bar ── */
+    .kpi-col-spacer { flex:1; min-height:8px; }
+    .progress-track { height:4px; background:var(--s3); border-radius:99px; overflow:hidden; margin-bottom:5px; }
+    .progress-fill  { height:100%; border-radius:99px; transition:width 0.8s cubic-bezier(.4,0,.2,1); width:0%; }
+    .progress-fill.blue   { background:var(--brand-blue); }
+    .progress-fill.green  { background:var(--brand-green-dark); }
+    .progress-fill.orange { background:var(--brand-dark); }
+    .budget-of { font-size:10px; color:var(--muted); font-weight:400; }
+
+    /* ── Carousel ── */
+    .carousel-section {
+      background:var(--s1); border:1px solid var(--border);
+      border-radius:12px; overflow:hidden;
+      box-shadow:0 1px 2px rgba(35,31,32,0.04);
+    }
+    .carousel-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 20px; background:var(--brand-dark); color:#FFFFFF;
+    }
+    .carousel-header-left { display:flex; align-items:center; gap:12px; }
+    .carousel-title { font-family:inherit; font-size:16px; font-weight:700; letter-spacing:-0.1px; }
+    .carousel-unit  { font-size:10px; opacity:0.7; letter-spacing:1px; text-transform:uppercase; margin-top:2px; font-weight:400; }
+    .carousel-nav   { display:flex; align-items:center; gap:8px; }
+    .carousel-btn {
+      width:28px; height:28px; border-radius:6px;
+      background:transparent; border:1px solid rgba(255,255,255,0.30);
+      color:#FFFFFF; cursor:pointer; font-size:14px; font-weight:700;
+      display:flex; align-items:center; justify-content:center;
+      transition:background 0.15s, border-color 0.15s;
+    }
+    .carousel-btn:hover { background:rgba(255,255,255,0.10); border-color:rgba(255,255,255,0.6); }
+    .carousel-dots  { display:flex; gap:5px; align-items:center; }
+    .carousel-dot   { width:8px; height:4px; border-radius:2px; background:rgba(255,255,255,0.35); transition:all 0.2s; cursor:pointer; }
+    .carousel-dot.active { width:16px; background:#FFFFFF; }
+    .carousel-body  { overflow:hidden; }
+    .carousel-slides { display:flex; transition:transform 0.35s cubic-bezier(.4,0,.2,1); }
+    .carousel-slide  { min-width:100%; }
+
+    /* Slide bars: brand only */
+    .slide-bar {
+      display:flex; align-items:center; justify-content:center;
+      padding:10px 20px;
+      font-family:inherit; font-size:11px; font-weight:700;
+      letter-spacing:1.5px; text-transform:uppercase;
+      color:#FFFFFF; gap:8px;
+    }
+    .slide-bar.top-products  { background:var(--brand-green-dark); }
+    .slide-bar.bot-products  { background:var(--muted); }       /* no red — gray for "bottom" */
+    .slide-bar.top-customers { background:var(--brand-blue); }
+
+    /* ── Rank panels ── */
+    .rank-panels { display:grid; grid-template-columns:1fr 1fr; }
+    .rank-panel  { padding:16px 20px; border-right:1px solid var(--border); }
+    .rank-panel:last-child { border-right:none; }
+    .rank-panel-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding-bottom:10px; margin-bottom:12px;
+      border-bottom:2px solid var(--border);
+    }
+    .rank-panel-header.blue { border-color:var(--brand-blue); }
+    .rank-panel-header.green { border-color:var(--brand-green-dark); }
+    .rank-panel-header.red { border-color:var(--muted); }
+    .rank-period {
+      font-size:14px; font-weight:700; color:var(--text);
+      letter-spacing:0; text-transform:uppercase;
+    }
+    .rank-date {
+      font-size:11px; font-weight:400; color:var(--muted);
+    }
+    .rank-item {
+      display:flex; align-items:center; gap:12px;
+      padding:8px 0; border-bottom:1px solid var(--border);
+    }
+    .rank-item:last-child { border-bottom:none; padding-bottom:0; }
+    .rank-num {
+      width:26px; height:26px; border-radius:6px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-family:inherit; font-size:13px; font-weight:700;
+    }
+    .rank-num.blue  { background:var(--blue-lt);              color:var(--brand-blue); }
+    .rank-num.green { background:rgba(42,182,117,0.12);       color:var(--brand-green-dark); }
+    .rank-num.red   { background:var(--s3);                   color:var(--text); }
+    .rank-name  { flex:1; font-size:13px; font-weight:700; color:var(--text); }
+    .rank-vals  { text-align:right; }
+    .rank-value { font-family:inherit; font-size:13px; font-weight:700; color:var(--text); }
+    .rank-pct   { font-size:10px; padding:2px 7px; border-radius:6px; margin-top:3px; display:inline-block; font-weight:700; }
+    .rank-pct.blue  { background:var(--blue-lt);              color:var(--brand-blue); }
+    .rank-pct.green { background:rgba(42,182,117,0.12);       color:var(--brand-green-dark); }
+    .rank-pct.red   { background:var(--s3);                   color:var(--text); }
+    .rank-empty     { padding:20px; text-align:center; color:var(--muted); font-size:12px; font-weight:400; }
+
+    /* ── Hover tooltip untuk rank-item ── */
+    .has-rank-tip { cursor:help; transition:background 0.15s; }
+    .has-rank-tip:hover { background:var(--s2); }
+    #rank-float-tip {
+      display:none; opacity:0; pointer-events:none;
+      position:fixed; z-index:9999;
+      background:var(--s1); border:1px solid var(--border);
+      border-radius:8px; padding:12px 14px;
+      font-family:inherit; font-size:11px; color:var(--text);
+      min-width:240px; max-width:300px;
+      box-shadow:0 4px 16px rgba(35,31,32,0.18);
+      transition:opacity 0.12s; line-height:1.5;
+    }
+    #rank-float-tip .rt-name {
+      font-size:13px; font-weight:700; color:var(--brand-dark);
+      margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border);
+    }
+    #rank-float-tip .rt-row {
+      display:flex; justify-content:space-between; gap:18px;
+      padding:3px 0; font-weight:400;
+    }
+    #rank-float-tip .rt-row span { color:var(--muted); }
+    #rank-float-tip .rt-row strong { color:var(--text); font-weight:700; font-variant-numeric:tabular-nums; }
+    #rank-float-tip .rt-pct strong { color:var(--brand-green-dark); font-size:13px; }
+    #rank-float-tip .rt-sep {
+      height:1px; background:var(--border); margin:6px 0;
+    }
+    #rank-float-tip .rt-note {
+      font-size:10px; color:var(--muted); font-style:italic;
+      margin-top:4px; padding-top:6px; border-top:1px dashed var(--border);
+      line-height:1.4;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width:1100px) {
+      .kpi-cards { grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width:780px) {
+      .kpi-cards { grid-template-columns:1fr; }
+      .rank-panels { grid-template-columns:1fr; }
+      .rank-panel { border-right:none; border-bottom:1px solid var(--border); }
+      .rank-panel:last-child { border-bottom:none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="exec-header">
+  <div style="display:flex;align-items:center;gap:16px;">
+    <img src="assets/assets/logo.jpg" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;" alt="Logo">
+    <div>
+      <div class="exec-logo">Sales Pulse <span id="exec-title-year">2026</span></div>
+      <div class="exec-subtitle">Budget vs Actual · GP + ATL Consolidated</div>
+    </div>
+    <div style="width:1px;height:36px;background:rgba(255,255,255,0.18);margin:0 4px;"></div>
+    <div class="exec-page-title">Executive Summary</div>
+  </div>
+  <a href="dashboard.php" class="exec-nav-link">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </a>
+</div>
+
+<div class="page">
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <span class="filter-label">Filter</span>
+    <select class="filter-select" id="exec-year" onchange="applyFilter()"></select>
+    <select class="filter-select" id="exec-month" onchange="applyFilter()">
+      <option value="-1">All Months (YTD)</option>
+      <option value="0">January</option><option value="1">February</option>
+      <option value="2">March</option><option value="3">April</option>
+      <option value="4">May</option><option value="5">June</option>
+      <option value="6">July</option><option value="7">August</option>
+      <option value="8">September</option><option value="9">October</option>
+      <option value="10">November</option><option value="11">December</option>
+    </select>
+    <div class="filter-right">
+      <button class="refresh-btn" id="exec-refresh" onclick="refreshNow()" title="Tarik data terbaru dari Google Sheet">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        <span>Refresh</span>
+      </button>
+      <div class="auto-pill" id="exec-auto" onclick="toggleAuto()" title="Auto-refresh tiap 60 detik">
+        <span class="auto-dot"></span><span id="exec-auto-label">Auto</span>
+      </div>
+      <span class="refresh-stamp" id="exec-stamp">—</span>
+      <div class="filter-ytd-badge" id="exec-period-badge">YTD 2026</div>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-cards">
+
+    <!-- Revenue -->
+    <div class="kpi-card">
+      <div class="kpi-card-head blue">
+        <div class="kpi-head-left">
+          <div class="kpi-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          </div>
+          <div>
+            <div class="kpi-title">Revenue</div>
+            <div class="kpi-unit" title="Penjualan ke end-customer eksternal (leg intercompany internal tidak dihitung)">IDR · external sales</div>
+          </div>
+        </div>
+        <div class="kpi-period-badge" id="rev-period">YTD 2026</div>
+      </div>
+      <div class="kpi-card-body">
+        <div class="kpi-cols">
+          <div class="kpi-col">
+            <div class="kpi-col-label">MTD</div>
+            <div class="kpi-big blue" id="rev-mtd">0.0</div>
+            <div class="vs-budget-row">
+              <span class="vs-badge blue">VS BUDGET</span>
+              <span class="vs-budget-text">Bud: <span id="rev-bud-mtd">0.0</span> <span class="vs-neg" id="rev-gap-mtd">0.0</span></span>
+            </div>
+            <div class="kpi-col-spacer"></div>
+            <div class="progress-track"><div class="progress-fill blue" id="rev-bar-mtd"></div></div>
+            <div class="budget-of" id="rev-of-mtd">0.0% of budget</div>
+          </div>
+          <div class="kpi-col alt">
+            <div class="kpi-col-label">YTD</div>
+            <div class="kpi-big blue" id="rev-ytd">0.0</div>
+            <div class="vs-budget-row">
+              <span class="vs-badge blue">VS BUDGET</span>
+              <span class="vs-budget-text">Bud YTD: <span id="rev-bud-ytd">0.0</span> <span class="vs-neg" id="rev-gap-ytd">0.0</span></span>
+            </div>
+            <div class="kpi-col-spacer"></div>
+            <div class="progress-track"><div class="progress-fill blue" id="rev-bar-ytd"></div></div>
+            <div class="budget-of" id="rev-of-ytd">0.0% of budget</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Margin -->
+    <div class="kpi-card">
+      <div class="kpi-card-head green">
+        <div class="kpi-head-left">
+          <div class="kpi-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="2" width="4" height="20"/><rect x="10" y="6" width="4" height="16"/><rect x="18" y="10" width="4" height="12"/></svg>
+          </div>
+          <div>
+            <div class="kpi-title">Margin</div>
+            <div class="kpi-unit" title="Margin gross: dijumlah dari semua leg intercompany (by design). Basisnya beda dgn Volume/Revenue yang single-count eksternal.">IDR · gross</div>
+          </div>
+        </div>
+        <div class="kpi-period-badge" id="mar-period">YTD 2026</div>
+      </div>
+      <div class="kpi-card-body">
+        <div class="kpi-cols">
+          <div class="kpi-col">
+            <div class="kpi-col-label">MTD</div>
+            <div class="kpi-big green" id="mar-mtd">0.0</div>
+            <div class="vs-budget-row">
+              <span class="vs-badge green">VS BUDGET</span>
+              <span class="vs-budget-text">Bud: <span id="mar-bud-mtd">0.0</span> <span class="vs-neg" id="mar-gap-mtd">0.0</span></span>
+            </div>
+            <div class="kpi-col-spacer"></div>
+            <div class="progress-track"><div class="progress-fill green" id="mar-bar-mtd"></div></div>
+            <div class="budget-of" id="mar-of-mtd">0.0% of budget</div>
+          </div>
+          <div class="kpi-col alt">
+            <div class="kpi-col-label">YTD</div>
+            <div class="kpi-big green" id="mar-ytd">0.0</div>
+            <div class="vs-budget-row">
+              <span class="vs-badge green">VS BUDGET</span>
+              <span class="vs-budget-text">Bud YTD: <span id="mar-bud-ytd">0.0</span> <span class="vs-neg" id="mar-gap-ytd">0.0</span></span>
+            </div>
+            <div class="kpi-col-spacer"></div>
+            <div class="progress-track"><div class="progress-fill green" id="mar-bar-ytd"></div></div>
+            <div class="budget-of" id="mar-of-ytd">0.0% of budget</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Volume -->
+    <div class="kpi-card">
+      <div class="kpi-card-head orange">
+        <div class="kpi-head-left">
+          <div class="kpi-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+          </div>
+          <div>
+            <div class="kpi-title">Volume</div>
+            <div class="kpi-unit">MT</div>
+          </div>
+        </div>
+        <div class="kpi-period-badge" id="vol-period">YTD 2026</div>
+      </div>
+      <div class="kpi-card-body">
+        <div class="kpi-cols">
+          <div class="kpi-col">
+            <div class="kpi-col-label">MTD</div>
+            <div class="kpi-big orange" id="vol-mtd">0</div>
+            <div class="vs-budget-row">
+              <span class="vs-badge orange">VS BUDGET</span>
+              <span class="vs-budget-text">Bud: <span id="vol-bud-mtd">0</span> <span class="vs-neg" id="vol-gap-mtd">0</span></span>
+            </div>
+            <div class="kpi-col-spacer"></div>
+            <div class="progress-track"><div class="progress-fill orange" id="vol-bar-mtd"></div></div>
+            <div class="budget-of" id="vol-of-mtd">0.0% of budget</div>
+          </div>
+          <div class="kpi-col alt">
+            <div class="kpi-col-label">YTD</div>
+            <div class="kpi-big orange" id="vol-ytd">0</div>
+            <div class="vs-budget-row">
+              <span class="vs-badge orange">VS BUDGET</span>
+              <span class="vs-budget-text">Bud YTD: <span id="vol-bud-ytd">0</span> <span class="vs-neg" id="vol-gap-ytd">0</span></span>
+            </div>
+            <div class="kpi-col-spacer"></div>
+            <div class="progress-track"><div class="progress-fill orange" id="vol-bar-ytd"></div></div>
+            <div class="budget-of" id="vol-of-ytd">0.0% of budget</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /kpi-cards -->
+
+  <!-- Carousel -->
+  <div class="carousel-section">
+    <div class="carousel-header">
+      <div class="carousel-header-left">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <div>
+          <div class="carousel-title">Margin Performance Highlights</div>
+          <div class="carousel-unit">IDR</div>
+        </div>
+      </div>
+      <div class="carousel-nav">
+        <button class="carousel-btn" onclick="carouselPrev()">‹</button>
+        <div class="carousel-dots" id="carousel-dots"></div>
+        <button class="carousel-btn" onclick="carouselNext()">›</button>
+      </div>
+    </div>
+    <div class="carousel-body">
+      <div class="carousel-slides" id="carousel-slides">
+
+        <!-- Slide 1: TOP 3 PRODUCTS BY MARGIN -->
+        <div class="carousel-slide">
+          <div class="slide-bar top-products">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            TOP 3 PRODUCTS - MARGIN
+          </div>
+          <div class="rank-panels">
+            <div class="rank-panel">
+              <div class="rank-panel-header green">
+                <span class="rank-period">MTD</span>
+                <span class="rank-date" id="top-prod-mtd-date"></span>
+              </div>
+              <div id="top-prod-mtd-list"></div>
+            </div>
+            <div class="rank-panel">
+              <div class="rank-panel-header green">
+                <span class="rank-period">YTD</span>
+                <span class="rank-date" id="top-prod-ytd-date"></span>
+              </div>
+              <div id="top-prod-ytd-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 2: TOP 3 CUSTOMERS BY MARGIN -->
+        <div class="carousel-slide">
+          <div class="slide-bar top-customers">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            TOP 3 CUSTOMERS - MARGIN
+          </div>
+          <div class="rank-panels">
+            <div class="rank-panel">
+              <div class="rank-panel-header blue">
+                <span class="rank-period">MTD</span>
+                <span class="rank-date" id="top-cust-mtd-date"></span>
+              </div>
+              <div id="top-cust-mtd-list"></div>
+            </div>
+            <div class="rank-panel">
+              <div class="rank-panel-header blue">
+                <span class="rank-period">YTD</span>
+                <span class="rank-date" id="top-cust-ytd-date"></span>
+              </div>
+              <div id="top-cust-ytd-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 3: BOTTOM 3 PRODUCTS BY ACHIEVEMENT -->
+        <div class="carousel-slide">
+          <div class="slide-bar bot-products">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+            BOTTOM 3 PRODUCTS - ACHIEVEMENT
+          </div>
+          <div class="rank-panels">
+            <div class="rank-panel">
+              <div class="rank-panel-header red">
+                <span class="rank-period">MTD</span>
+                <span class="rank-date" id="bot-prod-mtd-date"></span>
+              </div>
+              <div id="bot-prod-mtd-list"></div>
+            </div>
+            <div class="rank-panel">
+              <div class="rank-panel-header red">
+                <span class="rank-period">YTD</span>
+                <span class="rank-date" id="bot-prod-ytd-date"></span>
+              </div>
+              <div id="bot-prod-ytd-list"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────────
+const MONTHS_LONG  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTH_KEYS   = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+
+let DATA     = null;
+let curYear  = new Date().getFullYear();
+let curMonth = -1; // -1 = YTD
+
+// Populate year dropdown: current year ± 5 (cukup buat multi-year tracking)
+(function populateYearDropdown() {
+  const sel = document.getElementById('exec-year');
+  if (!sel) return;
+  const now = new Date().getFullYear();
+  const years = [];
+  for (let y = now - 3; y <= now + 5; y++) years.push(y);
+  sel.innerHTML = years.map(y =>
+    `<option value="${y}"${y === curYear ? ' selected' : ''}>${y}</option>`
+  ).join('');
+})();
+
+// ── Carousel ───────────────────────────────────────────────────────────────────
+let curSlide = 0;
+const SLIDE_COUNT = 3;
+function buildDots() {
+  document.getElementById('carousel-dots').innerHTML =
+    Array.from({length:SLIDE_COUNT},(_,i) =>
+      `<div class="carousel-dot${i===0?' active':''}" onclick="goSlide(${i})"></div>`
+    ).join('');
+}
+function goSlide(i) {
+  curSlide = i;
+  document.getElementById('carousel-slides').style.transform = `translateX(-${i*100}%)`;
+  document.querySelectorAll('.carousel-dot').forEach((d,idx) => d.classList.toggle('active', idx===i));
+}
+function carouselNext() { goSlide((curSlide+1)%SLIDE_COUNT); }
+function carouselPrev() { goSlide((curSlide-1+SLIDE_COUNT)%SLIDE_COUNT); }
+
+// ── Format helpers ─────────────────────────────────────────────────────────────
+// All monetary stored in MIDR (juta IDR). Display as Billion IDR (B) = MIDR/1000
+const fmt2 = v => (v || 0).toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtN = v => Math.round(v || 0).toLocaleString('id-ID');
+
+// Adaptive IDR format: input dalam MIDR (juta IDR)
+// >= 1000 MIDR → tampil "Rp X,XX B" (Billion)
+// < 1000 MIDR  → tampil "Rp X,XX M" (Juta/Million)
+function fmtIDR(midr) {
+  if (midr == null) return '—';
+  const abs  = Math.abs(midr);
+  const sign = midr < 0 ? '-' : '';
+  if (abs >= 1000) {
+    return sign + 'Rp ' + fmt2(abs / 1000) + ' B';
+  }
+  return sign + 'Rp ' + fmt2(abs) + ' M';
+}
+
+// For carousel rank items (same adaptive format)
+const fmtBillion = v => fmtIDR(v);
+// Display MT integer
+const fmtMT = v => fmtN(v) + ' MT';
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[ch]));
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+function parseLocaleNumber(raw) {
+  if (raw == null || raw === '') return 0;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0;
+
+  let s = String(raw).trim().replace(/\s/g, '');
+  const match = s.match(/-?[\d.,]+/);
+  if (!match) return 0;
+  s = match[0];
+
+  const hasComma = s.includes(',');
+  const hasDot = s.includes('.');
+  if (hasComma && hasDot) {
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (hasComma) {
+    const parts = s.split(',');
+    s = parts.length === 2 && parts[1].length <= 3
+      ? parts[0] + '.' + parts[1]
+      : s.replace(/,/g, '');
+  } else if (hasDot) {
+    const parts = s.split('.');
+    if (parts.length > 2) {
+      s = parts.join('');
+    } else {
+      s = parts[1].length === 3 && parts[0].length <= 3
+        ? parts.join('')
+        : s;
+    }
+  }
+
+  const n = parseFloat(s.replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+// Parse Indonesian-formatted KG string "300.000 KG (300 MT)" → KG as number
+function parseKG(str) {
+  if (!str) return 0;
+  const kgPart = String(str).split(/kg/i)[0];
+  return parseLocaleNumber(kgPart);
+}
+function parseWeightToMT(str) { return parseKG(str) / 1000; }
+
+// ── Period label ───────────────────────────────────────────────────────────────
+function getPeriodLabel() {
+  return curMonth === -1
+    ? 'YTD ' + curYear
+    : MONTHS_SHORT[curMonth] + ' ' + curYear;
+}
+
+// ── Update single KPI column ───────────────────────────────────────────────────
+// prefix:   e.g. 'rev-mtd' or 'rev-ytd'
+// actual:   raw value (MIDR for revenue/margin, MT for volume)
+// budget:   raw value (same unit)
+// isVol:    true = display as MT integer, false = display as Billion IDR
+function setKpiCol(prefix, actual, budget, isVol) {
+  const pct     = budget > 0 ? (actual / budget * 100) : 0;
+  const gap     = actual - budget;
+  const gapSign = gap >= 0 ? '+' : '';
+
+  const dispVal = isVol ? fmtN(actual) + ' MT'     : fmtIDR(actual);
+  const dispBud = isVol ? fmtN(budget) + ' MT'     : fmtIDR(budget).replace('Rp ','');
+  const dispGap = isVol ? gapSign + fmtN(gap) + ' MT' : gapSign + fmtIDR(gap).replace('Rp ','');
+  const gapCls  = gap >= 0 ? 'vs-pos' : 'vs-neg';
+
+  const $ = id => document.getElementById(id);
+  const [card, period] = prefix.split(/-(?=[^-]*$)/);   // 'rev-mtd' → ['rev','mtd']
+
+  const el = $(prefix);
+  if (el) {
+    el.textContent = dispVal;
+    if (isVol) {
+      el.dataset.tooltip = actual.toLocaleString('id-ID', {maximumFractionDigits:3}) + ' MT';
+    } else {
+      const fullIDR = actual * 1000000;
+      el.dataset.tooltip = 'Rp ' + fullIDR.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+  }
+  const budEl = $(`${card}-bud-${period}`); if (budEl) budEl.textContent = dispBud;
+  const gapEl = $(`${card}-gap-${period}`);
+  if (gapEl) { gapEl.textContent = dispGap; gapEl.className = gapCls; }
+  const ofEl  = $(`${card}-of-${period}`);  if (ofEl)  ofEl.textContent = pct.toFixed(1) + '% of budget';
+  const barEl = $(`${card}-bar-${period}`); if (barEl) setTimeout(() => { barEl.style.width = Math.min(pct, 100) + '%'; }, 120);
+}
+
+// ── Rank item HTML ─────────────────────────────────────────────────────────────
+// Format pct: angka real → "157.32%", Infinity → "Off-plan", null → "—"
+function _fmtPct(pct) {
+  if (pct == null) return '—';
+  if (pct === Infinity || !isFinite(pct)) return 'Off-plan';
+  return pct.toFixed(2) + '%';
+}
+
+// Build tooltip payload (full-precision values) untuk hover detail.
+function _rankTipPayload(item) {
+  const rpFull = v => 'Rp ' + Math.round(v || 0).toLocaleString('id-ID');
+  const mtFull = v => Math.round(v || 0).toLocaleString('id-ID') + ' MT';
+  const offPlan = item.pct === Infinity || (item.pct != null && !isFinite(item.pct));
+  const actualRevenue = item.actualRevenue ?? item.revenue ?? 0;
+  const actualMT = item.actualMT ?? item.mt ?? 0;
+  const lines = [
+    `<div class="rt-name">${escapeHtml(item.name)}</div>`,
+    `<div class="rt-row"><span>Actual Margin</span><strong>${rpFull((item.margin || 0) * 1e6)}</strong></div>`,
+    `<div class="rt-row"><span>Budget Margin</span><strong>${(item.budgetMargin || 0) > 0 ? rpFull(item.budgetMargin * 1e6) : '—'}</strong></div>`,
+    `<div class="rt-row rt-pct"><span>Achievement</span><strong>${_fmtPct(item.pct)}</strong></div>`,
+  ];
+  if (offPlan) {
+    lines.push(`<div class="rt-note">Tidak ada budget untuk produk ini — actual masuk sebagai off-plan.</div>`);
+  }
+  if (actualRevenue || item.budgetRevenue) {
+    lines.push(`<div class="rt-sep"></div>`);
+    lines.push(`<div class="rt-row"><span>Actual Revenue</span><strong>${rpFull(actualRevenue * 1e6)}</strong></div>`);
+    lines.push(`<div class="rt-row"><span>Budget Revenue</span><strong>${(item.budgetRevenue || 0) > 0 ? rpFull(item.budgetRevenue * 1e6) : '—'}</strong></div>`);
+  }
+  if (actualMT || item.budgetMT) {
+    lines.push(`<div class="rt-sep"></div>`);
+    lines.push(`<div class="rt-row"><span>Actual Volume</span><strong>${mtFull(actualMT)}</strong></div>`);
+    lines.push(`<div class="rt-row"><span>Budget Volume</span><strong>${(item.budgetMT || 0) > 0 ? mtFull(item.budgetMT) : '—'}</strong></div>`);
+  }
+  return lines.join('');
+}
+
+function rankItemHTML(item, rank, colorCls) {
+  const tip = escapeAttr(_rankTipPayload(item));
+  return `
+    <div class="rank-item has-rank-tip" data-tip="${tip}"
+         onmouseenter="_showRankTip(this)" onmouseleave="_hideRankTip()" onmousemove="_moveRankTip(event)">
+      <div class="rank-num ${colorCls}">${rank}</div>
+      <div class="rank-name">${escapeHtml(item.name)}</div>
+      <div class="rank-vals">
+        <div class="rank-value">${fmtBillion(item.margin)}</div>
+        <span class="rank-pct ${colorCls}">${_fmtPct(item.pct)}</span>
+      </div>
+    </div>`;
+}
+function rankListHTML(items, colorCls, offset = 0) {
+  if (!items || items.length === 0) return '<div class="rank-empty">Belum ada data</div>';
+  return items.map((item, i) => rankItemHTML(item, i + 1 + offset, colorCls)).join('');
+}
+
+// ── Floating tooltip ───────────────────────────────────────────────────────────
+let _rankTipEl = null;
+function _ensureRankTip() {
+  if (_rankTipEl) return _rankTipEl;
+  const el = document.createElement('div');
+  el.id = 'rank-float-tip';
+  document.body.appendChild(el);
+  _rankTipEl = el;
+  return el;
+}
+function _showRankTip(host) {
+  const tip = _ensureRankTip();
+  tip.innerHTML = host.dataset.tip || '';
+  tip.style.display = 'block';
+  requestAnimationFrame(() => { tip.style.opacity = '1'; });
+}
+function _moveRankTip(ev) {
+  const tip = _rankTipEl;
+  if (!tip) return;
+  const pad = 14;
+  let x = ev.clientX + pad;
+  let y = ev.clientY + pad;
+  // Clamp to viewport
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  if (x + tw + 8 > window.innerWidth)  x = ev.clientX - tw - pad;
+  if (y + th + 8 > window.innerHeight) y = ev.clientY - th - pad;
+  tip.style.left = Math.max(8, x) + 'px';
+  tip.style.top  = Math.max(8, y) + 'px';
+}
+function _hideRankTip() {
+  if (!_rankTipEl) return;
+  _rankTipEl.style.opacity = '0';
+  setTimeout(() => { if (_rankTipEl) _rankTipEl.style.display = 'none'; }, 120);
+}
+
+// Build product ranking by CANONICAL PRODUCT
+// pct = Actual margin / Budget margin × 100
+//  - budget>0           → real number (achievement %)
+//  - budget=0, actual>0 → Infinity ("over budget" / off-plan, ranked top)
+//  - both 0             → null (filtered out at render)
+function getProdRanking(indices, data) {
+  const BUDGET_P = (data.BUDGET && data.BUDGET.products) || {};
+  const ACTUAL_P = data.ACTUAL_PRODUCTS || {};
+  const allProducts = new Set([...Object.keys(BUDGET_P), ...Object.keys(ACTUAL_P)]);
+
+  const rows = [];
+  allProducts.forEach(name => {
+    const bp = BUDGET_P[name] || { volume:[], revenue:[], margin:[] };
+    const ap = ACTUAL_P[name] || { volume:[], revenue:[], margin:[] };
+
+    const budgetMargin  = indices.reduce((s, i) => s + (bp.margin[i]  || 0), 0);
+    const actualMargin  = indices.reduce((s, i) => s + (ap.margin[i]  || 0), 0);
+    const budgetRevenue = indices.reduce((s, i) => s + (bp.revenue[i] || 0), 0);
+    const actualRevenue = indices.reduce((s, i) => s + (ap.revenue[i] || 0), 0);
+    const actualMT      = indices.reduce((s, i) => s + (ap.volume[i]  || 0), 0);
+    const budgetMT      = indices.reduce((s, i) => s + (bp.volume[i]  || 0), 0);
+
+    let pct;
+    if (budgetMargin > 0)      pct = (actualMargin / budgetMargin) * 100;
+    else if (actualMargin > 0) pct = Infinity;
+    else                       pct = null;
+
+    rows.push({ name, margin:actualMargin, revenue:actualRevenue,
+                budgetMargin, budgetRevenue, actualMT, budgetMT, pct });
+  });
+
+  // Sort desc — Infinity di paling atas, null di bawah
+  return rows.sort((a, b) => {
+    const pa = a.pct === Infinity ? Number.POSITIVE_INFINITY : (a.pct == null ? -Infinity : a.pct);
+    const pb = b.pct === Infinity ? Number.POSITIVE_INFINITY : (b.pct == null ? -Infinity : b.pct);
+    return pb - pa;
+  });
+}
+
+function getCustRanking(indices, data) {
+  const { PS_CHAINS } = data;
+  const custs = {};
+  const add = (rawName, margin, revenue) => {
+    const name = (rawName || 'Unknown')
+      .replace('PT. ','').replace(' Indonesia','').replace(' Intl','');
+    if (!custs[name]) custs[name] = { name, margin:0, revenue:0 };
+    custs[name].margin  += margin;
+    custs[name].revenue += revenue;
+  };
+  indices.forEach(i => {
+    const mk = MONTH_KEYS[i];
+    (PS_CHAINS[mk] || []).forEach(ch => {
+      // Parallel-parent: bagi margin/revenue ke beberapa end-customer (proporsional volume)
+      if (Array.isArray(ch.customerSplit) && ch.customerSplit.length) {
+        ch.customerSplit.forEach(sp => add(sp.customer, (ch.margin||0)*sp.weight, (ch.revenue||0)*sp.weight));
+        return;
+      }
+      if (ch.customerInternal) return; // skip leg intercompany — customer-nya entitas grup
+      add(ch.customer, ch.margin || 0, ch.revenue || 0);
+    });
+  });
+  return Object.values(custs)
+    .map(c => ({ ...c, pct: c.revenue > 0 ? (c.margin / c.revenue * 100) : 0 }))
+    .filter(c => c.margin > 0)
+    .sort((a, b) => b.margin - a.margin);
+}
+
+// Shorten long names for display
+function shorten(n, max) {
+  max = max || 30;
+  return n.length > max ? n.substring(0, max-1) + '…' : n;
+}
+
+// ── Main render ────────────────────────────────────────────────────────────────
+function render() {
+  if (!DATA) return;
+  const { BUDGET, ACTUAL, PS_CHAINS, QTY_DATA } = DATA;
+
+  // Period label
+  const period = getPeriodLabel();
+  document.querySelectorAll('[id$="-period"]').forEach(el => el.textContent = period);
+  document.getElementById('exec-period-badge').textContent = period;
+
+  // Active month indices
+  // If curMonth === -1 (YTD): use all months that have reported data
+  // If specific month: MTD = that month, YTD = all months up to and including that month
+  const allReportedIdx = ACTUAL.margin
+    .map((v, i) => v != null ? i : -1)
+    .filter(i => i >= 0);
+
+  let mtdIdx, ytdIndices;
+  if (curMonth === -1) {
+    // YTD mode: MTD = last reported month, YTD = all reported months
+    mtdIdx     = allReportedIdx.length > 0 ? allReportedIdx[allReportedIdx.length - 1] : 0;
+    ytdIndices = allReportedIdx.length > 0 ? allReportedIdx : [0];
+  } else {
+    // Specific month: MTD = selected month, YTD = all months 0..selected
+    mtdIdx     = curMonth;
+    ytdIndices = Array.from({length: curMonth + 1}, (_, i) => i);
+  }
+  document.querySelectorAll('[id*="-mtd-date"]').forEach(el => { el.textContent = MONTHS_SHORT[mtdIdx] + ' ' + curYear; });
+  document.querySelectorAll('[id*="-ytd-date"]').forEach(el => { el.textContent = curYear; });
+
+  // ── REVENUE card ─────────────────────────────────────────────────────────────
+  const revMtd  = ACTUAL.revenue[mtdIdx]  || 0;
+  const revBMtd = BUDGET.revenue[mtdIdx]  || 0;
+  const revYtd  = ytdIndices.reduce((s, i) => s + (ACTUAL.revenue[i]  || 0), 0);
+  const revBYtd = ytdIndices.reduce((s, i) => s + (BUDGET.revenue[i]  || 0), 0);
+  setKpiCol('rev-mtd', revMtd,  revBMtd,  false);
+  setKpiCol('rev-ytd', revYtd,  revBYtd,  false);
+
+  // ── MARGIN card ───────────────────────────────────────────────────────────────
+  const marMtd  = ACTUAL.margin[mtdIdx]   || 0;
+  const marBMtd = BUDGET.margin[mtdIdx]   || 0;
+  const marYtd  = ytdIndices.reduce((s, i) => s + (ACTUAL.margin[i]   || 0), 0);
+  const marBYtd = ytdIndices.reduce((s, i) => s + (BUDGET.margin[i]   || 0), 0);
+  setKpiCol('mar-mtd', marMtd,  marBMtd,  false);
+  setKpiCol('mar-ytd', marYtd,  marBYtd,  false);
+
+  // ── VOLUME card ───────────────────────────────────────────────────────────────
+  function getVolumeMT(idx) {
+    const actualProducts = Object.values(DATA.ACTUAL_PRODUCTS || {});
+    if (actualProducts.length > 0) {
+      return actualProducts.reduce((s, product) => s + (product.volume[idx] || 0), 0);
+    }
+    const mk = MONTH_KEYS[idx];
+    return (QTY_DATA[mk] || []).reduce((s, p) => s + parseWeightToMT(p.totalWeight), 0);
+  }
+  function getBudgetMT(idx) {
+    return Object.values(BUDGET.products || {}).reduce((s, product) => s + (product.volume[idx] || 0), 0);
+  }
+
+  const volMtd  = getVolumeMT(mtdIdx);
+  const volBMtd = getBudgetMT(mtdIdx);
+  const volYtd  = ytdIndices.reduce((s, i) => s + getVolumeMT(i), 0);
+  const volBYtd = ytdIndices.reduce((s, i) => s + getBudgetMT(i), 0);
+  setKpiCol('vol-mtd', volMtd,  volBMtd,  true);
+  setKpiCol('vol-ytd', volYtd,  volBYtd,  true);
+
+  // ── CAROUSEL: Margin Performance Highlights ───────────────────────────────────
+  // Products = projects grouped by name, margin = net margin MIDR from PS_CHAINS
+  // Customers = customer names from PS_CHAINS
+  const mtdProds = getProdRanking([mtdIdx], DATA);
+  const ytdProds = getProdRanking(ytdIndices, DATA);
+  const mtdCusts = getCustRanking([mtdIdx], DATA);
+  const ytdCusts = getCustRanking(ytdIndices, DATA);
+
+  const topProductsByMargin = rows => rows
+    .filter(p => (p.margin || 0) > 0)
+    .sort((a, b) => b.margin - a.margin);
+  const bottomProductsByAchievement = rows => rows
+    .filter(p => (p.margin || 0) > 0 && (p.budgetMargin || 0) > 0)
+    .sort((a, b) => (a.pct ?? Infinity) - (b.pct ?? Infinity));
+  const topCustomersByMargin = rows => rows
+    .filter(c => (c.margin || 0) > 0)
+    .sort((a, b) => b.margin - a.margin)
+    .map(c => ({...c, name: shorten(c.name, 28)}));
+
+  // Top 3 Products by actual margin: MTD left, YTD right.
+  document.getElementById('top-prod-mtd-list').innerHTML = rankListHTML(topProductsByMargin(mtdProds).slice(0, 3), 'green');
+  document.getElementById('top-prod-ytd-list').innerHTML = rankListHTML(topProductsByMargin(ytdProds).slice(0, 3), 'green');
+
+  // Bottom 3 Products by lowest achievement against margin budget.
+  document.getElementById('bot-prod-mtd-list').innerHTML = rankListHTML(bottomProductsByAchievement(mtdProds).slice(0, 3), 'red');
+  document.getElementById('bot-prod-ytd-list').innerHTML = rankListHTML(bottomProductsByAchievement(ytdProds).slice(0, 3), 'red');
+
+  // Top 3 Customers by actual margin: all customers included.
+  document.getElementById('top-cust-mtd-list').innerHTML = rankListHTML(topCustomersByMargin(mtdCusts).slice(0, 3), 'blue');
+  document.getElementById('top-cust-ytd-list').innerHTML = rankListHTML(topCustomersByMargin(ytdCusts).slice(0, 3), 'blue');
+}
+
+// ── Fetch data + Refresh / Auto-refresh ─────────────────────────────────────────
+let autoTimer = null;
+const AUTO_MS = 60000; // 60 detik
+
+function setRefreshing(on) {
+  const btn = document.getElementById('exec-refresh');
+  if (btn) btn.classList.toggle('spinning', on);
+}
+function markStamp() {
+  const el = document.getElementById('exec-stamp');
+  if (!el) return;
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  el.textContent = 'Updated ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+async function fetchData() {
+  setRefreshing(true);
+  try {
+    // cache-buster supaya selalu data terbaru (lewati cache browser max-age=5)
+    const res = await fetch('api/data?year=' + curYear + '&_=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    DATA = await res.json();
+    render();
+    markStamp();
+  } catch(e) {
+    console.error('Fetch error:', e);
+  } finally {
+    setRefreshing(false);
+  }
+}
+
+function refreshNow() { fetchData(); }
+
+function startAuto() { if (!autoTimer) autoTimer = setInterval(() => { if (!document.hidden) fetchData(); }, AUTO_MS); }
+function stopAuto()  { if (autoTimer) { clearInterval(autoTimer); autoTimer = null; } }
+function setAutoUI(on) {
+  const pill = document.getElementById('exec-auto');
+  const lbl  = document.getElementById('exec-auto-label');
+  if (pill) pill.classList.toggle('on', on);
+  if (lbl)  lbl.textContent = on ? 'Auto: ON' : 'Auto: OFF';
+}
+function toggleAuto() {
+  const on = !autoTimer;          // sedang mati → nyalakan
+  if (on) startAuto(); else stopAuto();
+  setAutoUI(on);
+  try { localStorage.setItem('exec_auto', on ? '1' : '0'); } catch(e) {}
+}
+
+// Saat tab kembali aktif & auto ON → langsung segarkan
+document.addEventListener('visibilitychange', () => { if (!document.hidden && autoTimer) fetchData(); });
+
+function applyFilter() {
+  curYear  = parseInt(document.getElementById('exec-year').value);
+  curMonth = parseInt(document.getElementById('exec-month').value);
+  // Sync ke dashboard via sessionStorage
+  sessionStorage.setItem('dash_year',  curYear);
+  sessionStorage.setItem('dash_month', curMonth);
+  // Sync brand title
+  const t = document.getElementById('exec-title-year');
+  if (t) t.textContent = curYear;
+  fetchData();
+}
+
+// Apply year ke brand title saat startup
+(function syncBrandYear() {
+  const t = document.getElementById('exec-title-year');
+  if (t) t.textContent = curYear;
+})();
+
+// ── Tooltip via mouseenter on kpi-big elements ────────────────────────────────
+(function initTooltip() {
+  const tip = document.getElementById('kpi-float-tip');
+  if (!tip) return;
+
+  function attachTo(el) {
+    el.addEventListener('mouseenter', function(e) {
+      const val = el.dataset.tooltip;
+      if (!val) return;
+      tip.textContent = val;
+      tip.style.display = 'block';
+      const r = el.getBoundingClientRect();
+      tip.style.left = r.left + 'px';
+      tip.style.top  = (r.top + window.scrollY - tip.offsetHeight - 10) + 'px';
+    });
+    el.addEventListener('mouseleave', function() {
+      tip.style.display = 'none';
+    });
+  }
+
+  // Attach after DOM ready
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.kpi-big').forEach(attachTo);
+  });
+  // Also attach now in case DOM already loaded
+  if (document.readyState !== 'loading') {
+    document.querySelectorAll('.kpi-big').forEach(attachTo);
+  }
+})();
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+// Restore filter dari sessionStorage jika ada
+const savedYear  = sessionStorage.getItem('dash_year');
+const savedMonth = sessionStorage.getItem('dash_month');
+if (savedYear)  { curYear  = parseInt(savedYear);  document.getElementById('exec-year').value  = curYear; }
+if (savedMonth) { curMonth = parseInt(savedMonth); document.getElementById('exec-month').value = curMonth; }
+
+buildDots();
+fetchData();
+
+// Auto-refresh: default ON (tiap 60 detik). Bisa di-toggle via pill "Auto", preferensi disimpan.
+(function initAuto() {
+  let on = true;
+  try { if (localStorage.getItem('exec_auto') === '0') on = false; } catch(e) {}
+  setAutoUI(on);
+  if (on) startAuto();
+})();
+</script>
+<div id="kpi-float-tip"></div>
+</body>
+</html>
