@@ -72,6 +72,11 @@ $user = sc_current_user();   // null when not signed in
         <h2>Shipment Control Tower</h2>
         <p>Pantau shipment: BL, vessel, clearance, delivery &amp; alerts.</p>
       </a>
+      <a class="card" href="salespulse/">
+        <div class="icon">📈</div>
+        <h2>Sales Pulse</h2>
+        <p>Dashboard sales eksekutif: budget vs actual, margin, konsolidasi PS.</p>
+      </a>
     </div>
   </main>
   <footer>SalesConnect · data tersimpan di Google Sheets</footer>
