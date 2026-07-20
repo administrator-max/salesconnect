@@ -67,7 +67,43 @@ try {
                 });
                 json_out(['success' => true] + $res2);
             }
-            if ($id !== null && $action === 'documents') break;  // documents -> Task 7 block
+            if ($id !== null && $action === 'documents') {
+                if ($method === 'GET') {
+                    $out = [];
+                    foreach ($gs->table($SID, 'documents')['rows'] as $d) {
+                        if ((string)($d['shipment_id'] ?? '') !== (string)$id) continue;
+                        $out[] = [
+                            'id' => (int)($d['id'] ?? 0),
+                            'shipment_id' => (int)($d['shipment_id'] ?? 0),
+                            'doc_type' => $d['doc_type'] ?? '',
+                            'file_name' => $d['file_name'] ?? '',
+                            'storage_url' => $d['storage_url'] ?? '',
+                            'uploaded_at' => $d['uploaded_at'] ?? '',
+                        ];
+                    }
+                    usort($out, fn($a, $b) => strcmp($b['uploaded_at'], $a['uploaded_at']));
+                    json_out($out);
+                }
+                if ($method === 'POST') {
+                    $b = json_body();
+                    $url = trim($b['storage_url'] ?? '');
+                    if ($url === '') json_out(['error' => 'storage_url is required'], 400);
+                    if (!find_by_id($gs, $SID, 'shipments', $id)) json_out(['error' => 'Shipment not found'], 404);
+                    $row = scot_with_lock(function () use ($gs, $SID, $id, $b, $url) {
+                        $docId = scot_next_id($gs, $SID, 'documents', 'id');
+                        $r = [
+                            'id' => $docId, 'shipment_id' => (int)$id,
+                            'doc_type' => trim($b['doc_type'] ?? ''),
+                            'file_name' => trim($b['file_name'] ?? ''),
+                            'storage_url' => $url, 'uploaded_at' => date('c'),
+                        ];
+                        $gs->appendAssoc($SID, 'documents', $r);
+                        return $r;
+                    });
+                    json_out($row, 201);
+                }
+                break;
+            }
 
             if ($method === 'GET' && $id === null) {
                 $out = [];
@@ -115,6 +151,25 @@ try {
                     return true;
                 });
                 if (!$ok) json_out(['error' => 'Shipment not found'], 404);
+                json_out(['success' => true]);
+            }
+            break;
+
+        case 'documents':
+            if ($method === 'GET' && $id !== null) {
+                $d = find_by_id($gs, $SID, 'documents', $id);
+                if (!$d || ($d['storage_url'] ?? '') === '') json_out(['error' => 'Document not found'], 404);
+                header('Location: ' . $d['storage_url'], true, 302);
+                exit;
+            }
+            if ($method === 'DELETE' && $id !== null) {
+                $ok = scot_with_lock(function () use ($gs, $SID, $id) {
+                    $d = find_by_id($gs, $SID, 'documents', $id);
+                    if (!$d) return false;
+                    $gs->deleteRows($SID, 'documents', [$d['_row']]);
+                    return true;
+                });
+                if (!$ok) json_out(['error' => 'Document not found'], 404);
                 json_out(['success' => true]);
             }
             break;
