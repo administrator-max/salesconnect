@@ -25,7 +25,8 @@ try {
     switch ($res) {
         case '':
         case 'health':
-            $gs->headers($SID, 'shipments');
+            try { $gs->headers($SID, 'shipments'); }
+            catch (Throwable $e) { json_out(['ok' => false, 'error' => $e->getMessage()], 503); }
             json_out(['ok' => true, 'source' => 'google-sheets']);
             break;
 
@@ -88,6 +89,7 @@ try {
                     $b = json_body();
                     $url = trim($b['storage_url'] ?? '');
                     if ($url === '') json_out(['error' => 'storage_url is required'], 400);
+                    if (!preg_match('#^https?://#i', $url)) json_out(['error' => 'storage_url must be an http(s) URL'], 400);
                     if (!find_by_id($gs, $SID, 'shipments', $id)) json_out(['error' => 'Shipment not found'], 404);
                     $row = scot_with_lock(function () use ($gs, $SID, $id, $b, $url) {
                         $docId = scot_next_id($gs, $SID, 'documents', 'id');
@@ -199,6 +201,6 @@ try {
             break;
     }
     json_out(['error' => 'Not found: ' . $method . ' /' . implode('/', $parts)], 404);
-} catch (Exception $e) {
+} catch (Throwable $e) {
     json_out(['error' => $e->getMessage()], 500);
 }

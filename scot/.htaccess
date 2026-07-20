@@ -1,4 +1,4 @@
-# Route /taskflow/api/<anything> to api.php (front controller)
+# Route /scot/api/<anything> to api.php (front controller)
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteCond %{REQUEST_FILENAME} !-f

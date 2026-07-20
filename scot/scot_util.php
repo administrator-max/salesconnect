@@ -18,7 +18,7 @@ function scot_shape(array $r): array {
     foreach ($r as $k => $v) {
         if ($k === '_row') continue;
         if ($v === '' || $v === null) { $out[$k] = null; continue; }
-        if (in_array($k, SCOT_NUMERIC, true))      $out[$k] = 0 + $v;
+        if (in_array($k, SCOT_NUMERIC, true))      $out[$k] = is_numeric($v) ? $v + 0 : null;
         elseif (in_array($k, SCOT_DATE, true))     $out[$k] = substr((string)$v, 0, 10);
         else                                       $out[$k] = $v;
     }
@@ -30,7 +30,7 @@ function scot_sanitize(array $body): array {
     foreach (SCOT_WRITABLE as $k) {
         if (!array_key_exists($k, $body)) continue;
         $v = $body[$k];
-        $clean[$k] = ($v === '') ? null : $v;
+        $clean[$k] = ($v === '' || $v === null) ? '' : $v;
     }
     return $clean;
 }

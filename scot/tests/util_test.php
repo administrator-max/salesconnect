@@ -12,13 +12,17 @@ chk('etd sliced', $shaped['etd'] === '2026-01-05');
 chk('empty product null', $shaped['product'] === null);
 chk('_row dropped', !array_key_exists('_row', $shaped));
 
+$badnum = scot_shape(['quantity_mt'=>'abc','year'=>'2026']);
+chk('non-numeric qty -> null', $badnum['quantity_mt'] === null);
+chk('valid year still int', $badnum['year'] === 2026);
+
 // scot_sanitize: whitelist + ''->null, drops server-managed keys
 $clean = scot_sanitize(['id'=>999,'created_at'=>'x','consignee'=>'PT X','bl_number'=>'','bogus'=>'y','year'=>2026]);
 chk('drops id', !array_key_exists('id', $clean));
 chk('drops created_at', !array_key_exists('created_at', $clean));
 chk('drops bogus', !array_key_exists('bogus', $clean));
 chk('keeps consignee', $clean['consignee'] === 'PT X');
-chk('empty to null', $clean['bl_number'] === null);
+chk('empty to blank', $clean['bl_number'] === '');
 chk('keeps year', $clean['year'] === 2026);
 
 // scot_sort: year desc nulls last, id desc
