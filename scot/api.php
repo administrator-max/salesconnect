@@ -173,6 +173,30 @@ try {
                 json_out(['success' => true]);
             }
             break;
+
+        case 'ocr':
+            require_once __DIR__ . '/gemini.php';
+            $ocrDir = rtrim($cfg['cache_dir'], '/') . '/scot_ocr';
+            if (!is_dir($ocrDir)) @mkdir($ocrDir, 0700, true);
+
+            if ($method === 'POST' && $id === null) {
+                if (empty($_FILES['file']['tmp_name']) || !is_uploaded_file($_FILES['file']['tmp_name'])) {
+                    json_out(['error' => 'file is required'], 400);
+                }
+                $bytes = file_get_contents($_FILES['file']['tmp_name']);
+                $mime  = $_FILES['file']['type'] ?? '';
+                $name  = $_FILES['file']['name'] ?? '';
+                $jobId = bin2hex(random_bytes(8));
+                $result = scot_gemini_ocr($bytes, $mime, $name, $cfg);
+                @file_put_contents($ocrDir . '/' . $jobId . '.json', json_encode($result));
+                json_out(['jobId' => $jobId, 'status' => 'processing'], 202);
+            }
+            if ($method === 'GET' && $id !== null) {
+                $f = $ocrDir . '/' . preg_replace('/[^a-f0-9]/', '', $id) . '.json';
+                if (!is_file($f) || (time() - filemtime($f) > 600)) json_out(['error' => 'Job not found'], 404);
+                json_out(json_decode(file_get_contents($f), true));
+            }
+            break;
     }
     json_out(['error' => 'Not found: ' . $method . ' /' . implode('/', $parts)], 404);
 } catch (Exception $e) {
