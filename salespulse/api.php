@@ -127,8 +127,9 @@ try {
                     ];
                 }
                 usort($products, function ($a, $b) {
-                    $ao = $a['display_order']; $ao = ($ao === null) ? 100 : $ao;
-                    $bo = $b['display_order']; $bo = ($bo === null) ? 100 : $bo;
+                    // JS `display_order || 100`: falsy 0 maps to 100 too (not just null).
+                    $ao = $a['display_order']; $ao = (!$ao) ? 100 : $ao;
+                    $bo = $b['display_order']; $bo = (!$bo) ? 100 : $bo;
                     if ($ao !== $bo) return $ao <=> $bo;
                     return strcmp((string) $a['canonical_name'], (string) $b['canonical_name']);
                 });
