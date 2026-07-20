@@ -67,6 +67,11 @@ $user = sc_current_user();   // null when not signed in
         <h2>Cost Core</h2>
         <p>Hitung costing produk baja (import &amp; domestic), simpan ke Sheet.</p>
       </a>
+      <a class="card" href="scot/">
+        <div class="icon">🚢</div>
+        <h2>Shipment Control Tower</h2>
+        <p>Pantau shipment: BL, vessel, clearance, delivery &amp; alerts.</p>
+      </a>
     </div>
   </main>
   <footer>SalesConnect · data tersimpan di Google Sheets</footer>

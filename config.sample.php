@@ -10,6 +10,7 @@ return [
     'spreadsheets' => [
         'cil'      => '1TYDed6FlNbDQDa1zrqQr989myZO9C50GJqdM1pIPIsg',
         'taskflow' => '1U5J4T9jNcKji--VDpJOFkgs2VMLm6wLAtdr8mtL-164',
+        'scot'     => 'YOUR_SCOT_SPREADSHEET_ID',
     ],
 
     // Path ke JSON key service account (di secure/, atau di atas public_html).
@@ -26,4 +27,8 @@ return [
     ],
 
     'session_name' => 'salesconnect_sess',
+
+    // Gemini OCR (untuk modul SCOT)
+    'gemini_api_key' => '',
+    'gemini_model'   => 'gemini-2.5-flash',
 ];
