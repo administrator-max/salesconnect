@@ -172,10 +172,12 @@ class GoogleSheets {
     }
 
     // ── Values API ────────────────────────────────────────────────────────
-    public function getValues($id, $range, $useCache = true) {
-        $key = 'gv|' . $id . '|' . $range;
+    public function getValues($id, $range, $useCache = true, $unformatted = false) {
+        $key = 'gv|' . $id . '|' . $range . ($unformatted ? '|u' : '');
         if ($useCache) { $c = $this->cacheGet($key); if ($c !== null) return $c; }
-        $res  = $this->api('GET', $this->baseUrl($id) . '/values/' . rawurlencode($range));
+        $url = $this->baseUrl($id) . '/values/' . rawurlencode($range);
+        if ($unformatted) $url .= '?valueRenderOption=UNFORMATTED_VALUE';
+        $res  = $this->api('GET', $url);
         $vals = $res['values'] ?? [];
         if ($useCache) $this->cachePut($key, $vals);
         return $vals;
@@ -195,6 +197,20 @@ class GoogleSheets {
         $r = $this->api('PUT', $url, ['values' => $rows]);
         $this->cacheClear();
         return $r;
+    }
+
+    public function clearValues($id, $range) {
+        $url = $this->baseUrl($id) . '/values/' . rawurlencode($range) . ':clear';
+        $r = $this->api('POST', $url, new stdClass());
+        $this->cacheClear();
+        return $r;
+    }
+
+    /** Overwrite an entire tab: clear A1:<lastCol> then write $matrix (header + rows). */
+    public function replaceTable($id, $tab, array $matrix, $lastColCount = null) {
+        $cols = $lastColCount ?: (count($matrix[0] ?? []) ?: 1);
+        $this->clearValues($id, $tab . '!A1:' . $this->colLetterPublic($cols));
+        $this->updateRange($id, $tab . '!A1', $matrix);
     }
 
     public function batchUpdate($id, array $requests) {
@@ -300,4 +316,6 @@ class GoogleSheets {
         while ($n > 0) { $m = ($n - 1) % 26; $s = chr(65 + $m) . $s; $n = intdiv($n - 1, 26); }
         return $s !== '' ? $s : 'A';
     }
+
+    public function colLetterPublic($n) { return $this->colLetter($n); }
 }
