@@ -1,4 +1,5 @@
 <?php
+// (re-uploaded 2026-07-21: prior bulk deploy truncated this file on the host)
 require_once __DIR__ . '/../lib/costcore_gate.php';
 
 // "Lock" action (header button): clear the PIN and show the gate again.
