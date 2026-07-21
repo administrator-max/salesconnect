@@ -31,6 +31,7 @@
       <button class="btn-db" id="btn-sales-open" style="color:#16a34a;border-color:#bbf7d0">Sales DB (8)</button>
       <button class="btn-db" id="btn-db-open">Client DB (11)</button>
       <button class="btn-db" id="btn-export-excel" style="color:#15803d;border-color:#bbf7d0">📊 Export Excel</button>
+      <button class="btn-db" id="btn-settings-open" style="color:#475569" onclick="openSettings()" title="Manage channels, priorities & statuses">⚙ Settings</button>
       <button class="btn-add" id="btn-add-main" style="background:#16a34a">+ Log Communication</button>
       <button class="btn-add" id="btn-add-complain" style="background:#dc2626">+ Log Complain</button>
     </div>
@@ -114,6 +115,21 @@
       <button class="btn-db-add" onclick="salesAddNew()">Add</button>
     </div>
     <div class="db-list" id="sales-list"></div>
+  </div>
+</div>
+
+<!-- Settings Modal (data-driven config: channels / priorities / complaint statuses) -->
+<div class="modal-overlay" id="settings-modal" style="display:none" onclick="modalOverlayClick(event,'settings-modal')">
+  <div class="modal-box" style="max-width:560px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden" onclick="event.stopPropagation()">
+    <div class="modal-header" style="flex-shrink:0">
+      <div>
+        <div class="modal-title">⚙ Settings</div>
+        <div class="modal-sub">Kelola pilihan dropdown — perubahan langsung dipakai aplikasi</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('settings-modal')">✕</button>
+    </div>
+    <div id="settings-tabs" style="display:flex;gap:6px;padding:12px 16px 0;flex-shrink:0;flex-wrap:wrap"></div>
+    <div class="modal-body" id="settings-body" style="overflow:auto"></div>
   </div>
 </div>
 

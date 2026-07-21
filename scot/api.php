@@ -10,6 +10,7 @@
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/scot_util.php';
+require_once __DIR__ . '/../lib/config_util.php';
 
 $cfg = sc_config();
 $SID = $cfg['spreadsheets']['scot'];
@@ -23,6 +24,10 @@ $action = $parts[2] ?? null;
 
 try {
     switch ($res) {
+        case 'config':
+            cfg_handle($gs, $SID, cfg_for('scot'), $parts, $method);
+            break;
+
         case '':
         case 'health':
             try { $gs->headers($SID, 'shipments'); }

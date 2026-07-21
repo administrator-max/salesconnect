@@ -10,9 +10,24 @@ async function api(method, path, body) {
   return res.json();
 }
 
+// Load admin-managed config (channels/priorities/statuses) into the module arrays.
+// Falls back silently to the hardcoded defaults if the config API is unavailable.
+async function loadConfig() {
+  try {
+    const cfg = await api('GET', '/config');
+    if (cfg.channels && cfg.channels.length)
+      CHANNELS = cfg.channels.map(c => ({ id:c.value, label:c.label, icon:c.icon||'', bg:c.color||'#eef2f7', color:c.color2||'#334155' }));
+    if (cfg.priorities && cfg.priorities.length)
+      PRIORITIES = cfg.priorities.map(p => ({ id:p.value, label:p.label, bg:p.color||'#eef2f7', c:p.color2||'#334155' }));
+    if (cfg.complaint_statuses && cfg.complaint_statuses.length)
+      CPL_STATUSES = cfg.complaint_statuses.map(s => ({ id:s.value, label:s.label, bg:s.color||'#eef2f7', c:s.color2||'#334155' }));
+  } catch (e) { console.warn('config load failed, using defaults:', e.message); }
+}
+
 async function loadAll() {
   try {
-    const [comp, sales, recs, cpls] = await Promise.all([
+    const [, comp, sales, recs, cpls] = await Promise.all([
+      loadConfig(),
       api('GET', '/companies'),
       api('GET', '/salespeople'),
       api('GET', '/records'),
@@ -28,7 +43,8 @@ async function loadAll() {
   render();
 }
 
-const CHANNELS = [
+// Fallback defaults — overwritten at load by GET /config (data-driven, admin-managed).
+let CHANNELS = [
   { id:"whatsapp", label:"Chat / Message",   icon:"💬", bg:"#e8f5e9", color:"#2e7d32" },
   { id:"offline",  label:"Offline Meeting", icon:"🤝", bg:"#e3f2fd", color:"#1565c0" },
   { id:"phone",    label:"Phone Call",      icon:"📞", bg:"#e8eaf6", color:"#283593" },
@@ -1501,13 +1517,14 @@ function clientSideAnalysis(m){
 }
 
 // ── COMPLAINT SYSTEM ─────────────────────────────────────────────────────────
-const PRIORITIES = [
+// Fallback defaults — overwritten at load by GET /config (data-driven, admin-managed).
+let PRIORITIES = [
   {id:"critical",label:"Critical",bg:"#fef2f2",c:"#dc2626"},
   {id:"high",label:"High",bg:"#fff7ed",c:"#ea580c"},
   {id:"medium",label:"Medium",bg:"#fefce8",c:"#ca8a04"},
   {id:"low",label:"Low",bg:"#f0fdf4",c:"#16a34a"}
 ];
-const CPL_STATUSES = [
+let CPL_STATUSES = [
   {id:"open",label:"Open",bg:"#fee2e2",c:"#dc2626"},
   {id:"in_progress",label:"In Progress",bg:"#fef3c7",c:"#b45309"},
   {id:"resolved",label:"Resolved",bg:"#dcfce7",c:"#15803d"}
@@ -2303,5 +2320,130 @@ function openStatDetail(type){
   modal.style.display="flex";
 }
 
+
+// ── SETTINGS (data-driven config admin) ──────────────────────────────────────
+// Built with safe DOM APIs (no innerHTML with dynamic data) to avoid XSS.
+const SETTINGS_LOOKUPS = [
+  { key:"channels",           title:"Channels",          fields:[["label","Label","text"],["icon","Icon","text"],["color","BG","color"],["color2","Text","color"]] },
+  { key:"priorities",         title:"Priorities",        fields:[["label","Label","text"],["color","BG","color"],["color2","Text","color"]] },
+  { key:"complaint_statuses", title:"Complaint Statuses", fields:[["label","Label","text"],["color","BG","color"],["color2","Text","color"]] },
+];
+let SETTINGS_DATA = {};
+let settingsTab = "channels";
+
+function _mk(tag, attrs, kids) {
+  const n = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    if (k === "onclick") n.addEventListener("click", attrs[k]);
+    else if (k === "onchange") n.addEventListener("change", attrs[k]);
+    else if (k === "style") n.style.cssText = attrs[k];
+    else if (k === "value") n.value = attrs[k];
+    else if (k === "text") n.textContent = attrs[k];
+    else n.setAttribute(k, attrs[k]);
+  }
+  (kids || []).forEach(c => n.appendChild(typeof c === "string" ? document.createTextNode(c) : c));
+  return n;
+}
+
+async function openSettings() {
+  document.getElementById("settings-modal").style.display = "flex";
+  await settingsLoad();
+  renderSettingsTabs();
+  renderSettingsBody();
+}
+async function settingsLoad() {
+  try { SETTINGS_DATA = await api("GET", "/config?all=1"); }
+  catch (e) { SETTINGS_DATA = {}; console.error("settings load:", e.message); }
+}
+function settingsSetTab(key) { settingsTab = key; renderSettingsTabs(); renderSettingsBody(); }
+function renderSettingsTabs() {
+  document.getElementById("settings-tabs").replaceChildren(
+    ...SETTINGS_LOOKUPS.map(l => _mk("button",
+      { class:"tab-btn" + (settingsTab===l.key ? " active":""), onclick:() => settingsSetTab(l.key), text:l.title }))
+  );
+}
+function renderSettingsBody() {
+  const lk = SETTINGS_LOOKUPS.find(l => l.key === settingsTab);
+  const rows = SETTINGS_DATA[lk.key] || [];
+  const inp = "padding:4px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px";
+
+  const thead = _mk("tr", null, [
+    _mk("th", { style:"text-align:left;padding:4px 6px;font-size:11px;color:#64748b", text:"value" }),
+    ...lk.fields.map(f => _mk("th", { style:"text-align:left;padding:4px 6px;font-size:11px;color:#64748b", text:f[1] })),
+    _mk("th", null, []),
+  ]);
+
+  const bodyRows = rows.map(r => {
+    const inactive = String(r.active).toUpperCase() === "FALSE";
+    const cells = lk.fields.map(f => {
+      const [col,,type] = f;
+      const w = type === "color" ? "width:46px;" : (col === "icon" ? "width:44px;" : "");
+      const field = _mk("input", {
+        value: r[col] ?? "", style: w + inp,
+        onchange: (e) => settingsUpdate(lk.key, r.value, col, e.target.value),
+      });
+      if (type === "color") field.type = "color";
+      return _mk("td", { style:"padding:3px 6px" }, [field]);
+    });
+    return _mk("tr", { style:"opacity:" + (inactive ? 0.45 : 1) }, [
+      _mk("td", { style:"padding:3px 6px;font-size:12px;color:#94a3b8" }, [_mk("code", { text:r.value })]),
+      ...cells,
+      _mk("td", { style:"padding:3px 6px;text-align:right;white-space:nowrap" }, [
+        _mk("button", { class:"btn-db", style:"padding:3px 8px", text: inactive ? "Enable":"Disable",
+          onclick:() => settingsToggle(lk.key, r.value, inactive) }),
+        _mk("button", { class:"btn-db", style:"padding:3px 8px;color:#dc2626;border-color:#fecaca", text:"Delete",
+          onclick:() => settingsDelete(lk.key, r.value) }),
+      ]),
+    ]);
+  });
+
+  // Add-new row (input refs captured in closure).
+  const addVal = _mk("input", { placeholder:"value (id)", style:"width:90px;" + inp });
+  const addFieldInputs = lk.fields.map(f => {
+    const i = _mk("input", { placeholder:f[1], style:(f[2]==="color"?"width:46px;":"") + inp });
+    if (f[2] === "color") i.type = "color";
+    return i;
+  });
+  const addRow = _mk("tr", { style:"border-top:2px solid #e2e8f0" }, [
+    _mk("td", { style:"padding:3px 6px" }, [addVal]),
+    ...addFieldInputs.map(i => _mk("td", { style:"padding:3px 6px" }, [i])),
+    _mk("td", { style:"padding:3px 6px;text-align:right" }, [
+      _mk("button", { class:"btn-db-add", text:"Add", onclick:() => {
+        const value = (addVal.value || "").trim();
+        if (!value) { alert("value (id) wajib diisi"); return; }
+        const body = { value };
+        lk.fields.forEach((f, idx) => { if (addFieldInputs[idx].value) body[f[0]] = addFieldInputs[idx].value; });
+        settingsAdd(lk.key, body);
+      }}),
+    ]),
+  ]);
+
+  const table = _mk("table", { style:"width:100%;border-collapse:collapse" }, [
+    _mk("thead", null, [thead]),
+    _mk("tbody", null, [...bodyRows, addRow]),
+  ]);
+  const note = _mk("div", { style:"font-size:11px;color:#94a3b8;margin-top:8px",
+    text:"The value is the stored code (immutable). Editing a label is safe; disabling hides an option without affecting historical records." });
+  document.getElementById("settings-body").replaceChildren(table, note);
+}
+async function settingsAdd(key, body) {
+  try { await api("POST", "/config/"+key, body); await settingsLoad(); renderSettingsBody(); await refreshConfigInApp(); }
+  catch (e) { alert(e.message); }
+}
+async function settingsUpdate(key, value, field, newval) {
+  try { await api("PUT", "/config/"+key+"/"+encodeURIComponent(value), { [field]: newval }); await refreshConfigInApp(); }
+  catch (e) { alert(e.message); await settingsLoad(); renderSettingsBody(); }
+}
+async function settingsToggle(key, value, makeActive) {
+  try { await api("PUT", "/config/"+key+"/"+encodeURIComponent(value), { active: makeActive ? "TRUE":"FALSE" }); await settingsLoad(); renderSettingsBody(); await refreshConfigInApp(); }
+  catch (e) { alert(e.message); }
+}
+async function settingsDelete(key, value) {
+  if (!confirm("Hapus '"+value+"'? (record lama tidak terpengaruh)")) return;
+  try { await api("DELETE", "/config/"+key+"/"+encodeURIComponent(value)); await settingsLoad(); renderSettingsBody(); await refreshConfigInApp(); }
+  catch (e) { alert(e.message); }
+}
+// Re-pull config into the live app arrays and re-render so changes show immediately.
+async function refreshConfigInApp() { await loadConfig(); render(); }
 
 loadAll();

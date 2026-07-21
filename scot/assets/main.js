@@ -152,7 +152,8 @@ initFp('fp-ana');
 initFp('fp-cns');
 initFp('fp-cndetail');
 
-fetchShipments();
+// Load admin-managed dropdown options first, then shipments.
+loadScotConfig().then(fetchShipments);
 
 // ==========================================
 // LIVE UPDATES (polling every 15s)

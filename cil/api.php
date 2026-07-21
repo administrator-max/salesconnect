@@ -10,6 +10,7 @@
  *                  POST/:id/responses, DELETE/:id
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
+require_once __DIR__ . '/../lib/config_util.php';
 
 $cfg = sc_config();
 $SID = $cfg['spreadsheets']['cil'];
@@ -23,6 +24,11 @@ $action = $parts[2] ?? null;
 
 try {
     switch ($res) {
+
+        // ── CONFIG (data-driven lookups: channels, priorities, statuses) ──
+        case 'config':
+            cfg_handle($gs, $SID, cfg_for('cil'), $parts, $method);
+            break;
 
         // ── COMPANIES / SALESPEOPLE (identical shape) ────────────────────
         case 'companies':
@@ -104,7 +110,9 @@ try {
             }
             if ($method === 'PATCH' && $id !== null && $action === 'status') {
                 $status  = json_body()['status'] ?? '';
-                $allowed = ['open', 'in_progress', 'resolved'];
+                // Data-driven: allowed statuses come from cfg_complaint_statuses (admin-managed).
+                $allowed = array_map(fn($s) => (string) $s['value'], cfg_list($gs, $SID, cfg_for('cil')['complaint_statuses']));
+                if (!$allowed) $allowed = ['open', 'in_progress', 'resolved'];   // fallback if config empty
                 if (!in_array($status, $allowed, true)) json_out(['error' => 'Status tidak valid'], 400);
                 $c = find_by_id($gs, $SID, 'complaints', $id);
                 if (!$c) json_out(['error' => 'Complaint tidak ditemukan'], 404);

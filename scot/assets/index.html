@@ -11,7 +11,10 @@
 <body>
 <div class="hdr"><div class="hdr-in">
   <div class="brand"><img src="assets/assets/logo.png" alt="SCOT Logo" style="width:40px;height:40px;border-radius:8px;object-fit:cover"><div><h1>SCOT</h1><p>Shipment Control Tower</p></div></div>
-  <div class="today" id="td">Loading...</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <button id="scot-settings" onclick="openScotSettings()" title="Kelola pilihan dropdown" style="padding:7px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;color:#475569">⚙ Settings</button>
+    <div class="today" id="td">Loading...</div>
+  </div>
 </div></div>
 <div class="nav">
   <button class="nb act" data-tab="exec">Executive Summary</button>
@@ -231,6 +234,7 @@
 <script src="assets/forms.js"></script>
 <script src="assets/ai.js"></script>
 <script src="assets/alerts.js"></script>
+<script src="../assets/config-admin.js"></script>
 <script src="assets/main.js"></script>
 
 </body>

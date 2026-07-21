@@ -13,6 +13,7 @@
  */
 require_once __DIR__ . '/../lib/costcore_gate.php';
 require_once __DIR__ . '/../lib/sheet_util.php';
+require_once __DIR__ . '/../lib/config_util.php';
 if (!costcore_pin_ok()) { json_out(['error' => 'Unauthorized'], 401); }
 
 $cfg = sc_config();
@@ -27,6 +28,9 @@ $VALID_TYPE = ['import', 'domestic'];
 $isId = fn($s) => (bool) preg_match('/^(import|domestic)_\d+$/', (string) $s);
 
 try {
+    if (($parts[0] ?? '') === 'config') {
+        cfg_handle($gs, $SID, cfg_for('costcore'), $parts, $method);
+    }
     if (($parts[0] ?? '') !== 'costings') {
         json_out(['error' => 'Not found'], 404);
     }

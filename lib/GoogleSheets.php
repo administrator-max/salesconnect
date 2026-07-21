@@ -29,7 +29,10 @@ class GoogleSheets {
         $this->privateKey = $sa['private_key'];
         $this->cacheDir   = rtrim($cfg['cache_dir'], '/');
         $this->cacheTtl   = (int) $cfg['cache_ttl'];
-        $this->tokenFile  = $this->cacheDir . '/token.json';
+        // Key the token cache per service account — modules use different SAs
+        // (e.g. costcore@), and a single shared token.json would hand one SA's
+        // token to another, causing intermittent 403s.
+        $this->tokenFile  = $this->cacheDir . '/token_' . substr(md5($this->email), 0, 12) . '.json';
         if (!is_dir($this->cacheDir)) @mkdir($this->cacheDir, 0700, true);
     }
 

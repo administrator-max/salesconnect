@@ -9,6 +9,11 @@ config.php
 # ── Cache & token OAuth ──────────────────────────────────────────────
 cache/
 
+# ── Data backups & reports (berisi data spreadsheet — JANGAN commit) ─
+backups/
+reports/
+.superpowers/
+
 # ── Node (tool migrasi) ──────────────────────────────────────────────
 node_modules/
 npm-debug.log*

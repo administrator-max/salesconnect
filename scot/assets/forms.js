@@ -22,10 +22,38 @@ const FLDS = [
   {k:"remarks",l:"Remarks",t:"txt"}
 ];
 
+// ── Data-driven dropdown options (admin-managed via api/config) ───────────────
+// Falls back to the FLDS defaults if the config API is unavailable.
+let SCOT_OPTS = {};
+const SCOT_CFG_MAP = { cargo_types:"cargo_type", shipment_types:"shipment_type", shipment_routes:"shipment_route", cargo_statuses:"cargo_status", statuses:"status" };
+async function loadScotConfig() {
+  try {
+    const res = await fetch("api/config");
+    if (!res.ok) return;
+    const cfg = await res.json();
+    for (const lk in SCOT_CFG_MAP) {
+      if (Array.isArray(cfg[lk]) && cfg[lk].length) SCOT_OPTS[SCOT_CFG_MAP[lk]] = cfg[lk].map(r => r.value);
+    }
+  } catch (e) { console.warn("scot config load failed, using defaults:", e.message); }
+}
+function openScotSettings() {
+  ConfigAdmin.open({
+    basePath: "api", title: "SCOT Settings",
+    lookups: [
+      { key:"cargo_types",     title:"Cargo Types",     fields:[] },
+      { key:"shipment_types",  title:"Shipment Types",  fields:[] },
+      { key:"shipment_routes", title:"Shipment Routes", fields:[] },
+      { key:"cargo_statuses",  title:"Cargo Status",    fields:[] },
+      { key:"statuses",        title:"Status",          fields:[] },
+    ],
+    onChange: async () => { await loadScotConfig(); },
+  });
+}
+
 function mkInput(f, val) {
   const v = val || "";
   if (f.t === "sel") {
-    const opts = f.o.map(o => `<option value="${o}" ${v === o ? 'selected' : ''}>${o}</option>`).join("");
+    const opts = (SCOT_OPTS[f.k] || f.o).map(o => `<option value="${o}" ${v === o ? 'selected' : ''}>${o}</option>`).join("");
     return `<select class="sbox" data-fk="${f.k}" style="width:100%;padding:7px 10px"><option value="">-</option>${opts}</select>`;
   }
   if (f.t === "date") return `<input type="date" class="sbox" data-fk="${f.k}" value="${v}" style="width:100%;padding:7px 10px">`;

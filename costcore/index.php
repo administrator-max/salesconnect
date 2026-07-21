@@ -152,11 +152,13 @@ tbody tr:hover{background:var(--bg)}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="../assets/config-admin.js"></script>
 </head>
 <body>
 <noscript><div style="padding:20px;background:#e03e3e;color:#fff;text-align:center;font-family:sans-serif"><strong>JavaScript is required.</strong> Please enable JavaScript to use Cost Core.</div></noscript>
 
 <div id="app"></div>
+<button onclick="openCostcoreSettings()" title="Kelola payment terms" style="position:fixed;bottom:18px;right:18px;z-index:9000;padding:8px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-size:13px;cursor:pointer;color:#475569;box-shadow:0 4px 14px rgba(0,0,0,.12)">⚙ Settings</button>
 
 <div id="lockScreen" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:center;justify-content:center">
   <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:16px;padding:2.2rem;width:100%;max-width:380px;margin:1rem;box-shadow:0 8px 30px rgba(0,0,0,.08)">
@@ -231,7 +233,7 @@ const TRK_CT = {
 
 const PBM_MAP = { breakbulk: 230, container20: 350, container40: 509 };
 
-const PAY_OPTS = [
+let PAY_OPTS = [
     "Cash Before Delivery (CBD)",
     "DP 50% + Balance Before Delivery",
     "DP 30% + Balance Before Delivery",
@@ -242,6 +244,26 @@ const PAY_OPTS = [
     "NET 14 Days",
     "NET 30 Days"
 ];
+
+// ── Data-driven payment terms (admin-managed via api/config) ──────────────────
+// Falls back to the defaults above if the config API is unavailable (e.g. before unlock).
+async function loadCostcoreConfig(){
+  try{
+    const res=await fetch("api/config");
+    if(!res.ok)return;
+    const cfg=await res.json();
+    if(Array.isArray(cfg.payment_terms)&&cfg.payment_terms.length){
+      PAY_OPTS=cfg.payment_terms.map(function(r){return r.value;});
+      if(typeof I!=="undefined"&&!I.payTerms)I.payTerms=PAY_OPTS[0];
+      if(typeof D!=="undefined"&&!D.payTerms)D.payTerms=PAY_OPTS[0];
+    }
+  }catch(e){console.warn("costcore config load failed, using defaults:",e.message);}
+}
+function openCostcoreSettings(){
+  ConfigAdmin.open({basePath:"api",title:"Cost Core Settings",
+    lookups:[{key:"payment_terms",title:"Payment Terms",fields:[]}],
+    onChange:async function(){await loadCostcoreConfig();if(typeof render==="function")render();}});
+}
 </script>
 <script>
 // === SalesConnect integration: single login via session cookie (no passcode) ===
@@ -256,7 +278,7 @@ var _unlocked=true;
 // If the SalesConnect session expires mid-use, any API call returns 401 -> back to login.
 (function(){var f=window.fetch.bind(window);window.fetch=function(u,o){return f(u,o).then(function(res){if(res&&res.status===401){window.location.href="./";}return res;});};})();
 // Boot straight into the app (render() is defined later in this file).
-document.addEventListener("DOMContentLoaded",function(){showApp();render();});
+document.addEventListener("DOMContentLoaded",function(){loadCostcoreConfig().then(function(){showApp();render();});});
 
 // ═══ APPLICATION STATE ═══
 var G={page:"import"};
