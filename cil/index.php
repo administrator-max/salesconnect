@@ -12,7 +12,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <!-- App Stylesheet -->
-  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/styles.css?v=<?= @filemtime(__DIR__ . '/assets/css/styles.css') ?: '1' ?>">
 </head>
 <body>
 
@@ -263,6 +263,6 @@ ada proyek merah putih, ppgl diakali dgn seng yg dicat merah"></textarea>
 </div>
 
 <!-- App JavaScript -->
-<script src="assets/js/app.js"></script>
+<script src="assets/js/app.js?v=<?= @filemtime(__DIR__ . '/assets/js/app.js') ?: '1' ?>"></script>
 </body>
 </html>

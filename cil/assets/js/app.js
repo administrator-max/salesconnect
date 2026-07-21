@@ -1,3 +1,4 @@
+// (re-uploaded 2026-07-21: prior bulk deploy truncated this file to 32KB on the host)
 // ── API LAYER ─────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
