@@ -192,7 +192,7 @@ tbody tr:hover{background:var(--bg)}
 // ═══ DATA CONSTANTS ═══
 // Pricing logic, shipping parameters, and static dropdowns
 
-const TRK_BB = {
+let TRK_BB = {
     Cakung: { r: 36000, rt: 1800000 },
     Marunda: { r: 36000, rt: 1800000 },
     "Ujung Menteng": { r: 38400, rt: 1920000 },
@@ -215,7 +215,7 @@ const TRK_BB = {
     Cilegon: { r: 96000, rt: 4800000 }
 };
 
-const TRK_CT = {
+let TRK_CT = {
     Cakung: { f20: 1440000, f40: 1800000, cb: 2160000 },
     Marunda: { f20: 1440000, f40: 1800000, cb: 2160000 },
     Tambun: { f20: 1920000, f40: 2160000, cb: 2640000 },
@@ -232,7 +232,7 @@ const TRK_CT = {
     Purwakarta: { f20: 3240000, f40: 3480000, cb: 3960000 }
 };
 
-const PBM_MAP = { breakbulk: 230, container20: 350, container40: 509 };
+let PBM_MAP = { breakbulk: 230, container20: 350, container40: 509 };  // overwritten from cfg_pbm_rates
 
 let PAY_OPTS = [
     "Cash Before Delivery (CBD)",
@@ -269,6 +269,20 @@ async function loadCostcoreConfig(){
     ["shipment_types","hedging_days","margin_types","commission_units"].forEach(function(k){
       if(Array.isArray(cfg[k])&&cfg[k].length) CC_CFG[k]=cfg[k];
     });
+    if(Array.isArray(cfg.trucking_rates)&&cfg.trucking_rates.length){
+      var bb={},ct={};
+      cfg.trucking_rates.forEach(function(r){
+        if(r.bb_r!==""&&r.bb_r!=null) bb[r.destination]={r:Number(r.bb_r),rt:Number(r.bb_rt)};
+        if(r.ct_f20!==""&&r.ct_f20!=null) ct[r.destination]={f20:Number(r.ct_f20),f40:Number(r.ct_f40),cb:Number(r.ct_cb)};
+      });
+      if(Object.keys(bb).length) TRK_BB=bb;
+      if(Object.keys(ct).length) TRK_CT=ct;
+    }
+    if(Array.isArray(cfg.pbm_rates)&&cfg.pbm_rates.length){
+      var pm={};
+      cfg.pbm_rates.forEach(function(r){ if(r.ship_type) pm[r.ship_type]=Number(r.pbm); });
+      if(Object.keys(pm).length) PBM_MAP=pm;
+    }
   }catch(e){console.warn("costcore config load failed, using defaults:",e.message);}
 }
 function openCostcoreSettings(){
@@ -279,6 +293,8 @@ function openCostcoreSettings(){
       {key:"shipment_types",  title:"Shipment Types",  fields:[["label","Label","text"]]},
       {key:"margin_types",    title:"Margin Types",    fields:[["label","Label","text"]]},
       {key:"commission_units",title:"Commission Units",fields:[["label","Label","text"]]},
+      {key:"trucking_rates",title:"Trucking Rates",fields:[["bb_r","BB Rate","text"],["bb_rt","BB Return","text"],["ct_f20","CT 20ft","text"],["ct_f40","CT 40ft","text"],["ct_cb","CT Combo","text"]]},
+      {key:"pbm_rates",title:"PBM Rates",fields:[["pbm","PBM IDR/kg","text"]]},
     ],
     onChange:async function(){await loadCostcoreConfig();if(typeof render==="function")render();}});
 }
@@ -495,7 +511,7 @@ function resetAll(){
   render();
 }
 
-function showTujDD(){var dd=document.getElementById("tujDD");if(dd)dd.classList.add("show");document.addEventListener("click",hideTujDD)}
+function showTujDD(){var dd=document.getElementById("tujDD");if(dd){dd.classList.add("show");dd.scrollTop=0;}document.addEventListener("click",hideTujDD)}
 function hideTujDD(e){var w=document.querySelector(".srch-wrap");if(w&&!w.contains(e.target)){var dd=document.getElementById("tujDD");if(dd)dd.classList.remove("show");document.removeEventListener("click",hideTujDD)}}
 function filterTujDD(val){var dd=document.getElementById("tujDD");if(!dd)return;dd.classList.add("show");var items=dd.querySelectorAll("div");var lv=val.toLowerCase();items.forEach(function(d){d.style.display=d.textContent.toLowerCase().indexOf(lv)>=0?"":"none"})}
 function pickTuj(v){I.tujuan=v;var dd=document.getElementById("tujDD");if(dd)dd.classList.remove("show");render()}

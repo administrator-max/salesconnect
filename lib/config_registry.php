@@ -91,6 +91,39 @@ function cfg_registry(): array {
                 'tab' => 'cfg_commission_units', 'key' => 'value', 'cols' => ['value', 'label', 'sort_order', 'active'],
                 'seed' => [['idr', 'IDR/kg', '1', 'TRUE'], ['usd', 'USD/MT', '2', 'TRUE']],
             ],
+            // Trucking destinations + rates (drives the pricing calc). bb_* = break-bulk
+            // (rate / return); ct_* = container (20ft / 40ft / combo). Blank ct_* = not a
+            // container destination. Editing a rate changes pricing — keep values accurate.
+            'trucking_rates' => [
+                'tab' => 'cfg_trucking_rates', 'key' => 'destination',
+                'cols' => ['destination', 'bb_r', 'bb_rt', 'ct_f20', 'ct_f40', 'ct_cb', 'sort_order', 'active'],
+                'seed' => [
+                    ['Cakung', '36000', '1800000', '1440000', '1800000', '2160000', '1', 'TRUE'],
+                    ['Marunda', '36000', '1800000', '1440000', '1800000', '2160000', '2', 'TRUE'],
+                    ['Ujung Menteng', '38400', '1920000', '', '', '', '3', 'TRUE'],
+                    ['Bekasi', '42000', '2100000', '', '', '', '4', 'TRUE'],
+                    ['Dadap / Kapuk', '46000', '2300000', '2000000', '2250000', '2750000', '5', 'TRUE'],
+                    ['Cibitung', '48000', '2400000', '2040000', '2280000', '2760000', '6', 'TRUE'],
+                    ['Tambun', '48000', '2400000', '1920000', '2160000', '2640000', '7', 'TRUE'],
+                    ['Cikarang', '52800', '2640000', '2160000', '2520000', '3000000', '8', 'TRUE'],
+                    ['Cileungsi', '52800', '2640000', '2160000', '2520000', '3000000', '9', 'TRUE'],
+                    ['Depok', '54000', '2700000', '', '', '', '10', 'TRUE'],
+                    ['Tigaraksa', '55200', '2760000', '2280000', '2640000', '3120000', '11', 'TRUE'],
+                    ['Curug Tanggerang', '55200', '2760000', '2280000', '2640000', '3120000', '12', 'TRUE'],
+                    ['Pasar Kemis', '55200', '2760000', '2280000', '2640000', '3120000', '13', 'TRUE'],
+                    ['Jatake', '57600', '2880000', '', '', '', '14', 'TRUE'],
+                    ['Balaraja', '60000', '3000000', '2760000', '3000000', '3600000', '15', 'TRUE'],
+                    ['Karawang', '60000', '3000000', '2640000', '3000000', '3360000', '16', 'TRUE'],
+                    ['Cikande', '72000', '3600000', '', '', '', '17', 'TRUE'],
+                    ['Purwakarta', '78000', '3900000', '3240000', '3480000', '3960000', '18', 'TRUE'],
+                    ['Serang Banten', '84000', '4200000', '3120000', '3480000', '3960000', '19', 'TRUE'],
+                    ['Cilegon', '96000', '4800000', '', '', '', '20', 'TRUE'],
+                ],
+            ],
+            'pbm_rates' => [
+                'tab' => 'cfg_pbm_rates', 'key' => 'ship_type', 'cols' => ['ship_type', 'pbm', 'sort_order', 'active'],
+                'seed' => [['breakbulk', '230', '1', 'TRUE'], ['container20', '350', '2', 'TRUE'], ['container40', '509', '3', 'TRUE']],
+            ],
         ],
 
         // ── scot ──────────────────────────────────────────────────────────
