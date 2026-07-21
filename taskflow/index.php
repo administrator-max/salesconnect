@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TaskFlow</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=<?= @filemtime(__DIR__ . '/css/style.css') ?: '1' ?>">
 </head>
 <body>
 
@@ -170,7 +170,7 @@
 </div>
 
 <!-- Load JS — api.js first, then app.js -->
-<script src="js/api.js"></script>
-<script src="js/app.js"></script>
+<script src="js/api.js?v=<?= @filemtime(__DIR__ . '/js/api.js') ?: '1' ?>"></script>
+<script src="js/app.js?v=<?= @filemtime(__DIR__ . '/js/app.js') ?: '1' ?>"></script>
 </body>
 </html>
