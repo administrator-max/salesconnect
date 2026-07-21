@@ -99,6 +99,23 @@ document.getElementById('cn-sel').addEventListener('change', function() { rConsi
 })();
 
 // Data Fetching Initialization
+// Rebuild the year filter (#y-dn) from the distinct years present in the data.
+function populateYearFilter() {
+  const sel = document.getElementById("y-dn");
+  if (!sel) return;
+  const years = [...new Set((D || []).map(d => String(d.year || "").trim()).filter(Boolean))]
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  const cur = sel.value || "all";
+  const allOpt = document.createElement("option");
+  allOpt.value = "all"; allOpt.textContent = "All Years";
+  const opts = [allOpt].concat(years.map(y => {
+    const o = document.createElement("option"); o.value = y; o.textContent = y; return o;
+  }));
+  sel.replaceChildren(...opts);
+  sel.value = (cur === "all" || years.includes(cur)) ? cur : "all";
+  if (typeof dY !== "undefined") dY = sel.value;
+}
+
 async function fetchShipments() {
   const tdElement = document.getElementById("td");
   if (tdElement) {
@@ -114,7 +131,8 @@ async function fetchShipments() {
         throw new Error("Invalid data format received from server.");
     }
     D = rawData.map(formatDateForFrontend);
-    
+    populateYearFilter();
+
     updLU();
     ref();
     
