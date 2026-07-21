@@ -69,6 +69,28 @@ function cfg_registry(): array {
                     ['NET 30 Days',                                 '9', 'TRUE'],
                 ],
             ],
+            'hedging_days' => [
+                'tab' => 'cfg_hedging_days', 'key' => 'value', 'cols' => ['value', 'sort_order', 'active'],
+                'seed' => [['60', '1', 'TRUE'], ['90', '2', 'TRUE'], ['150', '3', 'TRUE']],
+            ],
+            // NOTE: value codes below are bound to the pricing calc — relabel/reorder freely,
+            // but do NOT change a `value` or add one without matching code.
+            'shipment_types' => [
+                'tab' => 'cfg_shipment_types', 'key' => 'value', 'cols' => ['value', 'label', 'sort_order', 'active'],
+                'seed' => [
+                    ['breakbulk', 'Break Bulk', '1', 'TRUE'],
+                    ['container20', 'Container 20ft', '2', 'TRUE'],
+                    ['container40', 'Container 40ft', '3', 'TRUE'],
+                ],
+            ],
+            'margin_types' => [
+                'tab' => 'cfg_margin_types', 'key' => 'value', 'cols' => ['value', 'label', 'sort_order', 'active'],
+                'seed' => [['fixed', 'Fixed (IDR/kg)', '1', 'TRUE'], ['percent', 'Percentage (%)', '2', 'TRUE']],
+            ],
+            'commission_units' => [
+                'tab' => 'cfg_commission_units', 'key' => 'value', 'cols' => ['value', 'label', 'sort_order', 'active'],
+                'seed' => [['idr', 'IDR/kg', '1', 'TRUE'], ['usd', 'USD/MT', '2', 'TRUE']],
+            ],
         ],
 
         // ── scot ──────────────────────────────────────────────────────────
@@ -92,6 +114,13 @@ function cfg_registry(): array {
             'shipment_routes' => [
                 'tab' => 'cfg_shipment_routes', 'key' => 'value', 'cols' => ['value', 'sort_order', 'active'],
                 'seed' => [['Direct', '1', 'TRUE'], ['Transit', '2', 'TRUE']],
+            ],
+            'document_types' => [
+                'tab' => 'cfg_document_types', 'key' => 'value', 'cols' => ['value', 'label', 'sort_order', 'active'],
+                'seed' => [
+                    ['BL', 'BL', '1', 'TRUE'], ['PIB', 'PIB', '2', 'TRUE'],
+                    ['SuratJalan', 'Surat Jalan', '3', 'TRUE'], ['Other', 'Other', '4', 'TRUE'],
+                ],
             ],
         ],
     ];

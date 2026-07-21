@@ -25,6 +25,8 @@ const FLDS = [
 // ── Data-driven dropdown options (admin-managed via api/config) ───────────────
 // Falls back to the FLDS defaults if the config API is unavailable.
 let SCOT_OPTS = {};
+// value/label dropdown (value differs from label): document upload type.
+let SCOT_DOC_TYPES = [{value:"BL",label:"BL"},{value:"PIB",label:"PIB"},{value:"SuratJalan",label:"Surat Jalan"},{value:"Other",label:"Other"}];
 const SCOT_CFG_MAP = { cargo_types:"cargo_type", shipment_types:"shipment_type", shipment_routes:"shipment_route", cargo_statuses:"cargo_status", statuses:"status" };
 async function loadScotConfig() {
   try {
@@ -34,6 +36,8 @@ async function loadScotConfig() {
     for (const lk in SCOT_CFG_MAP) {
       if (Array.isArray(cfg[lk]) && cfg[lk].length) SCOT_OPTS[SCOT_CFG_MAP[lk]] = cfg[lk].map(r => r.value);
     }
+    if (Array.isArray(cfg.document_types) && cfg.document_types.length)
+      SCOT_DOC_TYPES = cfg.document_types.map(r => ({ value: r.value, label: r.label || r.value }));
   } catch (e) { console.warn("scot config load failed, using defaults:", e.message); }
 }
 function openScotSettings() {
@@ -45,6 +49,7 @@ function openScotSettings() {
       { key:"shipment_routes", title:"Shipment Routes", fields:[] },
       { key:"cargo_statuses",  title:"Cargo Status",    fields:[] },
       { key:"statuses",        title:"Status",          fields:[] },
+      { key:"document_types",  title:"Document Types",  fields:[["label","Label","text"]] },
     ],
     onChange: async () => { await loadScotConfig(); },
   });
@@ -555,7 +560,7 @@ function renderOgDocs(shipmentId, docs) {
   host.innerHTML = `${list}
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <select class="sbox" id="og-doc-type" style="width:auto;padding:6px 8px">
-        <option value="BL">BL</option><option value="PIB">PIB</option><option value="SuratJalan">Surat Jalan</option><option value="Other">Other</option>
+        ${SCOT_DOC_TYPES.map(o => `<option value="${o.value}">${o.label}</option>`).join("")}
       </select>
       <input type="text" class="sbox" id="og-doc-label" placeholder="Label (optional)" style="width:140px;padding:6px 8px">
       <input type="url" class="sbox" id="og-doc-url" placeholder="Paste Google Drive link…" style="flex:1;min-width:200px;padding:6px 8px">

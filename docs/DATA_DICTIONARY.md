@@ -35,6 +35,10 @@ You can also edit these tabs directly in Google Sheets if you prefer — same ef
 | Tab | Columns | Meaning |
 |---|---|---|
 | `cfg_payment_terms` | value, sort_order, active | Payment-term options in the costing form. `value` is the full term text (e.g. "NET 30 Days"). 9 seeded. |
+| `cfg_hedging_days` | value, sort_order, active | Hedging-days options (60 / 90 / 150). |
+| `cfg_shipment_types` | value, label, sort_order, active | Import shipment type. **value is calc-bound** (breakbulk / container20 / container40) — relabel only. |
+| `cfg_margin_types` | value, label, sort_order, active | Margin type. **value calc-bound** (fixed / percent) — relabel only. |
+| `cfg_commission_units` | value, label, sort_order, active | Commission unit. **value calc-bound** (idr / usd) — relabel only. |
 
 ### costcore readable companion tabs (auto-maintained — READ ONLY)
 
@@ -56,6 +60,7 @@ two tabs flatten it into readable columns and are **rebuilt automatically on eve
 | `cfg_shipment_routes` | value, sort_order, active | Direct / Transit. |
 | `cfg_cargo_statuses` | value, sort_order, active | Direct / Via Warehouse / Storage. |
 | `cfg_statuses` | value, sort_order, active | Shipment status: Contract / Booked / On Going / Done. |
+| `cfg_document_types` | value, label, sort_order, active | Document link type (BL / PIB / Surat Jalan / Other). |
 
 *(TaskFlow has no config tab: its task states are a fixed workflow, and its only dropdown —
 assignee — is already driven by the `staff` tab. salespulse was already data-driven via
