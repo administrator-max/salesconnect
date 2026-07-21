@@ -36,6 +36,17 @@ You can also edit these tabs directly in Google Sheets if you prefer — same ef
 |---|---|---|
 | `cfg_payment_terms` | value, sort_order, active | Payment-term options in the costing form. `value` is the full term text (e.g. "NET 30 Days"). 9 seeded. |
 
+### costcore readable companion tabs (auto-maintained — READ ONLY)
+
+The `costings` tab stores each costing as one opaque `data_json` blob (the app needs it). These
+two tabs flatten it into readable columns and are **rebuilt automatically on every costcore save**
+— read them, don't edit them (edits are overwritten on the next save):
+
+| Tab | Columns | Meaning |
+|---|---|---|
+| `costings_readable` | id, type, customer, created_at, updated_at, ship_type, destination, kurs, import_duty, wht_pct, port_charges, hedge_rate, hedge_days, is_pipa, stripping, add_cost, commission, comm_unit, margin_type, margin, wht_rate, truck_cost, truck_from, truck_to, payment_terms, num_items, total_qty | One row per costing, all parameters spelled out. Import- vs domestic-only fields are blank when N/A. |
+| `costings_items` | costing_id, type, customer, item_no, product, quantity, unit_price, margin, remark | One row per line item. `quantity`/`unit_price` come from the item (import: qty/cif; domestic: qtyKg/buyPrice). |
+
 ## scot config tabs (spreadsheet: scot)
 
 | Tab | Columns | Meaning |

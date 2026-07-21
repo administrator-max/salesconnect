@@ -14,6 +14,7 @@
 require_once __DIR__ . '/../lib/costcore_gate.php';
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/../lib/config_util.php';
+require_once __DIR__ . '/../lib/costcore_readable.php';
 if (!costcore_pin_ok()) { json_out(['error' => 'Unauthorized'], 401); }
 
 $cfg = sc_config();
@@ -79,6 +80,7 @@ try {
             'updated_at' => $now,
             'data_json'  => json_encode($body['data'] ?? new stdClass(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
+        cc_rebuild_safe($gs, $SID);
         json_out(['id' => $id]);
     }
 
@@ -94,6 +96,7 @@ try {
         $row['updated_at'] = gmdate('Y-m-d\TH:i:s\Z');
         $row['data_json']  = json_encode($body['data'] ?? new stdClass(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $gs->updateAssoc($SID, $TAB, $row['_row'], $row);
+        cc_rebuild_safe($gs, $SID);
         json_out(['success' => true]);
     }
 
@@ -103,6 +106,7 @@ try {
         $row = find_by_id($gs, $SID, $TAB, $a);
         if (!$row) json_out(['error' => 'Not found'], 404);
         $gs->deleteRows($SID, $TAB, [$row['_row']]);
+        cc_rebuild_safe($gs, $SID);
         json_out(['success' => true]);
     }
 
