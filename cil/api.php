@@ -9,6 +9,16 @@
  *   complaints     GET, POST, PUT/:id, PATCH/:id/status,
  *                  POST/:id/responses, DELETE/:id
  */
+// TEMP DIAG — remove after diagnosing the live 500.
+error_reporting(E_ALL); ini_set('display_errors', '1');
+register_shutdown_function(function () {
+    $e = error_get_last();
+    if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_RECOVERABLE_ERROR], true)) {
+        if (!headers_sent()) { http_response_code(500); header('Content-Type: application/json'); }
+        echo json_encode(['DIAG_FATAL' => $e['message'], 'file' => $e['file'], 'line' => $e['line']]);
+    }
+});
+
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/../lib/config_util.php';
 
