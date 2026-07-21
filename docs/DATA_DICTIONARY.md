@@ -40,16 +40,19 @@ You can also edit these tabs directly in Google Sheets if you prefer — same ef
 | `cfg_margin_types` | value, label, sort_order, active | Margin type. **value calc-bound** (fixed / percent) — relabel only. |
 | `cfg_commission_units` | value, label, sort_order, active | Commission unit. **value calc-bound** (idr / usd) — relabel only. |
 
-### costcore readable companion tabs (auto-maintained — READ ONLY)
+### costcore is column-based (no JSON blob)
 
-The `costings` tab stores each costing as one opaque `data_json` blob (the app needs it). These
-two tabs flatten it into readable columns and are **rebuilt automatically on every costcore save**
-— read them, don't edit them (edits are overwritten on the next save):
+After the cutover migration, Cost Core stores each costing in **real columns across three tabs**
+(the app reads/writes these directly — no `data_json`):
 
 | Tab | Columns | Meaning |
 |---|---|---|
-| `costings_readable` | id, type, customer, created_at, updated_at, ship_type, destination, kurs, import_duty, wht_pct, port_charges, hedge_rate, hedge_days, is_pipa, stripping, add_cost, commission, comm_unit, margin_type, margin, wht_rate, truck_cost, truck_from, truck_to, payment_terms, num_items, total_qty | One row per costing, all parameters spelled out. Import- vs domestic-only fields are blank when N/A. |
-| `costings_items` | costing_id, type, customer, item_no, product, quantity, unit_price, margin, remark | One row per line item. `quantity`/`unit_price` come from the item (import: qty/cif; domestic: qtyKg/buyPrice). |
+| `costings` | id, type, customer, created_at, updated_at, ship_type, kurs, import_duty, wht, port_charges, hedge_rate, hedge_days, destination, is_pipa, stripping, add_cost, commission, comm_unit, margin_type, margin, pay_terms, wht_rate, truck_cost, truck_from, truck_to | One row per costing = the header/parameters. Import- vs domestic-only fields are blank when N/A. **This is the source of truth** (editable). |
+| `costings_items` | costing_id, type, item_no, name, qty, cif, qty_kg, buy_price, margin_idx, remark | One row per line item (source). Import uses qty/cif; domestic uses qty_kg/buy_price/margin_idx. |
+| `costings_margins` | costing_id, margin_no, name, val | Domestic margin tiers (A/B/C…); items point to them by `margin_idx` = `margin_no`. |
+
+Editing these in the app writes straight to the columns. (Until the cutover migration runs, existing
+rows still carry a legacy `data_json` cell that the code reads as a fallback.)
 
 ## scot config tabs (spreadsheet: scot)
 
