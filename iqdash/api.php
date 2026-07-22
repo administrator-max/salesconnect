@@ -1,14 +1,16 @@
 <?php
 /**
  * IQ Dash REST API — backed by the IQ Dash Google Spreadsheet. OPEN module
- * (no login), GET routes only for now (write routes are later tasks).
+ * (no login).
  * Routes relative to /iqdash/api/ :
  *   health                    GET
  *   data                      GET
  *   company/:code             GET
  *   ra                        GET
- *   realizations              GET  (?company_code=)
+ *   realizations              GET (?company_code=), POST (bulk)
  *   realizations/summary      GET
+ *   realizations/single       POST
+ *   realizations/:id          DELETE
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/iqdash_util.php';
@@ -207,6 +209,12 @@ try {
         // lines, sorted pib_date DESC (server.js:2381-2419, Sheets branch).
         // GET /api/realizations/summary — per-company PIB/line counts
         // (server.js:2334-2379, Sheets branch).
+        // POST /api/realizations — bulk insert (server.js:2470-2524, Sheets
+        // branch). POST /api/realizations/single — single-row insert
+        // (server.js:2527-2568, Sheets branch). DELETE /api/realizations/:id
+        // — remove a row (server.js:2571-2599, Sheets branch). See
+        // iqdash_write.php's Task 11 header comment for why these are plain
+        // inserts, not upserts, despite the module plan's "upsert" naming.
         // ====================================================================
         case 'realizations':
             if ($method === 'GET') {
@@ -220,6 +228,53 @@ try {
 
                 $code = (isset($_GET['company_code']) && $_GET['company_code'] !== '') ? (string) $_GET['company_code'] : null;
                 json_out(['realizations' => iq_realizations_list($rows, $code)]);
+            }
+
+            // POST /api/realizations — bulk insert.
+            // Body: { companyCode, source, sourceFile, importedBy, rows: [...] }
+            if ($method === 'POST' && !isset($parts[1])) {
+                $b = json_body();
+                $companyCode = isset($b['companyCode']) && $b['companyCode'] !== null ? (string) $b['companyCode'] : '';
+                $rows = $b['rows'] ?? null;
+                if ($companyCode === '' || !is_array($rows) || !count($rows)) {
+                    json_out(['error' => 'companyCode and non-empty rows array are required'], 400);
+                }
+                if (!iq_company_exists($gs, $SID, $companyCode)) {
+                    json_out(['error' => 'Unknown company code: ' . $companyCode], 404);
+                }
+                $defaults = [
+                    'source'     => (isset($b['source']) && $b['source'] !== '') ? (string) $b['source'] : 'excel',
+                    'sourceFile' => isset($b['sourceFile']) ? (string) $b['sourceFile'] : '',
+                    'importedBy' => isset($b['importedBy']) ? (string) $b['importedBy'] : '',
+                ];
+                $ids = iq_realizations_insert($gs, $SID, $companyCode, $rows, $defaults);
+                json_out(['ok' => true, 'inserted' => count($ids), 'ids' => $ids]);
+            }
+
+            // POST /api/realizations/single — single manual entry.
+            // Body: { companyCode, importedBy, ...row } (row = every other field).
+            if ($method === 'POST' && isset($parts[1]) && $parts[1] === 'single') {
+                $b = json_body();
+                $companyCode = isset($b['companyCode']) && $b['companyCode'] !== null ? (string) $b['companyCode'] : '';
+                if ($companyCode === '') json_out(['error' => 'companyCode is required'], 400);
+                if (!iq_company_exists($gs, $SID, $companyCode)) {
+                    json_out(['error' => 'Unknown company code: ' . $companyCode], 404);
+                }
+                $importedBy = isset($b['importedBy']) ? (string) $b['importedBy'] : '';
+                $row = $b;
+                unset($row['companyCode'], $row['importedBy']);
+                $defaults = ['source' => 'manual', 'sourceFile' => '', 'importedBy' => $importedBy];
+                $ids = iq_realizations_insert($gs, $SID, $companyCode, [$row], $defaults);
+                json_out(['ok' => true, 'id' => $ids[0] ?? null]);
+            }
+
+            // DELETE /api/realizations/:id — remove a row.
+            if ($method === 'DELETE' && isset($parts[1])) {
+                $idNum = (int) $parts[1];
+                if (!$idNum) json_out(['error' => 'invalid id'], 400);
+                $deleted = iq_realizations_delete($gs, $SID, $idNum);
+                if (!$deleted) json_out(['error' => 'not found'], 404);
+                json_out(['ok' => true]);
             }
             break;
 
