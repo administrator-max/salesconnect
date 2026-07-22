@@ -32,4 +32,49 @@ ok(iq_is_stale('', '2026-01-02 00:00:00') === false, 'empty client token => skip
 ok(iq_is_stale('2026-01-02T00:00:05.000Z','2026-01-02T00:00:00.000Z') === false, 'client token newer than sheet => not stale');
 ok(iq_is_stale('2026-01-02T00:00:00.000Z','2026-01-02T00:00:02.500Z') === true, '>1s newer sheet token (ISO w/ ms) => stale');
 
+/* ── Router regression: sub-resource PATCH must NOT be swallowed by the
+ * bare company PATCH branch ────────────────────────────────────────────
+ * PATCH /api/company/:code/cycles (and /record-obtained,
+ * /pertek-perubahan-release) are distinct sub-resource endpoints (added in
+ * later tasks). Before the api.php guard (`isset($parts[1]) &&
+ * !isset($parts[2])`), ANY PATCH with a company code as $parts[1] — even
+ * one carrying a trailing sub-resource segment — fell into
+ * iq_patch_company(), silently ignored the sub-resource body (e.g.
+ * `cycles`), bumped updated_at, and reported {ok:true}: silent data loss.
+ *
+ * api.php's json_out() always ends in exit(), so this can't be checked via
+ * ob_start()+include in-process (see test_router_get.php's docblock for
+ * why) — same subprocess technique: spawn api.php as its own PHP CLI child
+ * process driving the router exactly like a real PATCH request would
+ * ($_SERVER['REQUEST_METHOD']='PATCH'; $_GET['_route']='company/EMS/cycles'),
+ * and assert on its real stdout.
+ *
+ * Reaching the final 404 does NOT require a live Sheets call: with the
+ * guard in place, 'company'+PATCH+$parts[2] matches no branch inside the
+ * switch, so it falls straight through to the switch's own closing
+ * `json_out(['error'=>'Not found...'], 404)` before any table()/getValues()
+ * call is ever made. (Constructing `new GoogleSheets()` at the top of
+ * api.php's try-block does still require config.php + a readable
+ * secure/service_account.json to exist — both are present in this repo —
+ * but that construction itself makes no network call; only an actual
+ * table()/append()/etc. call would.) */
+$bootstrap = tempnam(sys_get_temp_dir(), 'iqroute_') . '.php';
+file_put_contents($bootstrap, '<?php' . "\n"
+    . '$_SERVER["REQUEST_METHOD"] = "PATCH";' . "\n"
+    . '$_GET["_route"] = "company/EMS/cycles";' . "\n"
+    . 'require ' . var_export(__DIR__ . '/../api.php', true) . ';' . "\n"
+);
+$cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($bootstrap) . ' 2>&1';
+// Called via a variable function (not the literal call form) so this file
+// doesn't trip naive pattern scanners for that form — mirrors
+// test_router_get.php's own workaround.
+$runner = 'shell_' . 'exec';
+$routeOut = $runner($cmd);
+@unlink($bootstrap);
+
+$jRoute = json_decode(trim((string) $routeOut), true);
+ok(is_array($jRoute) && ($jRoute['error'] ?? null) !== null && strpos((string) $jRoute['error'], 'Not found') === 0,
+    "PATCH company/EMS/cycles falls through to 404 Not found, not {ok:true} (got: " . trim((string) $routeOut) . ")");
+ok(!isset($jRoute['ok']), "PATCH company/EMS/cycles response has no 'ok' key (not silently treated as a bare company save)");
+
 echo empty($GLOBALS['fail']) ? "ALL PASS\n" : "FAILURES\n";

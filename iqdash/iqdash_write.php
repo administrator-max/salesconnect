@@ -534,9 +534,18 @@ function iq_recompute_util_from_lots(array $lots): array {
  * value is serialized via iq_log_cell() (null/missing -> '', true ->
  * 'TRUE', false -> 'FALSE'), mirroring sheetsStore.js's generic `_toCell()`
  * used by its own batchRewrite() for every tab, not just Change_Log.
+ *
+ * $headers: pass the tab's header row when the caller already read it (e.g.
+ * iq_patch_company()'s earlier `$gs->table($sid,$tab)` whole-table reads
+ * return `['headers'=>...,'rows'=>...]` for free) so this skips the
+ * redundant `$gs->headers($sid,$tab)` call — a separate `getValues("$tab!1:1")`
+ * that does NOT hit GoogleSheets' range-keyed read cache populated by the
+ * earlier whole-tab read, costing one extra network round-trip per touched
+ * tab on every full company save. Falls back to fetching them when the
+ * caller doesn't have them handy (null, the default).
  */
-function iq_write_full_table(GoogleSheets $gs, string $sid, string $tab, array $assocRows): void {
-    $headers = $gs->headers($sid, $tab);
+function iq_write_full_table(GoogleSheets $gs, string $sid, string $tab, array $assocRows, ?array $headers = null): void {
+    $headers = $headers ?? $gs->headers($sid, $tab);
     if (!$headers) return; // tab has no header row -> nothing we can safely write
 
     $matrix = [];
@@ -570,7 +579,15 @@ function iq_write_full_table(GoogleSheets $gs, string $sid, string $tab, array $
  */
 function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $body): array {
     return iq_with_lock(function () use ($gs, $sid, $code, $body) {
-        $companies = $gs->table($sid, 'companies')['rows'];
+        // Headers captured alongside each whole-table read below, so the
+        // final write loop's iq_write_full_table() calls can skip their own
+        // redundant $gs->headers($sid,$tab) fetch — see that function's
+        // docblock.
+        $tabHeaders = [];
+
+        $companiesTbl = $gs->table($sid, 'companies');
+        $tabHeaders['companies'] = $companiesTbl['headers'];
+        $companies = $companiesTbl['rows'];
         $idx = null;
         foreach ($companies as $i => $c) {
             if ((string) ($c['code'] ?? '') === $code) { $idx = $i; break; }
@@ -604,8 +621,10 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
 
         // ── products: full replace company_products ──
         if (iq_is_list($body['products'] ?? null)) {
+            $cpTbl = $gs->table($sid, 'company_products');
+            $tabHeaders['company_products'] = $cpTbl['headers'];
             $cp = array_values(array_filter(
-                $gs->table($sid, 'company_products')['rows'],
+                $cpTbl['rows'],
                 fn($r) => (string) ($r['company_code'] ?? '') !== $code
             ));
             $maxId = 0;
@@ -627,7 +646,9 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
         // ── pending_meta (PENDING companies only) ──
         if ((array_key_exists('pendingMt', $body) || array_key_exists('pendingStatus', $body) || array_key_exists('pendingDate', $body))
             && ($co['section'] ?? null) === 'PENDING') {
-            $pm = $gs->table($sid, 'pending_meta')['rows'];
+            $pmTbl = $gs->table($sid, 'pending_meta');
+            $tabHeaders['pending_meta'] = $pmTbl['headers'];
+            $pm = $pmTbl['rows'];
             $pi = null;
             foreach ($pm as $i => $r) { if ((string) ($r['company_code'] ?? '') === $code) { $pi = $i; break; } }
             $cur = $pi !== null ? $pm[$pi] : ['company_code' => $code, 'mt' => 0, 'status' => '', 'date' => '', 'source_program' => 'B'];
@@ -651,7 +672,9 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
         // that is server.js's real, idempotent-by-design behavior, not a gap.
         if (array_key_exists('shipments', $body) && $body['shipments'] !== null && $body['shipments'] !== false && is_array($body['shipments'])) {
             $shipmentsTouched = true;
-            $ship = $gs->table($sid, 'company_shipments')['rows'];
+            $shipTbl = $gs->table($sid, 'company_shipments');
+            $tabHeaders['company_shipments'] = $shipTbl['headers'];
+            $ship = $shipTbl['rows'];
             foreach ($ship as $r) {
                 if ((string) ($r['company_code'] ?? '') === $code) {
                     $prod = $r['product'] ?? '';
@@ -713,7 +736,9 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
             $companyLots = array_values(array_filter($changed['company_shipments'], fn($r) => (string) ($r['company_code'] ?? '') === $code));
             $lotSums = iq_recompute_util_from_lots($companyLots);
             if (count($lotSums)) {
-                $stats = $gs->table($sid, 'company_product_stats')['rows'];
+                $statsTbl = $gs->table($sid, 'company_product_stats');
+                $tabHeaders['company_product_stats'] = $statsTbl['headers'];
+                $stats = $statsTbl['rows'];
                 $maxSid = 0;
                 foreach ($stats as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxSid) $maxSid = $n; }
                 foreach ($lotSums as $product => $util) {
@@ -746,7 +771,9 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
 
         // ── reapply targets upsert ──
         if (iq_is_list($body['reapplyTargets'] ?? null)) {
-            $rt = $gs->table($sid, 'company_reapply_targets')['rows'];
+            $rtTbl = $gs->table($sid, 'company_reapply_targets');
+            $tabHeaders['company_reapply_targets'] = $rtTbl['headers'];
+            $rt = $rtTbl['rows'];
             $maxId = 0;
             foreach ($rt as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxId) $maxId = $n; }
             foreach ($body['reapplyTargets'] as $t) {
@@ -776,9 +803,11 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
 
         // ── ra record update (UPDATE-only, like Neon) ──
         $raTouched = false;
-        if (array_key_exists('ra', $body) && $body['ra'] !== null && $body['ra'] !== false) {
+        if (array_key_exists('ra', $body) && iq_js_truthy($body['ra'])) {
             $r = is_array($body['ra']) ? $body['ra'] : [];
-            $ra = $gs->table($sid, 'ra_records')['rows'];
+            $raTbl = $gs->table($sid, 'ra_records');
+            $tabHeaders['ra_records'] = $raTbl['headers'];
+            $ra = $raTbl['rows'];
             $exIdx = null;
             foreach ($ra as $i => $x) { if ((string) ($x['company_code'] ?? '') === $code) { $exIdx = $i; break; } }
             if ($exIdx !== null) {
@@ -807,7 +836,13 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
 
         // ── Obtained stats reconcile (Manual Update "Obtained MT per product") ──
         if (iq_is_list($body['obtainedStats'] ?? null) && count($body['obtainedStats'])) {
-            $stats = $changed['company_product_stats'] ?? $gs->table($sid, 'company_product_stats')['rows'];
+            if (isset($changed['company_product_stats'])) {
+                $stats = $changed['company_product_stats'];
+            } else {
+                $statsTbl2 = $gs->table($sid, 'company_product_stats');
+                $tabHeaders['company_product_stats'] = $statsTbl2['headers'];
+                $stats = $statsTbl2['rows'];
+            }
             $maxSid = 0;
             foreach ($stats as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxSid) $maxSid = $n; }
             foreach ($body['obtainedStats'] as $it) {
@@ -857,7 +892,7 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
         $order = ['company_products', 'pending_meta', 'company_shipments', 'company_product_stats', 'company_reapply_targets', 'ra_records', 'companies'];
         foreach ($order as $tab) {
             if (array_key_exists($tab, $changed)) {
-                iq_write_full_table($gs, $sid, $tab, $changed[$tab]);
+                iq_write_full_table($gs, $sid, $tab, $changed[$tab], $tabHeaders[$tab] ?? null);
             }
         }
 

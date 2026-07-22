@@ -197,7 +197,17 @@ try {
                 json_out($found);
             }
 
-            if ($method === 'PATCH') {
+            // Bare company PATCH ONLY — a trailing sub-resource segment
+            // ($parts[2] set, e.g. PATCH /api/company/:code/cycles,
+            // /record-obtained, /pertek-perubahan-release) must NOT be
+            // swallowed here: those are distinct endpoints (added in later
+            // tasks) that this bare-save branch has no knowledge of. Without
+            // this guard, e.g. PATCH /api/company/EMS/cycles would silently
+            // fall into iq_patch_company() (which ignores `cycles`), bump
+            // updated_at, and report {ok:true} while doing nothing —
+            // matches the disambiguation style `case 'realizations':`
+            // already uses for its own `/summary` sub-route.
+            if ($method === 'PATCH' && isset($parts[1]) && !isset($parts[2])) {
                 $code = isset($parts[1]) ? urldecode($parts[1]) : null;
                 if ($code === null || $code === '') {
                     json_out(['error' => 'Missing company code'], 400);
