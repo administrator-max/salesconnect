@@ -174,6 +174,10 @@ try {
         // ====================================================================
         // GET /api/company/:code — same enriched (ledger-applied) object the
         // /api/data payload carries for this company, from spi ∪ pending.
+        // PATCH /api/company/:code — save editable company fields
+        // (server.js:1385-1571, Sheets branch: patchCompanySheets() + the
+        // route's success/error mapping). See iqdash_write.php's Task 12
+        // header comment for iq_patch_company()'s documented divergences.
         // ====================================================================
         case 'company':
             if ($method === 'GET') {
@@ -191,6 +195,26 @@ try {
                 }
                 if ($found === null) json_out(['error' => 'Not found'], 404);
                 json_out($found);
+            }
+
+            if ($method === 'PATCH') {
+                $code = isset($parts[1]) ? urldecode($parts[1]) : null;
+                if ($code === null || $code === '') {
+                    json_out(['error' => 'Missing company code'], 400);
+                }
+                $body = json_body();
+                $result = iq_patch_company($gs, $SID, $code, $body);
+                if (isset($result['error'])) {
+                    json_out(['error' => $result['error']], $result['status'] ?? 500);
+                }
+                // Invalidate the /api/data file memo (Task 12's writes already
+                // clear GoogleSheets' own short-TTL read cache on every write;
+                // this is the SEPARATE 30s payload memo iq_get_payload() keeps
+                // on top of that — mirrors server.js's `dcache.invalidate(...)`
+                // after a successful PATCH so GET /api/data & /api/ra don't
+                // serve a stale payload for up to 30s post-save).
+                @unlink(iq_payload_memo_file());
+                json_out(['ok' => true, 'code' => $code, 'updatedAt' => $result['updatedAt']]);
             }
             break;
 
