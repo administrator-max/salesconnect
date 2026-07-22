@@ -369,6 +369,7 @@ try {
                     'importedBy' => isset($b['importedBy']) ? (string) $b['importedBy'] : '',
                 ];
                 $ids = iq_realizations_insert($gs, $SID, $companyCode, $rows, $defaults);
+                @unlink(iq_payload_memo_file()); // realized volume changed — invalidate the /api/data memo
                 json_out(['ok' => true, 'inserted' => count($ids), 'ids' => $ids]);
             }
 
@@ -386,6 +387,7 @@ try {
                 unset($row['companyCode'], $row['importedBy']);
                 $defaults = ['source' => 'manual', 'sourceFile' => '', 'importedBy' => $importedBy];
                 $ids = iq_realizations_insert($gs, $SID, $companyCode, [$row], $defaults);
+                @unlink(iq_payload_memo_file()); // realized volume changed — invalidate the /api/data memo
                 json_out(['ok' => true, 'id' => $ids[0] ?? null]);
             }
 
@@ -395,6 +397,7 @@ try {
                 if (!$idNum) json_out(['error' => 'invalid id'], 400);
                 $deleted = iq_realizations_delete($gs, $SID, $idNum);
                 if (!$deleted) json_out(['error' => 'not found'], 404);
+                @unlink(iq_payload_memo_file()); // realized volume changed — invalidate the /api/data memo
                 json_out(['ok' => true]);
             }
             break;
