@@ -82,14 +82,18 @@ function iq_sort_by_sort_order(array $rows): array {
     return $copy;
 }
 
-/** Mirror JS `isNaN(c.mt) ? c.mt : Number(c.mt)` — numeric-looking values
- *  (incl. comma thousands) become float; everything else (e.g. 'TBA') passes through. */
+/** Mirror JS `isNaN(c.mt) ? c.mt : Number(c.mt)` exactly:
+ *  - null stays null (absence preserved).
+ *  - '' becomes 0 (JS `Number('') === 0`).
+ *  - a plain numeric string (no thousands-commas) becomes a number.
+ *  - anything else (e.g. 'TBA', '1,234', other text) passes through as the
+ *    raw string — this is the JS `isNaN` branch. Do NOT strip commas:
+ *    `is_numeric('1,234')` is false in PHP, matching JS `Number('1,234')` = NaN. */
 function iq_cycle_mt($v) {
     if ($v === null) return null;
-    $s = trim((string) $v);
-    if ($s === '') return $v;
-    $stripped = str_replace(',', '', $s);
-    return is_numeric($stripped) ? (float) $stripped : $v;
+    $s = (string) $v;
+    if ($s === '') return 0;
+    return is_numeric($s) ? $s + 0 : $v;
 }
 
 /** Mirror JS `new Date(v).toISOString()` for a Sheets date/datetime string; null on failure. */
@@ -183,7 +187,7 @@ function iq_build_company_obj(
         if (iq_present($s['utilization_mt'] ?? null)) $utilizationByProd[$prod] = iq_num($s['utilization_mt']);
         if (iq_present($s['available_mt'] ?? null))   $availableByProd[$prod]   = iq_num($s['available_mt']);
         if (iq_present($s['realization_mt'] ?? null)) $realizationByProd[$prod] = iq_num($s['realization_mt']);
-        if (!empty($s['eta_jkt']))                    $etaByProd[$prod]         = $s['eta_jkt'];
+        if (($s['eta_jkt'] ?? null) !== null)          $etaByProd[$prod]         = $s['eta_jkt'];
         $arrivedByProd[$prod] = $s['arrived'] ?? false;
     }
 
@@ -279,10 +283,10 @@ function iq_build_payload_raw(array $t): array {
 
     $productsList = array_map(fn($p) => [
         'name'       => $p['name'] ?? '',
-        'hsCode'     => ($p['hs_code'] ?? '') ?: '',
-        'colorSolid' => ($p['color_solid'] ?? '') ?: '#64748b',
-        'colorLight' => ($p['color_light'] ?? '') ?: '#f1f5f9',
-        'colorText'  => ($p['color_text'] ?? '') ?: '#475569',
+        'hsCode'     => $p['hs_code'] ?? '',
+        'colorSolid' => $p['color_solid'] ?? '#64748b',
+        'colorLight' => $p['color_light'] ?? '#f1f5f9',
+        'colorText'  => $p['color_text'] ?? '#475569',
         'sortOrder'  => (int) iq_num($p['sort_order'] ?? 0),
     ], $productMeta);
 
@@ -366,10 +370,10 @@ function iq_build_payload_raw(array $t): array {
         $shipMap[$code][$prod][] = [
             'lotNo'        => $s['lot_no'] ?? null,
             'utilMT'       => iq_num($s['util_mt'] ?? 0),
-            'etaJKT'       => ($s['eta_jkt'] ?? '') ?: '',
-            'note'         => ($s['note'] ?? '') ?: '',
+            'etaJKT'       => $s['eta_jkt'] ?? '',
+            'note'         => $s['note'] ?? '',
             'realMT'       => iq_num($s['real_mt'] ?? 0),
-            'pibDate'      => ($s['pib_date'] ?? '') ?: '',
+            'pibDate'      => $s['pib_date'] ?? '',
             'cargoArrived' => $s['cargo_arrived'] ?? false,
         ];
     }
