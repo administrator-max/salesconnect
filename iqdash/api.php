@@ -11,6 +11,7 @@
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/iqdash_util.php';
 require_once __DIR__ . '/iqdash_data.php';
+require_once __DIR__ . '/iqdash_insights.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $parts  = array_values(array_filter(explode('/', trim(sc_route(), '/')), fn($p) => $p !== ''));
@@ -59,6 +60,70 @@ function iq_normalize_payload(array $payload): array {
         }
     }
     return $payload;
+}
+
+/* ── /api/insights helpers ────────────────────────────────────────────
+ * GET /api/insights (all 9 questions) and GET /api/insights/:q (one of
+ * them), mirroring IQ/server.js's `_insightFns` dispatch table + `all()`
+ * route. Insights read the RAW tables (iq_load_tables()'s output), never
+ * the ledger-applied /api/data payload — see iqdash_insights.php's
+ * docblock. */
+
+/**
+ * Pure route-key mapper: `:q` path segment (q1..q8 | realization) -> the
+ * matching key in iq_ins_all()'s result. Unknown segment -> null (caller
+ * turns that into a 404), same as server.js's `_insightFns[req.params.q]`
+ * lookup returning undefined.
+ */
+function iq_insight_route_key(string $q): ?string {
+    static $map = [
+        'q1'         => 'q1_obtainedByPeriod',
+        'q2'         => 'q2_latestProgress',
+        'q3'         => 'q3_topQuotaItems',
+        'q4'         => 'q4_leadTime',
+        'q5'         => 'q5_remainingForItem',
+        'q6'         => 'q6_companiesWithItem',
+        'q7'         => 'q7_utilizationTiming',
+        'q8'         => 'q8_reallocations',
+        'realization'=> 'realization',
+    ];
+    return $map[$q] ?? null;
+}
+
+/**
+ * Build the raw `$t` shape iq_ins_*() needs (9 keys) out of
+ * iq_load_tables()'s superset — insights never see the extra keys
+ * (directory/companyProducts/reapply/ra/pendingMeta/pertekRelease).
+ */
+function iq_insight_tables(GoogleSheets $gs, string $sid): array {
+    $full = iq_load_tables($gs, $sid);
+    return [
+        'companies'    => $full['companies'],
+        'cycles'       => $full['cycles'],
+        'cycleProducts'=> $full['cycleProducts'],
+        'stats'        => $full['stats'],
+        'revisions'    => $full['revisions'],
+        'lots'         => $full['lots'],
+        'realizations' => $full['realizations'],
+        'aliases'      => $full['aliases'],
+        'products'     => $full['products'],
+    ];
+}
+
+/**
+ * Cast known map-shaped sub-fields of one iq_ins_all() result key to `{}`
+ * when empty (mirrors iq_normalize_payload()'s `productAliases`/`*ByProd`
+ * treatment for the /api/data payload). Only q1's `byMonth` is a genuine
+ * string-keyed map among the insight results today — everything else
+ * (topQuotaItems, byCompany, companies, events, reallocations, byProduct,
+ * vsObtained, timeline...) is a sequential list, which already serializes
+ * as `[]` correctly even when empty.
+ */
+function iq_ins_normalize_value(string $key, $value) {
+    if ($key === 'q1_obtainedByPeriod' && is_array($value) && array_key_exists('byMonth', $value)) {
+        $value['byMonth'] = iq_empty_to_obj($value['byMonth']);
+    }
+    return $value;
 }
 
 /* ── /api/data payload — file memo (~30s) on top of GoogleSheets' own read
@@ -131,6 +196,33 @@ try {
             if ($method === 'GET') {
                 $payload = iq_get_payload($gs, $SID);
                 json_out($payload['ra'] ?? []);
+            }
+            break;
+
+        // ====================================================================
+        // GET /api/insights            — all 9 questions (item/company via
+        //                                 ?item=&company=)
+        // GET /api/insights/:q         — one question (q1..q8 | realization)
+        // ====================================================================
+        case 'insights':
+            if ($method === 'GET') {
+                $q   = (isset($parts[1]) && $parts[1] !== '') ? $parts[1] : null;
+                $key = $q !== null ? iq_insight_route_key($q) : null;
+                if ($q !== null && $key === null) {
+                    json_out(['error' => "unknown insight '$q'"], 404);
+                }
+
+                $t = iq_insight_tables($gs, $SID);
+                $opts = [
+                    'today'   => null, // resolves to "now", mirrors JS `new Date()`
+                    'item'    => $_GET['item'] ?? null,
+                    'company' => $_GET['company'] ?? null,
+                ];
+                $all = iq_ins_all($t, $opts);
+                foreach ($all as $k => $v) { $all[$k] = iq_ins_normalize_value($k, $v); }
+
+                if ($key !== null) json_out($all[$key]);
+                json_out($all);
             }
             break;
     }
