@@ -910,3 +910,276 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
         return ['ok' => true, 'updatedAt' => $co['updated_at'], 'ra' => $raTouched];
     });
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Task 13 — POST /api/company (create) + PATCH /api/company/:code/cycles
+ * (full-replace). Ports:
+ *   - the Sheets branch of `POST /api/company`                  server.js:1791-1832
+ *   - the Sheets branch of `PATCH /api/company/:code/cycles`    server.js:1919-1951
+ */
+
+/**
+ * Indonesian short-month 'DD Mon YYYY' label, matching JS
+ * `new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})`
+ * (used for `companies.updated_date` on create — server.js:1803). CLDR
+ * id-ID abbreviated month names.
+ */
+function iq_id_date_now(): string {
+    static $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    return sprintf('%02d %s %d', (int) $now->format('d'), $months[(int) $now->format('n') - 1], (int) $now->format('Y'));
+}
+
+/**
+ * Full port of the Sheets branch of `POST /api/company` (server.js:1791-
+ * 1832): create a new PENDING company. Validates `code` is present (JS
+ * truthy check, `if (!code)`) and unique (string-cast compare against
+ * existing `companies` rows) -> 400 / 409 on failure. On success: appends
+ * one `companies` row, one `company_products` row per non-empty product
+ * (`Array.isArray(products) ? products.filter(Boolean) : []`, sort_order =
+ * position), one `pending_meta` row, one seed `cycles` row ("Submit #1" /
+ * "Submit MOI", `release_date` left BLANK = pending — the Sheets branch's
+ * behavior, NOT the Neon branch's literal `'TBA'`), and one
+ * `cycle_products` row per product linked to that seed cycle (both id
+ * spaces sequential, maxed over the WHOLE tab, matching
+ * `.reduce((m,r)=>Math.max(m,Number(r.id)||0),0)`). `full_name` resolves
+ * from `body.fullName`, else `company_directory`'s row for this code (by
+ * `abbreviation`), else ''. Wrapped in iq_with_lock() (same pattern as
+ * every other write helper in this file — server.js relies on Node's
+ * single-threaded event loop for the equivalent serialization).
+ *
+ * Returns `['ok'=>true,'code'=>string,'fullName'=>string]` on success, or
+ * `['error'=>string,'status'=>400|409]` on invalid/duplicate.
+ */
+function iq_create_company(GoogleSheets $gs, string $sid, array $body): array {
+    if (!iq_js_truthy($body['code'] ?? null)) {
+        return ['error' => 'code is required', 'status' => 400];
+    }
+    $code = (string) $body['code'];
+
+    return iq_with_lock(function () use ($gs, $sid, $body, $code) {
+        $companies = $gs->table($sid, 'companies')['rows'];
+        foreach ($companies as $c) {
+            if ((string) ($c['code'] ?? '') === $code) {
+                return ['error' => "Company $code already exists", 'status' => 409];
+            }
+        }
+
+        $dirFullName = '';
+        foreach ($gs->table($sid, 'company_directory')['rows'] as $d) {
+            if ((string) ($d['abbreviation'] ?? '') === $code) { $dirFullName = $d['full_name'] ?? ''; break; }
+        }
+        $fullName = iq_js_or($body['fullName'] ?? null, iq_js_or($dirFullName, ''));
+
+        $now = iq_iso_now();
+        $mt  = $body['mt'] ?? null;
+
+        $gs->appendAssoc($sid, 'companies', [
+            'code' => $code, 'full_name' => $fullName, 'grp' => iq_js_or($body['grp'] ?? null, 'CD'), 'section' => 'PENDING',
+            'submit1' => iq_js_or($mt, 0), 'obtained' => 0, 'utilization_mt' => 0, 'available_quota' => '',
+            'rev_type' => 'none', 'rev_note' => '', 'rev_submit_date' => '', 'rev_status' => '', 'rev_mt' => 0,
+            'remarks' => iq_js_or($body['remarks'] ?? null, ''), 'spi_ref' => '', 'status_update' => iq_js_or($body['statusUpdate'] ?? null, ''),
+            'pertek_no' => '', 'spi_no' => '', 'updated_by' => iq_js_or($body['updatedBy'] ?? null, ''), 'updated_date' => iq_id_date_now(),
+            'created_at' => $now, 'updated_at' => $now, 'source_program' => 'B',
+        ]);
+
+        $prodList = array_values(array_filter(
+            is_array($body['products'] ?? null) ? $body['products'] : [],
+            'iq_js_truthy'
+        ));
+
+        if ($prodList) {
+            $cpRows = $gs->table($sid, 'company_products')['rows'];
+            $cpId = 0;
+            foreach ($cpRows as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $cpId) $cpId = $n; }
+            $objs = [];
+            foreach ($prodList as $i => $p) {
+                $cpId++;
+                $objs[] = ['id' => $cpId, 'company_code' => $code, 'product' => $p, 'sort_order' => $i, 'source_program' => 'B'];
+            }
+            $gs->appendAssocBulk($sid, 'company_products', $objs);
+        }
+
+        $gs->appendAssoc($sid, 'pending_meta', [
+            'company_code' => $code, 'mt' => iq_js_or($mt, 0),
+            'status' => iq_js_or($body['status'] ?? null, ''), 'date' => iq_js_or($body['date'] ?? null, ''),
+            'source_program' => 'B',
+        ]);
+
+        // Seed Submit #1 cycle. release_date left BLANK (not 'TBA') = pending.
+        $cyRows = $gs->table($sid, 'cycles')['rows'];
+        $cyId = 0;
+        foreach ($cyRows as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $cyId) $cyId = $n; }
+        $cyId++;
+        $gs->appendAssoc($sid, 'cycles', [
+            'id' => $cyId, 'company_code' => $code, 'cycle_type' => 'Submit #1', 'mt' => (string) iq_js_or($mt, 0),
+            'submit_type' => 'Submit MOI', 'submit_date' => iq_js_or($body['submitDate'] ?? null, ''),
+            'release_type' => 'PERTEK', 'release_date' => '', 'status' => iq_js_or($body['statusUpdate'] ?? null, ''),
+            'sort_order' => 0, 'pertek_date' => '', 'spi_date' => '', 'from_rev_req' => false, 'source_program' => 'B',
+        ]);
+
+        if ($prodList) {
+            $cpiRows = $gs->table($sid, 'cycle_products')['rows'];
+            $cpiId = 0;
+            foreach ($cpiRows as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $cpiId) $cpiId = $n; }
+            $objs = [];
+            foreach ($prodList as $p) {
+                $cpiId++;
+                $objs[] = ['id' => $cpiId, 'cycle_id' => $cyId, 'product' => $p, 'mt' => (string) iq_js_or($mt, 0), 'source_program' => 'B'];
+            }
+            $gs->appendAssocBulk($sid, 'cycle_products', $objs);
+        }
+
+        iq_log_change($gs, $sid, [
+            'sheet' => 'companies', 'record_id' => $code, 'field' => '(create)',
+            'old_value' => '', 'new_value' => $fullName,
+            'changed_by' => iq_js_or($body['updatedBy'] ?? null, 'api'), 'note' => 'company create',
+        ]);
+
+        return ['ok' => true, 'code' => $code, 'fullName' => $fullName];
+    });
+}
+
+/**
+ * PURE: build the full replacement `cycles` + `cycle_products` matrices
+ * for a full-replace PATCH /api/company/:code/cycles — mirrors the Sheets
+ * branch of server.js's cycles-replace handler (server.js:1924-1946)
+ * exactly:
+ *   - OTHER companies' `cycles`/`cycle_products` rows are preserved
+ *     unchanged (`allCycles.filter(c => c.company_code !== code)` +
+ *     dropping any `cycle_products` row whose `cycle_id` belonged to one
+ *     of `code`'s removed cycles).
+ *   - `code`'s existing `cycles`/`cycle_products` rows are dropped
+ *     entirely.
+ *   - each incoming cycle in `$newCycles` gets a freshly minted
+ *     sequential `id` (`++cyId`, starting from the max `id` over ALL
+ *     existing cycle rows across ALL companies — not just `code`'s) and
+ *     becomes a `cycles` row, in incoming order (`sort_order` = index).
+ *   - each incoming cycle's `products` map (`product => mt`) becomes
+ *     `cycle_products` rows carrying that cycle's freshly minted id as
+ *     `cycle_id` (the product id space is likewise maxed over ALL
+ *     existing `cycle_products` rows across ALL companies, and keeps
+ *     incrementing across every new cycle in this same call — i.e. NOT
+ *     reset per cycle).
+ *   - a submit/release date of 'TBA' (any case, trimmed) is normalized to
+ *     '' (server.js's inline `norm()`) — TBA dates are stored BLANK =
+ *     pending; any other value (including a non-TBA string with
+ *     surrounding whitespace) is passed through as-is.
+ *   - `from_rev_req` is stored as a real boolean via iq_js_truthy() (same
+ *     simplification Task 12 already applies to boolean-shaped fields
+ *     like `cargo_arrived`, rather than JS's `x || false` which can also
+ *     return a truthy non-boolean `x` unchanged).
+ *
+ * $allCycleRows / $allCycleProductRows: the FULL `cycles` / `cycle_products`
+ * tab contents (every company), as read via GoogleSheets::table()['rows'].
+ * $newCycles: the incoming camelCase cycle objects from the PATCH body's
+ * `cycles` array (type, mt, submitType, submitDate, releaseType,
+ * releaseDate, status, products, pertekDate, spiDate, _fromRevReq) — see
+ * assets/js/16-storage.js's patchCyclesToServer() for the exact shape the
+ * frontend sends.
+ *
+ * Returns `['cycles'=>[...], 'cycleProducts'=>[...]]` — the FULL new
+ * contents of both tabs (other companies' rows + this company's
+ * replacement rows), ready to hand to iq_write_full_table().
+ */
+function iq_build_cycles_replacement(array $allCycleRows, array $allCycleProductRows, string $code, array $newCycles): array {
+    $norm = function ($d) {
+        $fallback = iq_js_or($d, '');
+        $test = trim((string) $fallback);
+        return preg_match('/^tba$/i', $test) ? '' : $fallback;
+    };
+
+    $removedIds = [];
+    foreach ($allCycleRows as $c) {
+        if ((string) ($c['company_code'] ?? '') === $code) {
+            $removedIds[(string) ($c['id'] ?? '')] = true;
+        }
+    }
+    $keepCycles = array_values(array_filter($allCycleRows, fn($c) => (string) ($c['company_code'] ?? '') !== $code));
+    $keepCp = array_values(array_filter($allCycleProductRows, fn($cp) => !isset($removedIds[(string) ($cp['cycle_id'] ?? '')])));
+
+    $cyId = 0;
+    foreach ($allCycleRows as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $cyId) $cyId = $n; }
+    $cpId = 0;
+    foreach ($allCycleProductRows as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $cpId) $cpId = $n; }
+
+    $addCycles = [];
+    $addCp = [];
+    foreach (array_values($newCycles) as $i => $c) {
+        $c = is_array($c) ? $c : [];
+        $cyId++;
+        $id = $cyId;
+        $addCycles[] = [
+            'id' => $id,
+            'company_code' => $code,
+            'cycle_type' => iq_js_or($c['type'] ?? null, ''),
+            'mt' => (!array_key_exists('mt', $c) || $c['mt'] === null) ? '' : $c['mt'],
+            'submit_type' => iq_js_or($c['submitType'] ?? null, ''),
+            'submit_date' => $norm($c['submitDate'] ?? null),
+            'release_type' => iq_js_or($c['releaseType'] ?? null, ''),
+            'release_date' => $norm($c['releaseDate'] ?? null),
+            'status' => iq_js_or($c['status'] ?? null, ''),
+            'sort_order' => $i,
+            'pertek_date' => iq_js_or($c['pertekDate'] ?? null, ''),
+            'spi_date' => iq_js_or($c['spiDate'] ?? null, ''),
+            'from_rev_req' => iq_js_truthy($c['_fromRevReq'] ?? null),
+            'source_program' => 'B',
+        ];
+
+        if (isset($c['products']) && is_array($c['products'])) {
+            foreach ($c['products'] as $product => $mt) {
+                $cpId++;
+                $addCp[] = [
+                    'id' => $cpId,
+                    'cycle_id' => $id,
+                    'product' => $product,
+                    'mt' => ($mt === null) ? '' : (string) $mt,
+                    'source_program' => 'B',
+                ];
+            }
+        }
+    }
+
+    return [
+        'cycles' => array_merge($keepCycles, $addCycles),
+        'cycleProducts' => array_merge($keepCp, $addCp),
+    ];
+}
+
+/**
+ * Thin Sheets wrapper for PATCH /api/company/:code/cycles — mirrors the
+ * Sheets branch of server.js's cycles-replace handler (server.js:1919-
+ * 1951) exactly: read `cycles` + `cycle_products` (whole tabs), build the
+ * full replacement matrices via iq_build_cycles_replacement(), write BOTH
+ * tabs write-first-then-clear (iq_write_full_table() — see Task 12's
+ * header comment, "WRITE STRATEGY", for why not GoogleSheets::
+ * replaceTable()), best-effort log a single Change_Log entry, and return
+ * the same `{ok:true, cycles:N}` shape server.js's route responds with (N
+ * = `count($newCycles)`, i.e. `cycles.length` — NOT the post-merge row
+ * count of either tab). Wrapped in iq_with_lock() so a concurrent write
+ * can't compute stale max-id counters (same pattern as every other write
+ * helper in this file).
+ */
+function iq_replace_cycles(GoogleSheets $gs, string $sid, string $code, array $newCycles): array {
+    return iq_with_lock(function () use ($gs, $sid, $code, $newCycles) {
+        $cyTbl = $gs->table($sid, 'cycles');
+        $cpTbl = $gs->table($sid, 'cycle_products');
+
+        $result = iq_build_cycles_replacement($cyTbl['rows'], $cpTbl['rows'], $code, $newCycles);
+
+        iq_write_full_table($gs, $sid, 'cycles', $result['cycles'], $cyTbl['headers']);
+        iq_write_full_table($gs, $sid, 'cycle_products', $result['cycleProducts'], $cpTbl['headers']);
+
+        iq_log_change($gs, $sid, [
+            'sheet' => 'cycles',
+            'record_id' => $code,
+            'field' => '(replace)',
+            'old_value' => '',
+            'new_value' => count($newCycles) . ' cycles',
+            'changed_by' => 'api',
+            'note' => 'cycle editor',
+        ]);
+
+        return ['ok' => true, 'cycles' => count($newCycles)];
+    });
+}

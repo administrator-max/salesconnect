@@ -34,34 +34,39 @@ ok(iq_is_stale('2026-01-02T00:00:00.000Z','2026-01-02T00:00:02.500Z') === true, 
 
 /* ── Router regression: sub-resource PATCH must NOT be swallowed by the
  * bare company PATCH branch ────────────────────────────────────────────
- * PATCH /api/company/:code/cycles (and /record-obtained,
- * /pertek-perubahan-release) are distinct sub-resource endpoints (added in
- * later tasks). Before the api.php guard (`isset($parts[1]) &&
- * !isset($parts[2])`), ANY PATCH with a company code as $parts[1] — even
- * one carrying a trailing sub-resource segment — fell into
- * iq_patch_company(), silently ignored the sub-resource body (e.g.
- * `cycles`), bumped updated_at, and reported {ok:true}: silent data loss.
+ * PATCH /api/company/:code/cycles, /record-obtained,
+ * /pertek-perubahan-release are distinct sub-resource endpoints.
+ * /cycles was wired in Task 13 (iq_replace_cycles); /record-obtained and
+ * /pertek-perubahan-release remain unwired as of this task, so this test
+ * now targets /record-obtained to keep exercising the ORIGINAL guard bug:
+ * before the api.php guard (`isset($parts[1]) && !isset($parts[2])`), ANY
+ * PATCH with a company code as $parts[1] — even one carrying a trailing
+ * sub-resource segment — fell into iq_patch_company(), silently ignored
+ * the sub-resource body, bumped updated_at, and reported {ok:true}: silent
+ * data loss. (See test_cycles.php / iqdash_write.php's Task 13 header
+ * comment for /cycles's own, now-real, routing behavior — it no longer
+ * 404s, it's handled.)
  *
  * api.php's json_out() always ends in exit(), so this can't be checked via
  * ob_start()+include in-process (see test_router_get.php's docblock for
  * why) — same subprocess technique: spawn api.php as its own PHP CLI child
  * process driving the router exactly like a real PATCH request would
- * ($_SERVER['REQUEST_METHOD']='PATCH'; $_GET['_route']='company/EMS/cycles'),
+ * ($_SERVER['REQUEST_METHOD']='PATCH'; $_GET['_route']='company/EMS/record-obtained'),
  * and assert on its real stdout.
  *
  * Reaching the final 404 does NOT require a live Sheets call: with the
- * guard in place, 'company'+PATCH+$parts[2] matches no branch inside the
- * switch, so it falls straight through to the switch's own closing
- * `json_out(['error'=>'Not found...'], 404)` before any table()/getValues()
- * call is ever made. (Constructing `new GoogleSheets()` at the top of
- * api.php's try-block does still require config.php + a readable
- * secure/service_account.json to exist — both are present in this repo —
- * but that construction itself makes no network call; only an actual
- * table()/append()/etc. call would.) */
+ * guard in place, 'company'+PATCH+$parts[2]='record-obtained' matches no
+ * branch inside the switch, so it falls straight through to the switch's
+ * own closing `json_out(['error'=>'Not found...'], 404)` before any
+ * table()/getValues() call is ever made. (Constructing `new GoogleSheets()`
+ * at the top of api.php's try-block does still require config.php + a
+ * readable secure/service_account.json to exist — both are present in
+ * this repo — but that construction itself makes no network call; only an
+ * actual table()/append()/etc. call would.) */
 $bootstrap = tempnam(sys_get_temp_dir(), 'iqroute_') . '.php';
 file_put_contents($bootstrap, '<?php' . "\n"
     . '$_SERVER["REQUEST_METHOD"] = "PATCH";' . "\n"
-    . '$_GET["_route"] = "company/EMS/cycles";' . "\n"
+    . '$_GET["_route"] = "company/EMS/record-obtained";' . "\n"
     . 'require ' . var_export(__DIR__ . '/../api.php', true) . ';' . "\n"
 );
 $cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($bootstrap) . ' 2>&1';
@@ -74,7 +79,7 @@ $routeOut = $runner($cmd);
 
 $jRoute = json_decode(trim((string) $routeOut), true);
 ok(is_array($jRoute) && ($jRoute['error'] ?? null) !== null && strpos((string) $jRoute['error'], 'Not found') === 0,
-    "PATCH company/EMS/cycles falls through to 404 Not found, not {ok:true} (got: " . trim((string) $routeOut) . ")");
-ok(!isset($jRoute['ok']), "PATCH company/EMS/cycles response has no 'ok' key (not silently treated as a bare company save)");
+    "PATCH company/EMS/record-obtained falls through to 404 Not found, not {ok:true} (got: " . trim((string) $routeOut) . ")");
+ok(!isset($jRoute['ok']), "PATCH company/EMS/record-obtained response has no 'ok' key (not silently treated as a bare company save)");
 
 echo empty($GLOBALS['fail']) ? "ALL PASS\n" : "FAILURES\n";

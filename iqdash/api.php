@@ -197,13 +197,51 @@ try {
                 json_out($found);
             }
 
+            // POST /api/company — create a new PENDING company (server.js:
+            // 1791-1832, Sheets branch: the create-company handler). All
+            // validation (code required + unique) happens purely inside
+            // iq_create_company(); this branch only maps its
+            // ['error','status'] result to the HTTP response, same style
+            // as the realizations POST routes below.
+            if ($method === 'POST' && !isset($parts[1])) {
+                $result = iq_create_company($gs, $SID, json_body());
+                if (isset($result['error'])) {
+                    json_out(['error' => $result['error']], $result['status'] ?? 500);
+                }
+                @unlink(iq_payload_memo_file()); // new company — invalidate the /api/data memo (mirrors dcache.invalidate(...))
+                json_out($result);
+            }
+
+            // PATCH /api/company/:code/cycles — full-replace this company's
+            // `cycles` + `cycle_products` rows (server.js:1919-1951, Sheets
+            // branch). Checked BEFORE the bare-company-PATCH branch below
+            // (and does NOT touch that branch's own `!isset($parts[2])`
+            // guard) so this sub-resource endpoint isn't swallowed by the
+            // bare save — see that branch's docblock + Task 12's regression
+            // test (tests/test_patch_company.php) for why the guard exists.
+            if ($method === 'PATCH' && isset($parts[1]) && ($parts[2] ?? '') === 'cycles') {
+                $code = urldecode($parts[1]);
+                if ($code === '') {
+                    json_out(['error' => 'Missing company code'], 400);
+                }
+                $body = json_body();
+                $cycles = $body['cycles'] ?? null;
+                if (!iq_is_list($cycles)) {
+                    json_out(['error' => 'cycles must be array'], 400);
+                }
+                $result = iq_replace_cycles($gs, $SID, $code, $cycles);
+                @unlink(iq_payload_memo_file()); // cycles changed — invalidate the /api/data memo (mirrors dcache.invalidate(...))
+                json_out($result);
+            }
+
             // Bare company PATCH ONLY — a trailing sub-resource segment
-            // ($parts[2] set, e.g. PATCH /api/company/:code/cycles,
-            // /record-obtained, /pertek-perubahan-release) must NOT be
-            // swallowed here: those are distinct endpoints (added in later
-            // tasks) that this bare-save branch has no knowledge of. Without
-            // this guard, e.g. PATCH /api/company/EMS/cycles would silently
-            // fall into iq_patch_company() (which ignores `cycles`), bump
+            // ($parts[2] set, e.g. PATCH /api/company/:code/record-obtained,
+            // /pertek-perubahan-release — /cycles is now handled by its own
+            // branch above) must NOT be swallowed here: those are distinct
+            // endpoints (added in later tasks) that this bare-save branch
+            // has no knowledge of. Without this guard, e.g. PATCH
+            // /api/company/EMS/record-obtained would silently fall into
+            // iq_patch_company() (which ignores that body shape), bump
             // updated_at, and report {ok:true} while doing nothing —
             // matches the disambiguation style `case 'realizations':`
             // already uses for its own `/summary` sub-route.
