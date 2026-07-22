@@ -488,3 +488,306 @@ function iq_build_payload_raw(array $t): array {
         'lastUpdate'       => $lastUpdate,
     ];
 }
+
+/* ── quota ledger overlay (mirrors IQ/server.js:1196-1342 + lib/pendingRevisionGate.js) ──
+ *
+ * Single source for Obtained / Utilized / Available: derives these per
+ * company from the HS-keyed ledger seeded from the authoritative master
+ * (iqdash/data/quotaLedger.json), overriding the divergent cycles/stats-based
+ * numbers `iq_build_payload_raw()` computed. `iq_build_payload()` is the
+ * public entry point later tasks (the /api/data route) call.
+ */
+
+/** Mirror isReleased() from IQ/lib/pendingRevisionGate.js: '' or "TBA"
+ *  (any case) means the PERTEK Perubahan release date has NOT been entered. */
+function iq_is_released($releaseDate): bool {
+    $d = trim((string) ($releaseDate ?? ''));
+    return $d !== '' && !preg_match('/^tba$/i', $d);
+}
+
+/**
+ * Port of `applyPendingRevision` (IQ/lib/pendingRevisionGate.js). A company's
+ * PERTEK can be revised into a product split (e.g. Wear Plate 600 ->
+ * Wear Plate 247 + GI Alloy 353); the split only becomes official once its
+ * PERTEK Perubahan release (terbit) date is entered. Until then this reverses
+ * the not-yet-released split in the per-product maps — moving `mt` from
+ * `to` back into `from` — so the ORIGINAL PERTEK is shown. Pure + in-place
+ * (mutates $maps by reference); no I/O.
+ *
+ * @param array  $maps   ['obtByProd'=>..., 'utilByProd'=>..., 'availByProd'=>...], mutated in place
+ * @param array  $revDef ['from'=>string, 'to'=>string, 'mt'=>number] — empty/[] when the company has no gated split
+ * @param string $releaseDate the company's recorded release_date, or '' when none
+ * @return array ['reversed'=>bool, 'reason'?=>string]
+ */
+function iq_apply_pending_revision(array &$maps, array $revDef, string $releaseDate): array {
+    if (empty($revDef)) return ['reversed' => false, 'reason' => 'no-def'];
+    if (iq_is_released($releaseDate)) return ['reversed' => false, 'reason' => 'released'];
+
+    $from = $revDef['from'] ?? null;
+    $to   = $revDef['to'] ?? null;
+
+    // The "to" product must exist and be untouched (fully available) while pending.
+    if (!array_key_exists($to, $maps['obtByProd'])) return ['reversed' => false, 'reason' => 'to-missing'];
+    if ((iq_num($maps['utilByProd'][$to] ?? 0)) > 0) return ['reversed' => false, 'reason' => 'to-utilized'];
+
+    $toObt = iq_num($maps['obtByProd'][$to] ?? 0);
+    $mt = min(iq_num($revDef['mt'] ?? 0), $toObt); // clamp: can't move more than exists
+    if ($mt <= 0) return ['reversed' => false, 'reason' => 'zero-mt'];
+
+    // Move `mt` from `to` back into `from` (obtained + available; util on `to` is 0).
+    $maps['obtByProd'][$from]   = (iq_num($maps['obtByProd'][$from] ?? 0)) + $mt;
+    $maps['availByProd'][$from] = (iq_num($maps['availByProd'][$from] ?? 0)) + $mt;
+    if (!array_key_exists($from, $maps['utilByProd'])) $maps['utilByProd'][$from] = 0;
+
+    $maps['obtByProd'][$to]   = $toObt - $mt;
+    $maps['availByProd'][$to] = (iq_num($maps['availByProd'][$to] ?? 0)) - $mt;
+    if ($maps['obtByProd'][$to] <= 0) {
+        unset($maps['obtByProd'][$to], $maps['utilByProd'][$to], $maps['availByProd'][$to]);
+    }
+
+    return ['reversed' => true];
+}
+
+/**
+ * Port of the `applyLedger` closure (IQ/server.js:1223-1266). Computes
+ * per-product obtained/util/available from the ledger entity `$ent`
+ * (`{HS: {obtained, util}}`), reconciling the master-snapshot util with LIVE
+ * utilization the user records via shipment lots on `$co['shipments']`
+ * (Task 4 shape: product name => list of lots, each carrying `utilMT`):
+ *
+ *   effective util = min(obtained, ledgerUtil + Sum(lot.utilMT))
+ *
+ * capped at obtained (you can't utilize more than you were granted; the cap
+ * also prevents a lot that merely re-itemizes the master snapshot from
+ * double-counting). Then applies the pending-revision gate (if `$revDef` is
+ * given), sums to get the company total, rounds to 3 decimals, and MUTATES
+ * `$co` in place: obtained, utilizationMT, availableQuota, utilizationByProd,
+ * availableByProd, _ledgerObtained, _ledgerObtainedByProd, products.
+ *
+ * Signature note (see task-5-report.md "signatures" section for the full
+ * rationale): the JS closure captures `hsName`/`releasedMap`/`PENDING_REVISIONS`
+ * from its enclosing scope; PHP has no equivalent closure context here, so
+ * they're explicit parameters instead — `$hsName`/`$releasedDate`/`$revDef`
+ * default to "no overlay effect" values so a bare 2-arg call (as in the
+ * task-5 brief's starter test) still behaves sanely (HS codes pass through
+ * as their own name, no release date, no pending-revision def).
+ *
+ * @param array  $co           company object (Task 4 shape), mutated in place
+ * @param array  $ent          ledger entity for this company: HS => {obtained, util}
+ * @param array  $hsName       HS code => product name (ledger's own `products` map)
+ * @param string $releaseDate  this company's `pertek_perubahan_release` date, or ''
+ * @param array|null $revDef   this company's PENDING_REVISIONS entry, or null
+ */
+function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $releaseDate = '', ?array $revDef = null): void {
+    $utilByProd = [];
+    $availByProd = [];
+    $obtByProd = [];
+    $ships = $co['shipments'] ?? [];
+
+    foreach ($ent as $hs => $v) {
+        $name = $hsName[$hs] ?? $hs;
+        $o = iq_num($v['obtained'] ?? 0);
+        $ledgerU = iq_num($v['util'] ?? 0);
+        $lotU = 0.0;
+        foreach (($ships[$name] ?? []) as $l) {
+            $lotU += iq_num($l['utilMT'] ?? 0);
+        }
+        $u = min($o, $ledgerU + $lotU);
+        $obtByProd[$name] = $o;
+        $utilByProd[$name] = $u;
+        $availByProd[$name] = max(0, $o - $u);
+    }
+
+    // PERTEK Perubahan gate: reverse a not-yet-released product split so the
+    // dashboard shows the ORIGINAL PERTEK until the release date is entered.
+    if ($revDef) {
+        $maps = ['obtByProd' => $obtByProd, 'utilByProd' => $utilByProd, 'availByProd' => $availByProd];
+        $res = iq_apply_pending_revision($maps, $revDef, $releaseDate);
+        $obtByProd = $maps['obtByProd'];
+        $utilByProd = $maps['utilByProd'];
+        $availByProd = $maps['availByProd'];
+        if ($res['reversed']) {
+            $co['_pendingRevision'] = [
+                'from'   => $revDef['from'] ?? null,
+                'to'     => $revDef['to'] ?? null,
+                'mt'     => $revDef['mt'] ?? null,
+                'origMT' => $obtByProd[$revDef['from'] ?? ''] ?? 0,
+            ];
+        } else {
+            unset($co['_pendingRevision']);
+        }
+    }
+
+    $obt = 0.0;
+    $util = 0.0;
+    foreach (array_keys($obtByProd) as $name) {
+        $obt += iq_num($obtByProd[$name] ?? 0);
+        $util += iq_num($utilByProd[$name] ?? 0);
+    }
+    $obt = round($obt * 1000) / 1000;
+    $util = round($util * 1000) / 1000;
+
+    $co['obtained'] = $obt;
+    $co['utilizationMT'] = $util;
+    $co['availableQuota'] = max(0, round(($obt - $util) * 1000) / 1000);
+    $co['utilizationByProd'] = $utilByProd;
+    $co['availableByProd'] = $availByProd;
+    $co['_ledgerObtained'] = $obt;
+    $co['_ledgerObtainedByProd'] = $obtByProd;
+    $co['products'] = array_keys($obtByProd);
+}
+
+/**
+ * Public entry point: `iq_build_payload_raw($t)` then overlay the quota
+ * ledger + pending-revision gate on every SPI company AND every
+ * pending/ledger-only company (mirrors IQ/server.js:1196-1342). This is
+ * what /api/data (a later task) calls.
+ */
+function iq_build_payload(array $t): array {
+    $raw = iq_build_payload_raw($t);
+
+    $ledger = iq_ledger();
+    $ledgerCompanies = $ledger['companies'] ?? [];
+    // Mirrors JS `if (QUOTA_LEDGER && QUOTA_LEDGER.companies) { ... }` — when
+    // there is no ledger at all, none of this overlay runs (not even the
+    // `_ledgerObtained = 0` fallback), so the raw payload stands unmodified.
+    if (!is_array($ledgerCompanies) || !count($ledgerCompanies)) {
+        return $raw;
+    }
+    $hsName = is_array($ledger['products'] ?? null) ? $ledger['products'] : [];
+
+    $spi = $raw['spi'];
+    $pending = $raw['pending'];
+
+    // dirName: abbreviation -> fullName (used only when synthesizing a
+    // brand-new ledger-only company that has no `companies` row at all).
+    $dirName = [];
+    foreach (($raw['companyDirectory'] ?? []) as $d) {
+        $dirName[$d['abbreviation'] ?? ''] = $d['fullName'] ?? '';
+    }
+
+    // releasedMap: code -> release_date, from the `pertek_perubahan_release`
+    // tab. Sheets-only store; an absent/empty tab just yields no releases
+    // (mirrors the JS try/catch around a possibly-missing tab).
+    $releasedMap = [];
+    foreach (($t['pertekRelease'] ?? []) as $r) {
+        $d = trim((string) ($r['release_date'] ?? ''));
+        $code = trim((string) ($r['code'] ?? ''));
+        if ($code !== '' && $d !== '') $releasedMap[$code] = $d;
+    }
+
+    $pendingRevisions = iq_pending_revisions();
+    $ledgerCompanyDates = iq_ledger_company_dates();
+
+    // shipRows: lots filtered to companies actually present in the
+    // `companies` tab (mirrors server.js's `shipRows`, which is filtered by
+    // the codeSet built from `companies` — so a company with NO `companies`
+    // row never has any lots attached here, matching upstream behavior).
+    $companyCodes = [];
+    foreach (($t['companies'] ?? []) as $c) {
+        $cc = $c['code'] ?? '';
+        if ($cc !== '') $companyCodes[$cc] = true;
+    }
+    $shipRows = array_values(array_filter($t['lots'] ?? [], fn($s) => isset($companyCodes[$s['company_code'] ?? null])));
+
+    // 1) Overlay every SPI company already present.
+    $spiByCode = [];
+    foreach ($spi as $i => $co) { $spiByCode[$co['code'] ?? null] = $i; }
+    foreach ($spi as &$co) {
+        $code = $co['code'] ?? null;
+        $ent = $ledgerCompanies[$code] ?? null;
+        if ($ent) {
+            $revDef = $pendingRevisions[$code] ?? null;
+            $release = $releasedMap[$code] ?? '';
+            iq_apply_ledger($co, $ent, $hsName, $release, $revDef);
+        } else {
+            $co['_ledgerObtained'] = 0; // not in current master -> contributes 0
+        }
+    }
+    unset($co);
+
+    // 2) Synthesize ledger companies absent from SPI (e.g. IKM sitting in pending).
+    foreach ($ledgerCompanies as $code => $ent) {
+        if (isset($spiByCode[$code])) continue;
+
+        // If we know this ledger-only company's obtained/terbit date, prepare
+        // a synthetic "Obtained #1" cycle so the client PERIOD filter can
+        // place it in the right month. Used ONLY when the company has no
+        // real cycles of its own.
+        $obtDate = $ledgerCompanyDates[$code] ?? null;
+        $synthCycles = [];
+        if ($obtDate) {
+            $prodMap = [];
+            $totMt = 0.0;
+            foreach ($ent as $hs => $v) {
+                $nm = $hsName[$hs] ?? $hs;
+                $o = iq_num($v['obtained'] ?? 0);
+                if ($o > 0) { $prodMap[$nm] = $o; $totMt += $o; }
+            }
+            $synthCycles = [[
+                'type'        => 'Obtained #1',
+                'mt'          => $totMt,
+                'products'    => $prodMap,
+                'submitType'  => '',
+                'submitDate'  => '',
+                'releaseType' => 'SPI Terbit',
+                'releaseDate' => $obtDate,
+                'status'      => "Obtained (ledger) — terbit {$obtDate}",
+                'pertekDate'  => $obtDate,
+                'spiDate'     => $obtDate,
+                '_fromRevReq' => false,
+            ]];
+        }
+
+        // Reuse the company's REAL, fully-built object if it already exists
+        // (IKM lives in `pending`, built by iq_build_company_obj) — this
+        // preserves its persisted scalars (pertekNo/spiNo/status/cycles).
+        // Only companies truly absent from the DB fall back to a fresh object.
+        $pi = null;
+        foreach ($pending as $idx => $p) {
+            if (($p['code'] ?? null) === $code) { $pi = $idx; break; }
+        }
+
+        if ($pi !== null) {
+            $co = $pending[$pi];
+            array_splice($pending, $pi, 1);
+            $co['section'] = 'SPI';
+            if (empty($co['cycles']) && count($synthCycles)) $co['cycles'] = $synthCycles;
+        } else {
+            $shipMapFor = [];
+            foreach ($shipRows as $s) {
+                if (($s['company_code'] ?? null) !== $code) continue;
+                $prod = $s['product'] ?? '';
+                if (!isset($shipMapFor[$prod])) $shipMapFor[$prod] = [];
+                $shipMapFor[$prod][] = [
+                    'lotNo'        => $s['lot_no'] ?? null,
+                    'utilMT'       => iq_num($s['util_mt'] ?? 0),
+                    'etaJKT'       => $s['eta_jkt'] ?? '',
+                    'note'         => $s['note'] ?? '',
+                    'realMT'       => iq_num($s['real_mt'] ?? 0),
+                    'pibDate'      => $s['pib_date'] ?? '',
+                    'cargoArrived' => $s['cargo_arrived'] ?? false,
+                ];
+            }
+            $co = [
+                'code' => $code, 'fullName' => $dirName[$code] ?? $code, 'group' => '', 'section' => 'SPI',
+                'products' => [], 'submit1' => 0, 'obtained' => 0, 'utilizationMT' => 0, 'availableQuota' => 0,
+                'cycles' => $synthCycles, 'shipments' => $shipMapFor,
+                'utilizationByProd' => [], 'availableByProd' => [], 'arrivedByProd' => [],
+                'revType' => 'none', 'revNote' => '', 'revSubmitDate' => '', 'revStatus' => '', 'revMT' => 0,
+                'revFrom' => [], 'revTo' => [], 'salesRevRequest' => [], 'reapplyTargets' => [],
+                'remarks' => '', 'spiRef' => '', 'statusUpdate' => '', 'pertekNo' => '', 'spiNo' => '',
+                'updatedBy' => '', 'updatedDate' => '', 'updatedAt' => null, 'cycleProducts' => [],
+            ];
+        }
+
+        $revDef = $pendingRevisions[$code] ?? null;
+        $release = $releasedMap[$code] ?? '';
+        iq_apply_ledger($co, $ent, $hsName, $release, $revDef);
+        $spi[] = $co;
+    }
+
+    $raw['spi'] = $spi;
+    $raw['pending'] = $pending;
+    return $raw;
+}
