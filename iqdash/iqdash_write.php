@@ -917,13 +917,15 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
             return ['error' => 'refusing to write empty companies tab', 'status' => 500];
         }
 
-        // Batch every touched tab into ONE atomic write. `companies`
-        // (carrying the new updated_at concurrency token) is still ordered
-        // last within that single batchRewrite() call's request lists — if
-        // any tab in the batch fails, NOTHING in the batch is written (see
-        // GoogleSheets::batchRewrite()'s write-first-then-clear semantics),
-        // so a concurrent reader/next-PATCH never sees an advanced token
-        // for a save that didn't actually complete.
+        // Batch every touched tab into ONE write. All rows go up in a single
+        // values:batchUpdate request, so a failure of that request writes none
+        // of them; write-first-then-clear (see GoogleSheets::batchRewrite())
+        // then guarantees a failed/partial write never leaves a tab blank.
+        // `companies` (carrying the new updated_at concurrency token) is
+        // grouped into that same single request, so a concurrent reader /
+        // next-PATCH won't see an advanced token for a write that failed to
+        // land. (Note: the trailing values:batchClear is a separate request —
+        // its failure leaves recoverable stale trailing rows, never a wipe.)
         $order = ['company_products', 'pending_meta', 'company_shipments', 'company_product_stats', 'company_reapply_targets', 'ra_records', 'companies'];
         $sets = [];
         foreach ($order as $tab) {
