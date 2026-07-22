@@ -77,6 +77,11 @@ $user = sc_current_user();   // null when not signed in
         <h2>Sales Pulse</h2>
         <p>Dashboard sales eksekutif: budget vs actual, margin, konsolidasi PS.</p>
       </a>
+      <a class="card" href="iqdash/">
+        <div class="icon">📊</div>
+        <h2>Import Quota Monitor</h2>
+        <p>Steel import quota (PERTEK/SPI) lifecycle & realization tracking.</p>
+      </a>
     </div>
   </main>
   <footer>SalesConnect · data tersimpan di Google Sheets</footer>

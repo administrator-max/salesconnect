@@ -12,6 +12,7 @@ return [
         'taskflow'   => '1U5J4T9jNcKji--VDpJOFkgs2VMLm6wLAtdr8mtL-164',
         'scot'       => 'YOUR_SCOT_SPREADSHEET_ID',
         'salespulse' => 'YOUR_SALESPULSE_SPREADSHEET_ID',
+        'iqdash'     => '1t4MbpWLaQIe_NfMjb38gMtNTm27WPXLwpUq0THGMYd0',
     ],
 
     // Path ke JSON key service account (di secure/, atau di atas public_html).
