@@ -3,15 +3,18 @@
  * IQ Dash REST API — backed by the IQ Dash Google Spreadsheet. OPEN module
  * (no login), GET routes only for now (write routes are later tasks).
  * Routes relative to /iqdash/api/ :
- *   health           GET
- *   data             GET
- *   company/:code    GET
- *   ra               GET
+ *   health                    GET
+ *   data                      GET
+ *   company/:code             GET
+ *   ra                        GET
+ *   realizations              GET  (?company_code=)
+ *   realizations/summary      GET
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/iqdash_util.php';
 require_once __DIR__ . '/iqdash_data.php';
 require_once __DIR__ . '/iqdash_insights.php';
+require_once __DIR__ . '/iqdash_write.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $parts  = array_values(array_filter(explode('/', trim(sc_route(), '/')), fn($p) => $p !== ''));
@@ -196,6 +199,27 @@ try {
             if ($method === 'GET') {
                 $payload = iq_get_payload($gs, $SID);
                 json_out($payload['ra'] ?? []);
+            }
+            break;
+
+        // ====================================================================
+        // GET /api/realizations[?company_code=CODE] — deduped PIB realization
+        // lines, sorted pib_date DESC (server.js:2381-2419, Sheets branch).
+        // GET /api/realizations/summary — per-company PIB/line counts
+        // (server.js:2334-2379, Sheets branch).
+        // ====================================================================
+        case 'realizations':
+            if ($method === 'GET') {
+                $rows = $gs->table($SID, 'realizations')['rows'];
+
+                if (isset($parts[1]) && $parts[1] === 'summary') {
+                    $summary = iq_realizations_summary($rows);
+                    $summary['counts'] = iq_empty_to_obj($summary['counts']);
+                    json_out($summary);
+                }
+
+                $code = (isset($_GET['company_code']) && $_GET['company_code'] !== '') ? (string) $_GET['company_code'] : null;
+                json_out(['realizations' => iq_realizations_list($rows, $code)]);
             }
             break;
 
