@@ -443,16 +443,20 @@ function iq_realizations_delete(GoogleSheets $gs, string $sid, $id): bool {
  * TRAILING order specifically to avoid the 2026-06-12 incident where a
  * clear-then-write rewrite left the `companies` tab blank after a failed
  * write. `GoogleSheets::replaceTable()` (this PHP client) does the
- * opposite (clear THEN write) and per this task's instructions
- * GoogleSheets.php must not be touched — so `iq_patch_company()` does NOT
- * use `replaceTable()`. Instead `iq_write_full_table()` below reimplements
- * the same write-first-then-clear-trailing order per tab using
- * GoogleSheets's public `updateRange()`/`clearValues()`. It is 2 API calls
- * per touched tab (update + clear) rather than server.js's 2 calls TOTAL
- * across every touched tab (one multi-range batchUpdate + one multi-range
- * batchClear) — GoogleSheets.php exposes no multi-range value batch call,
- * and adding one is out of this task's scope. Correctness (never leave a
- * tab blank on a failed write) is preserved; call-count is not optimized.
+ * opposite (clear THEN write), so `iq_patch_company()` does NOT use
+ * `replaceTable()`. UPDATE (batch-writes task): `GoogleSheets` has since
+ * gained a direct port of server.js's `batchRewrite()` — `GoogleSheets::
+ * batchRewrite()`, a single values:batchUpdate + single values:batchClear
+ * across every touched tab, same write-first-then-clear-trailing order,
+ * purely additive to the shared client. `iq_patch_company()` (and every
+ * other multi-tab full-table write site in this file) now goes through
+ * `iq_batch_write_full_tables()`, which calls it — restoring server.js's
+ * ORIGINAL cross-tab atomicity (one failed tab in the batch means NOTHING
+ * in the batch is written) and its 2-calls-TOTAL-per-save call count,
+ * rather than this port's previous 2-calls-PER-TAB (`iq_write_full_table()`
+ * calling `updateRange()`+`clearValues()` once per tab, non-atomic across
+ * tabs). `iq_write_full_table()` itself is now a thin single-tab wrapper
+ * around `iq_batch_write_full_tables()` — see its docblock.
  */
 
 /** JS Boolean(v) truthiness — PHP's native `!$v`/`empty($v)` diverge from JS on the string `'0'` (falsy in PHP, truthy in JS) and on `[]`/objects (JS: any object, even `{}`/`[]`, is truthy). Used everywhere this port needs `!!x` semantics. */
@@ -527,6 +531,44 @@ function iq_recompute_util_from_lots(array $lots): array {
 }
 
 /**
+ * Rewrite the data region of MANY tabs from assoc rows in ONE round trip via
+ * `GoogleSheets::batchRewrite()` (a single values:batchUpdate + a single
+ * values:batchClear, covering every tab in $sets) instead of the old N×
+ * (updateRange + clearValues) sequence — this is the atomicity fix: a
+ * mid-write failure can no longer desync tabs that must move together
+ * (e.g. `cycles`/`cycle_products`), because they're now one Sheets call
+ * apart, not two separate round trips apart. Write-first-then-clear
+ * ordering and the header row being untouched are unchanged (now enforced
+ * inside `GoogleSheets::batchRewrite()` itself — see its docblock).
+ *
+ * $sets: list of ['tab'=>string, 'rows'=>array<assoc>, 'headers'=>array].
+ * A set whose `headers` is empty is skipped (mirrors iq_write_full_table()'s
+ * own "tab has no header row -> nothing we can safely write" guard) —
+ * `headers` MUST be pre-fetched/known by the caller (this helper never
+ * fetches them itself; single-tab callers needing that fallback go through
+ * `iq_write_full_table()`, which does).
+ */
+function iq_batch_write_full_tables(GoogleSheets $gs, string $sid, array $sets): void {
+    $tabWrites = [];
+    foreach ($sets as $set) {
+        $headers = $set['headers'] ?? [];
+        if (!$headers) continue; // tab has no header row -> nothing we can safely write
+        $tab = $set['tab'];
+        $matrix = [];
+        foreach (($set['rows'] ?? []) as $row) {
+            $line = [];
+            foreach ($headers as $h) {
+                $line[] = iq_log_cell(array_key_exists($h, $row) ? $row[$h] : null);
+            }
+            $matrix[] = $line;
+        }
+        $tabWrites[] = ['tab' => $tab, 'rows' => $matrix];
+    }
+    if (!$tabWrites) return;
+    $gs->batchRewrite($sid, $tabWrites);
+}
+
+/**
  * Rewrite a full tab from assoc rows: header row (row 1) is never touched;
  * data rows are written starting at A2 FIRST, and only the trailing region
  * below the freshly-written rows is cleared afterward — see the Task 12
@@ -543,24 +585,14 @@ function iq_recompute_util_from_lots(array $lots): array {
  * earlier whole-tab read, costing one extra network round-trip per touched
  * tab on every full company save. Falls back to fetching them when the
  * caller doesn't have them handy (null, the default).
+ *
+ * Thin wrapper around `iq_batch_write_full_tables()` — a single-tab call
+ * through the same ONE write code path every full-table write (single- or
+ * multi-tab) now goes through.
  */
 function iq_write_full_table(GoogleSheets $gs, string $sid, string $tab, array $assocRows, ?array $headers = null): void {
     $headers = $headers ?? $gs->headers($sid, $tab);
-    if (!$headers) return; // tab has no header row -> nothing we can safely write
-
-    $matrix = [];
-    foreach ($assocRows as $row) {
-        $line = [];
-        foreach ($headers as $h) {
-            $line[] = iq_log_cell(array_key_exists($h, $row) ? $row[$h] : null);
-        }
-        $matrix[] = $line;
-    }
-    if ($matrix) {
-        $gs->updateRange($sid, $tab . '!A2', $matrix);
-    }
-    $clearFromRow = count($matrix) + 2;
-    $gs->clearValues($sid, $tab . '!A' . $clearFromRow . ':BZ100000');
+    iq_batch_write_full_tables($gs, $sid, [['tab' => $tab, 'rows' => $assocRows, 'headers' => $headers]]);
 }
 
 /**
@@ -885,16 +917,21 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
             return ['error' => 'refusing to write empty companies tab', 'status' => 500];
         }
 
-        // Write dependent tabs first, `companies` (carrying the new
-        // updated_at concurrency token) last — if a later write in this
-        // sequence fails, the token a concurrent reader/next-PATCH sees
-        // hasn't advanced yet, so it won't look like this save "completed".
+        // Batch every touched tab into ONE atomic write. `companies`
+        // (carrying the new updated_at concurrency token) is still ordered
+        // last within that single batchRewrite() call's request lists — if
+        // any tab in the batch fails, NOTHING in the batch is written (see
+        // GoogleSheets::batchRewrite()'s write-first-then-clear semantics),
+        // so a concurrent reader/next-PATCH never sees an advanced token
+        // for a save that didn't actually complete.
         $order = ['company_products', 'pending_meta', 'company_shipments', 'company_product_stats', 'company_reapply_targets', 'ra_records', 'companies'];
+        $sets = [];
         foreach ($order as $tab) {
             if (array_key_exists($tab, $changed)) {
-                iq_write_full_table($gs, $sid, $tab, $changed[$tab], $tabHeaders[$tab] ?? null);
+                $sets[] = ['tab' => $tab, 'rows' => $changed[$tab], 'headers' => $tabHeaders[$tab] ?? $gs->headers($sid, $tab)];
             }
         }
+        iq_batch_write_full_tables($gs, $sid, $sets);
 
         $fieldsChanged = implode(',', array_filter(array_keys($body), fn($k) => $k !== '_ifUpdatedAt'));
         iq_log_change($gs, $sid, [
@@ -1151,14 +1188,16 @@ function iq_build_cycles_replacement(array $allCycleRows, array $allCycleProduct
  * Sheets branch of server.js's cycles-replace handler (server.js:1919-
  * 1951) exactly: read `cycles` + `cycle_products` (whole tabs), build the
  * full replacement matrices via iq_build_cycles_replacement(), write BOTH
- * tabs write-first-then-clear (iq_write_full_table() — see Task 12's
- * header comment, "WRITE STRATEGY", for why not GoogleSheets::
- * replaceTable()), best-effort log a single Change_Log entry, and return
- * the same `{ok:true, cycles:N}` shape server.js's route responds with (N
- * = `count($newCycles)`, i.e. `cycles.length` — NOT the post-merge row
- * count of either tab). Wrapped in iq_with_lock() so a concurrent write
- * can't compute stale max-id counters (same pattern as every other write
- * helper in this file).
+ * tabs atomically in ONE `iq_batch_write_full_tables()` call (backed by
+ * `GoogleSheets::batchRewrite()` — write-first-then-clear across both tabs
+ * in a single values:batchUpdate + values:batchClear pair, restoring
+ * cross-tab atomicity: see Task 12's header comment, "WRITE STRATEGY", for
+ * the 2026-06-12 incident this ordering guards against), best-effort log a
+ * single Change_Log entry, and return the same `{ok:true, cycles:N}` shape
+ * server.js's route responds with (N = `count($newCycles)`, i.e.
+ * `cycles.length` — NOT the post-merge row count of either tab). Wrapped
+ * in iq_with_lock() so a concurrent write can't compute stale max-id
+ * counters (same pattern as every other write helper in this file).
  */
 function iq_replace_cycles(GoogleSheets $gs, string $sid, string $code, array $newCycles): array {
     return iq_with_lock(function () use ($gs, $sid, $code, $newCycles) {
@@ -1167,8 +1206,10 @@ function iq_replace_cycles(GoogleSheets $gs, string $sid, string $code, array $n
 
         $result = iq_build_cycles_replacement($cyTbl['rows'], $cpTbl['rows'], $code, $newCycles);
 
-        iq_write_full_table($gs, $sid, 'cycles', $result['cycles'], $cyTbl['headers']);
-        iq_write_full_table($gs, $sid, 'cycle_products', $result['cycleProducts'], $cpTbl['headers']);
+        iq_batch_write_full_tables($gs, $sid, [
+            ['tab' => 'cycles', 'rows' => $result['cycles'], 'headers' => $cyTbl['headers']],
+            ['tab' => 'cycle_products', 'rows' => $result['cycleProducts'], 'headers' => $cpTbl['headers']],
+        ]);
 
         iq_log_change($gs, $sid, [
             'sheet' => 'cycles',
@@ -1417,10 +1458,19 @@ function iq_record_obtained(GoogleSheets $gs, string $sid, string $code, array $
         $co['updated_at']      = $nowISO;
         $companies[$coIdx] = $co;
 
-        iq_write_full_table($gs, $sid, 'cycles', $cycles, $cyTbl['headers']);
-        iq_write_full_table($gs, $sid, 'cycle_products', $cp, $cpTbl['headers']);
-        iq_write_full_table($gs, $sid, 'company_product_stats', $stats, $statsTbl['headers']);
-        iq_write_full_table($gs, $sid, 'companies', $companies, $companiesTbl['headers']);
+        // Anti-wipe guard (2026-06-12 incident): a single-company mutation
+        // must never shrink/empty the master companies list. Checked BEFORE
+        // the batch write so a would-be-empty companies tab is never sent.
+        if (!iq_is_list($companies) || count($companies) === 0) {
+            return ['error' => 'refusing to write empty companies tab', 'status' => 500];
+        }
+
+        iq_batch_write_full_tables($gs, $sid, [
+            ['tab' => 'cycles', 'rows' => $cycles, 'headers' => $cyTbl['headers']],
+            ['tab' => 'cycle_products', 'rows' => $cp, 'headers' => $cpTbl['headers']],
+            ['tab' => 'company_product_stats', 'rows' => $stats, 'headers' => $statsTbl['headers']],
+            ['tab' => 'companies', 'rows' => $companies, 'headers' => $companiesTbl['headers']],
+        ]);
 
         iq_log_change($gs, $sid, [
             'sheet'      => 'cycles',

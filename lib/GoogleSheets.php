@@ -223,6 +223,39 @@ class GoogleSheets {
         return $r;
     }
 
+    /**
+     * Rewrite the data region (below the header row) of MANY tabs in the fewest
+     * API calls: ONE values:batchUpdate writes each tab's rows at <tab>!A2, then
+     * ONE values:batchClear drops the trailing region below them. WRITE-FIRST
+     * ordering (2026-06-12 wipe fix): a failed write throws before anything is
+     * cleared, so a tab is never left blank. Preserves each tab's header row.
+     * Port of iq_dash lib/sheetsStore.js batchRewrite.
+     *
+     * @param array $tabWrites list of ['tab'=>string, 'rows'=>array<array>] where
+     *        each 'rows' is a list of already-ordered scalar cell arrays (header
+     *        column order). Empty 'rows' clears that tab's whole data region.
+     */
+    public function batchRewrite($id, array $tabWrites) {
+        if (!$tabWrites) return null;
+        $data = [];
+        $clearRanges = [];
+        foreach ($tabWrites as $w) {
+            $tab = $w['tab'];
+            $rows = $w['rows'] ?? [];
+            $q = "'" . str_replace("'", "''", $tab) . "'"; // quote tab name
+            if ($rows) $data[] = ['range' => $q . '!A2', 'values' => $rows];
+            $clearRanges[] = $q . '!A' . (count($rows) + 2) . ':BZ100000';
+        }
+        if ($data) {
+            $this->api('POST', $this->baseUrl($id) . '/values:batchUpdate',
+                ['valueInputOption' => 'RAW', 'data' => $data]);
+        }
+        $this->api('POST', $this->baseUrl($id) . '/values:batchClear',
+            ['ranges' => $clearRanges]);
+        $this->cacheClear();
+        return true;
+    }
+
     /** Map of tab title => numeric sheetId. */
     public function sheetMeta($id) {
         $key = 'meta|' . $id;

@@ -135,6 +135,32 @@ class StubSheets extends GoogleSheets {
         return null;
     }
 
+    /**
+     * In-memory stand-in for the real GoogleSheets::batchRewrite(): applies
+     * each tab's rows at row 2+ then clears the trailing region, same as a
+     * real batchRewrite() call would end up leaving each tab looking like —
+     * needed because iq_record_obtained() (via iq_write_full_table() ->
+     * iq_batch_write_full_tables()) now issues ONE batchRewrite() call
+     * across all 4 touched tabs instead of 4 separate updateRange/
+     * clearValues pairs, so this stub must drive that call to keep
+     * exercising the real netting logic end-to-end.
+     */
+    public function batchRewrite($id, array $tabWrites) {
+        foreach ($tabWrites as $w) {
+            $tab = $w['tab'];
+            $rows = $w['rows'] ?? [];
+            $headers = $this->tables[$tab]['headers'] ?? [];
+            $newRows = [];
+            foreach ($rows as $i => $line) {
+                $assoc = ['_row' => $i + 2];
+                foreach ($headers as $c => $h) $assoc[$h] = $line[$c] ?? '';
+                $newRows[] = $assoc;
+            }
+            $this->tables[$tab]['rows'] = $newRows;
+        }
+        return true;
+    }
+
     public function append($id, $tab, array $rows) {
         if ($tab === 'Change_Log') {
             foreach ($rows as $r) $this->changeLog[] = $r;
