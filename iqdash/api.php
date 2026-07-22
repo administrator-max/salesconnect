@@ -3,14 +3,19 @@
  * IQ Dash REST API — backed by the IQ Dash Google Spreadsheet. OPEN module
  * (no login).
  * Routes relative to /iqdash/api/ :
- *   health                    GET
- *   data                      GET
- *   company/:code             GET
- *   ra                        GET
- *   realizations              GET (?company_code=), POST (bulk)
- *   realizations/summary      GET
- *   realizations/single       POST
- *   realizations/:id          DELETE
+ *   health                                       GET
+ *   data                                         GET
+ *   company                                      POST (create)
+ *   company/:code                                GET, PATCH (save)
+ *   company/:code/cycles                         PATCH (full-replace)
+ *   company/:code/record-obtained                POST
+ *   company/:code/pertek-perubahan-release        POST
+ *   ra                                           GET
+ *   realizations                                 GET (?company_code=), POST (bulk)
+ *   realizations/summary                         GET
+ *   realizations/single                          POST
+ *   realizations/:id                             DELETE
+ *   insights[/:q]                                GET
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/iqdash_util.php';
@@ -212,6 +217,46 @@ try {
                 json_out($result);
             }
 
+            // POST /api/company/:code/record-obtained — atomically record a
+            // newly-granted quota, keeping the cycles-path and stats-path
+            // obtained IN SYNC (server.js:2015-2088, Sheets branch). All
+            // validation (product/terbitDate/mt required + company exists)
+            // happens purely inside iq_record_obtained(); this branch only
+            // maps its ['error','status'] result to the HTTP response, same
+            // style as the realizations POST routes above.
+            if ($method === 'POST' && isset($parts[1]) && ($parts[2] ?? '') === 'record-obtained') {
+                $code = urldecode($parts[1]);
+                if ($code === '') {
+                    json_out(['error' => 'Missing company code'], 400);
+                }
+                $result = iq_record_obtained($gs, $SID, $code, json_body());
+                if (isset($result['error'])) {
+                    json_out(['error' => $result['error']], $result['status'] ?? 500);
+                }
+                @unlink(iq_payload_memo_file()); // obtained/available changed — invalidate the /api/data memo
+                json_out($result);
+            }
+
+            // POST /api/company/:code/pertek-perubahan-release — record the
+            // PERTEK Perubahan release (terbit) date that un-gates a pending
+            // product split (server.js:2101-2126, Sheets branch). See
+            // iqdash_write.php's Task 14 header comment for why the stored
+            // (and echoed-back) releaseDate is the RAW input, not
+            // iq_date_iso()'s ISO conversion.
+            if ($method === 'POST' && isset($parts[1]) && ($parts[2] ?? '') === 'pertek-perubahan-release') {
+                $code = urldecode($parts[1]);
+                if ($code === '') {
+                    json_out(['error' => 'Missing company code'], 400);
+                }
+                $releaseDate = (string) (json_body()['releaseDate'] ?? '');
+                $result = iq_pertek_perubahan_release($gs, $SID, $code, $releaseDate);
+                if (isset($result['error'])) {
+                    json_out(['error' => $result['error']], $result['status'] ?? 500);
+                }
+                @unlink(iq_payload_memo_file()); // split un-gated — invalidate the /api/data memo
+                json_out($result);
+            }
+
             // PATCH /api/company/:code/cycles — full-replace this company's
             // `cycles` + `cycle_products` rows (server.js:1919-1951, Sheets
             // branch). Checked BEFORE the bare-company-PATCH branch below
@@ -235,16 +280,20 @@ try {
             }
 
             // Bare company PATCH ONLY — a trailing sub-resource segment
-            // ($parts[2] set, e.g. PATCH /api/company/:code/record-obtained,
-            // /pertek-perubahan-release — /cycles is now handled by its own
-            // branch above) must NOT be swallowed here: those are distinct
-            // endpoints (added in later tasks) that this bare-save branch
-            // has no knowledge of. Without this guard, e.g. PATCH
-            // /api/company/EMS/record-obtained would silently fall into
-            // iq_patch_company() (which ignores that body shape), bump
-            // updated_at, and report {ok:true} while doing nothing —
-            // matches the disambiguation style `case 'realizations':`
-            // already uses for its own `/summary` sub-route.
+            // ($parts[2] set) must NOT be swallowed here: /cycles (PATCH),
+            // /record-obtained + /pertek-perubahan-release (POST, Task 14)
+            // are all distinct sub-resource endpoints with their own
+            // branches above; this bare-save branch has no knowledge of any
+            // of them. Without this guard, e.g. a stray PATCH to
+            // /api/company/EMS/record-obtained (wrong HTTP method for that
+            // endpoint) would silently fall into iq_patch_company() (which
+            // ignores that body shape), bump updated_at, and report
+            // {ok:true} while doing nothing — matches the disambiguation
+            // style `case 'realizations':` already uses for its own
+            // `/summary` sub-route. (See tests/test_patch_company.php's
+            // regression test, which targets a permanently-unwired
+            // sub-resource name so it keeps proving this guard works
+            // regardless of which real sub-resources get wired over time.)
             if ($method === 'PATCH' && isset($parts[1]) && !isset($parts[2])) {
                 $code = isset($parts[1]) ? urldecode($parts[1]) : null;
                 if ($code === null || $code === '') {

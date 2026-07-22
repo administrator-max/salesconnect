@@ -1183,3 +1183,322 @@ function iq_replace_cycles(GoogleSheets $gs, string $sid, string $code, array $n
         return ['ok' => true, 'cycles' => count($newCycles)];
     });
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Task 14 (FINAL write endpoints) — POST /api/company/:code/record-obtained
+ * + POST /api/company/:code/pertek-perubahan-release. Ports:
+ *   - the Sheets branch of `POST .../record-obtained`             server.js:2015-2088
+ *   - the Sheets branch of `POST .../pertek-perubahan-release`     server.js:2101-2126
+ *
+ * RECORD-OBTAINED SYNC — the whole point of this endpoint (per historical
+ * SJH/LCP/BBB manual fix-up bugs) is that a newly-granted quota must show up
+ * BOTH in the cycles-based KPI (mark the cycle terbit: release_date/spi_date/
+ * status/from_rev_req) AND in the stats-based breakdown
+ * (company_product_stats.available_mt for the product) — then the
+ * company-level obtained/utilization/available fields are RECOMPUTED from
+ * the stats rows so the top-level KPI always equals the per-product
+ * breakdown sum. server.js achieves idempotency by NETTING: it reads the
+ * cycle's OLD `mt` and OLD `release_date`/`from_rev_req` state BEFORE
+ * mutating it, computes `prevContribution` (the OLD mt IF that cycle was
+ * already terbit-and-not-a-rev-req-artifact, else 0), then applies
+ * `available_mt = max(0, available_mt - prevContribution + mt)` — so
+ * re-posting the exact same terbit (same mt) nets to +0 (no double-count),
+ * while re-posting with a DIFFERENT mt (a correction) nets to the delta
+ * between old and new. `iq_record_obtained()` below ports this netting
+ * exactly, reading `prevContribution` from the real cycle row it finds.
+ *
+ * PURE PLANNING HELPER — `iq_record_obtained_plan()` implements the
+ * SIMPLER boolean contract this task's brief literally specifies
+ * (`$alreadyTerbit` as a bare flag, not the OLD mt): alreadyTerbit=true ->
+ * skip entirely (no delta); alreadyTerbit=false -> delta = +$mt. This is a
+ * faithful model of server.js's netting for the two cases the brief's own
+ * test asks for — a genuine no-op re-post of unchanged data collapses to
+ * skip=true/delta=0 either way (prevContribution==mt => net 0), and a
+ * brand-new recording (prevContribution=0) is exactly delta=+mt — but it
+ * does NOT capture the "re-post with a DIFFERENT mt" correction case (that
+ * needs the OLD mt, not just a boolean), which server.js's netting DOES
+ * handle. `iq_record_obtained()` therefore does NOT call this pure helper —
+ * it implements the full netting itself (see above) so a correction still
+ * nets correctly. `iq_record_obtained_plan()` is kept as the tested,
+ * documented pure primitive the brief's interface asked for, same pattern
+ * as Task 11's `iq_realizations_merge()` (a faithful-but-not-wired pure
+ * helper, divergence documented in its own header comment).
+ *
+ * PERTEK PERUBAHAN RELEASE — STORAGE FORMAT. This task's brief says
+ * "accept DD/MM/YYYY or ISO → store ISO", but the REAL server.js handler
+ * (server.js:2101-2126) never converts: `row.release_date = releaseDate;`
+ * stores the trimmed input VERBATIM, and the route's JSON response echoes
+ * that same raw string back (`res.json({ ok:true, code, releaseDate })`),
+ * not an ISO-normalized one. Confirmed further by reading
+ * lib/pendingRevisionGate.js's `isReleased()`: the un-gate check only tests
+ * "non-empty and not literally /^tba$/i" — it is completely FORMAT-
+ * AGNOSTIC, so nothing downstream depends on ISO storage either. Per this
+ * task's own ambiguity-resolution note ("if server.js stores raw ... match
+ * that exactly"), `iq_pertek_perubahan_release()` stores the ORIGINAL raw
+ * `$releaseDate` string, not `iq_date_iso()`'s converted return value.
+ * `iq_date_iso()` (already in iqdash_util.php) is used ONLY as a stricter
+ * input-validity GATE — real calendar validation (via PHP's checkdate())
+ * that also rejects server.js's shape-only-valid-but-nonsensical dates like
+ * 31/02/2026 — before the raw string is accepted for storage.
+ */
+
+/**
+ * PURE: the brief's literal planning-helper contract — see the "PURE
+ * PLANNING HELPER" note in this section's header comment for exactly what
+ * this does and does not model. Finds the existing `company_product_stats`
+ * row for `$product` (string-cast compare, this codebase's ID-compare
+ * convention) to get its current `available_mt` (0.0 if no row yet).
+ *
+ * `$alreadyTerbit === true` -> the intended change is a no-op: returns the
+ * CURRENT available_mt unchanged, `skipped => true`, `delta => 0.0`.
+ * `$alreadyTerbit === false` -> the intended change adds `$mt` to the
+ * current available_mt (floored at 0, mirroring server.js's
+ * `Math.max(0, ...)`): returns the NEW available_mt, `skipped => false`,
+ * `delta => $mt`.
+ *
+ * Returns `['skipped'=>bool, 'delta'=>float, 'newAvailable'=>float,
+ * 'foundExisting'=>bool]` — `foundExisting` tells the caller whether an
+ * UPDATE (existing stats row) or an INSERT (brand-new stats row) is needed
+ * to apply this plan, mirroring server.js's `if (st) {...} else {...}`
+ * branch (server.js:2066-2071).
+ */
+function iq_record_obtained_plan(array $statsRows, string $product, float $mt, bool $alreadyTerbit): array {
+    $existing = null;
+    foreach ($statsRows as $s) {
+        if ((string) ($s['product'] ?? '') === $product) { $existing = $s; break; }
+    }
+    $foundExisting = $existing !== null;
+    $prevAvailable = $foundExisting ? iq_num($existing['available_mt'] ?? 0) : 0.0;
+
+    if ($alreadyTerbit) {
+        return [
+            'skipped'       => true,
+            'delta'         => 0.0,
+            'newAvailable'  => $prevAvailable,
+            'foundExisting' => $foundExisting,
+        ];
+    }
+
+    return [
+        'skipped'       => false,
+        'delta'         => $mt,
+        'newAvailable'  => max(0.0, $prevAvailable + $mt),
+        'foundExisting' => $foundExisting,
+    ];
+}
+
+/**
+ * Full port of `POST /api/company/:code/record-obtained` (server.js:2015-
+ * 2088, Sheets branch). See this section's header comment for the netting
+ * idempotency rule this implements directly (not via
+ * `iq_record_obtained_plan()` — see why there). Validates `product`
+ * required, `terbitDate` required, `mt` a finite positive number (mirrors
+ * server.js's `!Number.isFinite(mt) || mt <= 0` check) -> 400; company must
+ * exist -> 404. Wrapped in `iq_with_lock()` (same pattern as every other
+ * write helper in this file).
+ *
+ * Finds (or seeds, server.js:2035-2042) the `cycles` row for
+ * (company_code=$code, cycle_type=$cycleType — default 'Obtained #2'),
+ * nets out its prior counted contribution before applying the new `mt` to
+ * `company_product_stats.available_mt` for `$product`, marks the cycle
+ * terbit (release_date/spi_date/status/from_rev_req), replaces that
+ * cycle's `cycle_products` breakdown with the single product, and
+ * recomputes `companies.utilization_mt`/`available_quota`/`obtained` from
+ * the company's stats rows so the top-level KPI always equals the
+ * per-product breakdown sum.
+ *
+ * `from_rev_req` on the EXISTING cycle row read back from Sheets is a raw
+ * cell value ('TRUE'/'FALSE'/'' — GoogleSheets::table() does not coerce
+ * types), so it is run through `iq_coerce()` before the `=== false`
+ * comparison server.js makes against its already-coerced store row — this
+ * mirrors sheetsStore.js's own `coerce()` step that JS gets for free on
+ * every table read.
+ *
+ * Returns `['ok'=>true,'code'=>string,'product'=>string,'obtained'=>float,
+ * 'utilization'=>float,'available'=>float]` on success, or
+ * `['error'=>string,'status'=>400|404]` on invalid input / company not
+ * found.
+ */
+function iq_record_obtained(GoogleSheets $gs, string $sid, string $code, array $body): array {
+    $cycleType  = trim((string) iq_js_or($body['cycleType'] ?? null, 'Obtained #2'));
+    $product    = trim((string) ($body['product'] ?? ''));
+    $terbitDate = trim((string) ($body['terbitDate'] ?? ''));
+    $mtRaw      = $body['mt'] ?? null;
+    $mt         = is_numeric($mtRaw) ? (float) $mtRaw : NAN;
+
+    if ($product === '')            return ['error' => 'product required', 'status' => 400];
+    if ($terbitDate === '')         return ['error' => 'terbitDate required', 'status' => 400];
+    if (!is_finite($mt) || $mt <= 0) return ['error' => 'mt must be a positive number', 'status' => 400];
+
+    return iq_with_lock(function () use ($gs, $sid, $code, $body, $cycleType, $product, $terbitDate, $mt) {
+        $nowISO = iq_iso_now();
+
+        $companiesTbl = $gs->table($sid, 'companies');
+        $companies = $companiesTbl['rows'];
+        $coIdx = null;
+        foreach ($companies as $i => $c) {
+            if ((string) ($c['code'] ?? '') === $code) { $coIdx = $i; break; }
+        }
+        if ($coIdx === null) return ['error' => 'company not found', 'status' => 404];
+        $co = $companies[$coIdx];
+
+        // ── find (or seed) the obtained cycle for this company + type ──
+        $cyTbl = $gs->table($sid, 'cycles');
+        $cycles = $cyTbl['rows'];
+        $cyIdx = null;
+        foreach ($cycles as $i => $c) {
+            if ((string) ($c['company_code'] ?? '') === $code && (string) ($c['cycle_type'] ?? '') === $cycleType) { $cyIdx = $i; break; }
+        }
+        if ($cyIdx === null) {
+            $maxCyId = 0;
+            foreach ($cycles as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxCyId) $maxCyId = $n; }
+            $sortOrder = 0;
+            foreach ($cycles as $r) { if ((string) ($r['company_code'] ?? '') === $code) $sortOrder++; }
+            $cyc = [
+                'id' => (string) ($maxCyId + 1), 'company_code' => $code, 'cycle_type' => $cycleType, 'mt' => $mt,
+                'submit_type' => 'Submit MOT (Submit #2) Perubahan', 'submit_date' => '', 'release_type' => 'SPI Perubahan',
+                'release_date' => '', 'status' => '', 'sort_order' => $sortOrder,
+                'pertek_date' => '', 'spi_date' => '', 'from_rev_req' => false, 'source_program' => 'B',
+            ];
+            $cycles[] = $cyc;
+            $cyIdx = count($cycles) - 1;
+        } else {
+            $cyc = $cycles[$cyIdx];
+        }
+
+        // ── idempotency: net out any prior counted contribution of THIS cycle ──
+        $rd = trim((string) ($cyc['release_date'] ?? ''));
+        $wasCounted = (iq_coerce($cyc['from_rev_req'] ?? null) === false) && $rd !== '' && !preg_match('/^tba$/i', $rd);
+        $prevContribution = $wasCounted ? iq_num($cyc['mt'] ?? 0) : 0.0;
+
+        $cyc['release_date'] = $terbitDate;
+        $cyc['spi_date']     = $terbitDate;
+        $cyc['status']       = 'SPI TERBIT ' . $terbitDate;
+        $cyc['from_rev_req'] = false;
+        $cyc['mt']           = $mt;
+        $cycles[$cyIdx] = $cyc;
+
+        // ── cycle_products: this cycle's breakdown becomes the single product ──
+        $cpTbl = $gs->table($sid, 'cycle_products');
+        $cp = $cpTbl['rows'];
+        $maxCpId = 0;
+        foreach ($cp as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxCpId) $maxCpId = $n; }
+        $cp = array_values(array_filter($cp, fn($r) => (string) ($r['cycle_id'] ?? '') !== (string) $cyc['id']));
+        $maxCpId++;
+        $cp[] = ['id' => $maxCpId, 'cycle_id' => $cyc['id'], 'product' => $product, 'mt' => (string) $mt, 'source_program' => 'B'];
+
+        // ── stats: net-add the new mt to AVAILABLE; utilization untouched ──
+        $statsTbl = $gs->table($sid, 'company_product_stats');
+        $stats = $statsTbl['rows'];
+        $maxSid = 0;
+        foreach ($stats as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxSid) $maxSid = $n; }
+        $stIdx = null;
+        foreach ($stats as $i => $s) {
+            if ((string) ($s['company_code'] ?? '') === $code && (string) ($s['product'] ?? '') === $product) { $stIdx = $i; break; }
+        }
+        if ($stIdx !== null) {
+            $prevAvail = iq_num($stats[$stIdx]['available_mt'] ?? 0);
+            $stats[$stIdx]['available_mt'] = max(0.0, $prevAvail - $prevContribution + $mt);
+        } else {
+            $maxSid++;
+            $stats[] = ['id' => $maxSid, 'company_code' => $code, 'product' => $product, 'utilization_mt' => 0, 'available_mt' => $mt, 'realization_mt' => '', 'eta_jkt' => '', 'arrived' => false, 'source_program' => 'B'];
+        }
+
+        // ── recompute company totals from its stats (keeps KPI == breakdown) ──
+        $coUtil = 0.0; $coAvail = 0.0;
+        foreach ($stats as $s) {
+            if ((string) ($s['company_code'] ?? '') !== $code) continue;
+            $coUtil  += iq_num($s['utilization_mt'] ?? 0);
+            $coAvail += iq_num($s['available_mt'] ?? 0);
+        }
+        $co['utilization_mt']  = $coUtil;
+        $co['available_quota'] = $coAvail;
+        $co['obtained']        = $coUtil + $coAvail;
+        $co['updated_at']      = $nowISO;
+        $companies[$coIdx] = $co;
+
+        iq_write_full_table($gs, $sid, 'cycles', $cycles, $cyTbl['headers']);
+        iq_write_full_table($gs, $sid, 'cycle_products', $cp, $cpTbl['headers']);
+        iq_write_full_table($gs, $sid, 'company_product_stats', $stats, $statsTbl['headers']);
+        iq_write_full_table($gs, $sid, 'companies', $companies, $companiesTbl['headers']);
+
+        iq_log_change($gs, $sid, [
+            'sheet'      => 'cycles',
+            'record_id'  => $code,
+            'field'      => 'record-obtained',
+            'old_value'  => "$cycleType prevCounted=$prevContribution",
+            'new_value'  => "$product +$mt→avail terbit $terbitDate",
+            'changed_by' => iq_js_or($body['updatedBy'] ?? null, 'api'),
+            'note'       => 'record new obtained (auto)',
+        ]);
+
+        return ['ok' => true, 'code' => $code, 'product' => $product, 'obtained' => $co['obtained'], 'utilization' => $coUtil, 'available' => $coAvail];
+    });
+}
+
+/**
+ * Full port of `POST /api/company/:code/pertek-perubahan-release`
+ * (server.js:2101-2126, Sheets branch). See this section's header comment
+ * ("PERTEK PERUBAHAN RELEASE — STORAGE FORMAT") for why the RAW
+ * `$releaseDate` string is stored (not `iq_date_iso()`'s ISO conversion).
+ *
+ * Validates: `$releaseDate` non-empty (400 'releaseDate required'); the
+ * company must have a pending PERTEK Perubahan entry in
+ * `iq_pending_revisions()` (mirrors server.js's `PENDING_REVISIONS[code]`
+ * check — 400 'company has no pending PERTEK Perubahan' — this prevents a
+ * stray write from accidentally un-gating an unrelated code); the date must
+ * pass `iq_date_iso()` (400 'releaseDate must be DD/MM/YYYY or YYYY-MM-DD').
+ *
+ * Upserts one row per `$code` (string-cast compare) into
+ * `pertek_perubahan_release`: updates `release_date`/`updated_at` on a
+ * match, else appends a new row. Wrapped in `iq_with_lock()` (same pattern
+ * as every other write helper in this file).
+ *
+ * Returns `['ok'=>true,'code'=>string,'releaseDate'=>string]` on success
+ * (releaseDate = the raw input, echoed back exactly like server.js does),
+ * or `['error'=>string,'status'=>400]` on invalid input.
+ */
+function iq_pertek_perubahan_release(GoogleSheets $gs, string $sid, string $code, string $releaseDate): array {
+    $releaseDate = trim($releaseDate);
+    if ($releaseDate === '') return ['error' => 'releaseDate required', 'status' => 400];
+
+    $pending = iq_pending_revisions();
+    if (!isset($pending[$code])) {
+        return ['error' => 'company has no pending PERTEK Perubahan', 'status' => 400];
+    }
+
+    if (iq_date_iso($releaseDate) === null) {
+        return ['error' => 'releaseDate must be DD/MM/YYYY or YYYY-MM-DD', 'status' => 400];
+    }
+
+    return iq_with_lock(function () use ($gs, $sid, $code, $releaseDate) {
+        $nowISO = iq_iso_now();
+        $tbl = $gs->table($sid, 'pertek_perubahan_release');
+        $rows = $tbl['rows'];
+        $idx = null;
+        foreach ($rows as $i => $r) {
+            if (trim((string) ($r['code'] ?? '')) === $code) { $idx = $i; break; }
+        }
+        $old = $idx !== null ? (string) ($rows[$idx]['release_date'] ?? '') : '';
+        if ($idx !== null) {
+            $rows[$idx]['release_date'] = $releaseDate;
+            $rows[$idx]['updated_at']   = $nowISO;
+        } else {
+            $rows[] = ['code' => $code, 'release_date' => $releaseDate, 'updated_at' => $nowISO];
+        }
+
+        iq_write_full_table($gs, $sid, 'pertek_perubahan_release', $rows, $tbl['headers']);
+
+        iq_log_change($gs, $sid, [
+            'sheet'      => 'pertek_perubahan_release',
+            'record_id'  => $code,
+            'field'      => 'release_date',
+            'old_value'  => $old,
+            'new_value'  => $releaseDate,
+            'changed_by' => 'api',
+            'note'       => 'PERTEK Perubahan terbit → un-gate split',
+        ]);
+
+        return ['ok' => true, 'code' => $code, 'releaseDate' => $releaseDate];
+    });
+}
