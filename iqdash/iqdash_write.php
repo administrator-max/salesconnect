@@ -1556,4 +1556,3 @@ function iq_pertek_perubahan_release(GoogleSheets $gs, string $sid, string $code
 }
 
 
-// deploy-touch b66e4f1 retry
