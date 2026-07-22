@@ -1427,7 +1427,7 @@ function iq_record_obtained(GoogleSheets $gs, string $sid, string $code, array $
             'record_id'  => $code,
             'field'      => 'record-obtained',
             'old_value'  => "$cycleType prevCounted=$prevContribution",
-            'new_value'  => "$product +$mt→avail terbit $terbitDate",
+            'new_value'  => "$product +{$mt}→avail terbit $terbitDate",
             'changed_by' => iq_js_or($body['updatedBy'] ?? null, 'api'),
             'note'       => 'record new obtained (auto)',
         ]);
