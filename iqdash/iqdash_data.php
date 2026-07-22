@@ -585,7 +585,7 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
     $ships = $co['shipments'] ?? [];
 
     foreach ($ent as $hs => $v) {
-        $name = $hsName[$hs] ?? $hs;
+        $name = ($hsName[$hs] ?? '') !== '' ? $hsName[$hs] : $hs;
         $o = iq_num($v['obtained'] ?? 0);
         $ledgerU = iq_num($v['util'] ?? 0);
         $lotU = 0.0;
@@ -645,6 +645,17 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
  */
 function iq_build_payload(array $t): array {
     $raw = iq_build_payload_raw($t);
+
+    // Mirror JS server.js:1043 `if (!codes.length) return {...}` — when the
+    // source `companies` tab has ZERO rows, iq_build_payload_raw() already
+    // returned the early-return empty payload; short-circuit here too so we
+    // never run the ledger overlay / ledger-only synthesis on top of it (that
+    // would fabricate a full `spi[]` out of the ledger even though the real
+    // app never does). Gate on the real `companies` input being empty, NOT on
+    // the ledger being empty.
+    if (empty($t['companies'])) {
+        return $raw;
+    }
 
     $ledger = iq_ledger();
     $ledgerCompanies = $ledger['companies'] ?? [];
@@ -720,7 +731,7 @@ function iq_build_payload(array $t): array {
             $prodMap = [];
             $totMt = 0.0;
             foreach ($ent as $hs => $v) {
-                $nm = $hsName[$hs] ?? $hs;
+                $nm = ($hsName[$hs] ?? '') !== '' ? $hsName[$hs] : $hs;
                 $o = iq_num($v['obtained'] ?? 0);
                 if ($o > 0) { $prodMap[$nm] = $o; $totMt += $o; }
             }

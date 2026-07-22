@@ -147,15 +147,18 @@ if ($ikmEnt) {
     echo "SKIP IKM synthesis test (IKM not present in current quotaLedger.json)\n";
 }
 
-/* ── section 2b: ledger-only company with NO `companies` row at all gets a
- * brand-new synthesized object; still overlays correctly (cross-checks the
- * whole ledger sum again through the "else" synthesis branch). ── */
+/* ── server.js:1043 parity: when the `companies` tab has ZERO rows, the
+ * real app returns the empty payload BEFORE the ledger overlay ever runs —
+ * it never synthesizes spi[] rows out of the ledger. iq_build_payload must
+ * short-circuit exactly like iq_build_payload_raw() does, gated on the real
+ * `companies` input being empty (not on the ledger being empty). The
+ * 33730/18346/15384 parity totals are already exercised above (section 1,
+ * lines 107-113) via a NON-empty `companies` input feeding the ledger
+ * companies in as real SPI rows — that legitimate overlay path is
+ * untouched by this fix. ── */
 $t4 = ['companies' => []] + $emptyTabs;
 $p4 = iq_build_payload($t4);
-ok(count($p4['spi']) === count($ledger['companies'] ?? []), 'all ledger companies synthesized fresh when `companies` tab is empty');
-$totalObt4  = $sum($p4['spi'], 'obtained');
-$totalUtil4 = $sum($p4['spi'], 'utilizationMT');
-ok(abs($totalObt4 - 33730) < 0.01,  "parity (fresh-synthesis path): total obtained 33730 (got $totalObt4)");
-ok(abs($totalUtil4 - 18346) < 0.01, "parity (fresh-synthesis path): total utilized 18346 (got $totalUtil4)");
+ok($p4['spi'] === [], 'empty `companies` tab -> spi === [] (no ledger synthesis, mirrors server.js:1043)');
+ok($p4['pending'] === [], 'empty `companies` tab -> pending === [] (mirrors server.js:1043)');
 
 echo empty($GLOBALS['fail']) ? "ALL PASS\n" : "FAILURES\n";
