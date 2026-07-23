@@ -11,6 +11,12 @@ logs/*
 setup.php
 tools/*
 
+# Test suites — tidak perlu (dan tidak boleh) di web root produksi
+*/tests/*
+
+# CI / repo meta — tidak relevan di host
+.github/*
+
 # Contoh config, artifak build, file bantu
 config.sample.php
 *_deploy.zip
