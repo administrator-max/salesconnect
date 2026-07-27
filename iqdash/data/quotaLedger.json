@@ -7,16 +7,16 @@
   "note": "built from local copy (7) 23-Jul plus the two 24-Jul utilization entries present in the Drive copy (IKM +300, SGD +200 GI Boron); totals verified against the master's Total Obtained / Total Utilization cells (34,240 / 22,547)"
  },
  "products": {
-  "7225.30.90": "HRC / HRPO ALLOY",
-  "7225.40.90": "BORDES ALLOY (Wear plate)",
-  "7225.92.90": "GI BORON",
-  "7225.99.90": "GL BORON",
+  "7225.30.90": "HRPO ALLOY",
+  "7225.40.90": "BORDES ALLOY",
+  "7225.92.90": "GI ALLOY",
+  "7225.99.90": "GL ALLOY",
   "7228.30.10": "AS STEEL",
   "7210.70.13": "PPGL CARBON",
-  "7301.10.00": "SHEETPILE",
-  "7304.19.00": "SEAMLESS",
-  "7306.30.91": "ERW PIPE OD ≤ 140 mm",
-  "7306.30.99": "ERW PIPE OD > 140 mm"
+  "7301.10.00": "SHEET PILE",
+  "7304.19.00": "SEAMLESS PIPE",
+  "7306.30.91": "ERW PIPE (OD ≤ 140 mm)",
+  "7306.30.99": "ERW PIPE (OD > 140mm)"
  },
  "companies": {
   "EMS": {

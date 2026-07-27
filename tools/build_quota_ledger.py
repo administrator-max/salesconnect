@@ -136,9 +136,24 @@ def main():
     ap.add_argument("master")
     ap.add_argument("-o", "--out")
     ap.add_argument("--check", help="compare against this ledger instead of writing")
+    ap.add_argument("--names-from", help="prefer this ledger's HS->product names")
     a = ap.parse_args()
 
     led = build(a.master)
+
+    # The master's row-2 headers are operational labels ("GI BORON",
+    # "BORDES ALLOY (Wear plate)"); the dashboard and the reports use curated
+    # names ("GI ALLOY", "BORDES ALLOY"). Keep the curated name wherever the HS
+    # code already had one, so regenerating never renames a product under the
+    # users' feet. Only genuinely new HS codes take the master's wording.
+    if a.names_from and os.path.isfile(a.names_from):
+        prev = json.load(open(a.names_from, encoding="utf-8")).get("products", {})
+        kept = [hs for hs in led["products"] if hs in prev]
+        for hs in kept:
+            led["products"][hs] = prev[hs]
+        new = [hs for hs in led["products"] if hs not in prev]
+        print(f"names: kept {len(kept)} curated, {len(new)} new from master"
+              + (f" -> {[led['products'][h] for h in new]}" if new else ""))
     o, u = totals(led)
     print(f"parsed {len(led['companies'])} companies, {len(led['products'])} products")
     print(f"  obtained {o:,.0f}   util {u:,.0f}   available {o - u:,.0f}")
