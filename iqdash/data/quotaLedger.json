@@ -1,35 +1,22 @@
 {
  "_meta": {
-  "source": "master 00 IQ Dash Quota Data 120526 (6).xlsx",
-  "generated": "2026-07-01",
-  "view": "effective (obtained incl. revisions)"
+  "source": "master 00 IQ Dash - Quota Data 120526 (dashboard master data), Drive 1joljOkuzgsAiOJm0Pqw9uLqew3BcG-_D, read 2026-07-27",
+  "generated": "2026-07-27",
+  "view": "effective (obtained incl. revisions)",
+  "generator": "tools/build_quota_ledger.py",
+  "note": "built from local copy (7) 23-Jul plus the two 24-Jul utilization entries present in the Drive copy (IKM +300, SGD +200 GI Boron); totals verified against the master's Total Obtained / Total Utilization cells (34,240 / 22,547)"
  },
  "products": {
-  "7225.30.90": "HRPO ALLOY",
-  "7225.40.90": "BORDES ALLOY",
-  "7225.92.20": "ZAM ALLOY",
+  "7225.30.90": "HRC / HRPO ALLOY",
+  "7225.40.90": "BORDES ALLOY (Wear plate)",
+  "7225.92.90": "GI BORON",
+  "7225.99.90": "GL BORON",
   "7228.30.10": "AS STEEL",
-  "7228.70.10": "BEAM ALLOY",
-  "7210.49.17": "GI CARBON",
-  "7210.61.11": "GL CARBON",
   "7210.70.13": "PPGL CARBON",
-  "7212.50.24": "GL SLIT",
-  "7216.31.90": "CHANNEL",
-  "7216.33.11": "BEAM",
-  "7216.40.90": "ANGLE",
-  "7301.10.00": "SHEET PILE",
-  "7301.20.00": "SHEET PILE (INTERLOCKS)",
-  "7304.19.00": "SEAMLESS PIPE",
-  "7306.30.91": "ERW PIPE (OD ≤ 140 mm)",
-  "7306.30.99": "ERW PIPE (OD > 140mm)",
-  "7308.90.99": "STRUCTURAL STEEL",
-  "7208.38.00": "HRC ≥3 mm to <4.75 mm",
-  "7208.39.90": "HRC <3 mm",
-  "7210.49.15": "ZAM >1.2 mm to ≤1.5 mm",
-  "7210.49.16": "ZAM >1.5 mm",
-  "7225.99.90": "GL ALLOY",
-  "7225.92.90": "GI ALLOY",
-  "7306.61.90": "HOLLOW PIPE"
+  "7301.10.00": "SHEETPILE",
+  "7304.19.00": "SEAMLESS",
+  "7306.30.91": "ERW PIPE OD ≤ 140 mm",
+  "7306.30.99": "ERW PIPE OD > 140 mm"
  },
  "companies": {
   "EMS": {
@@ -44,7 +31,7 @@
   },
   "HDP": {
    "7225.99.90": {
-    "obtained": 900,
+    "obtained": 1000,
     "util": 900
    }
   },
@@ -66,7 +53,7 @@
   },
   "GNG": {
    "7225.99.90": {
-    "obtained": 400,
+    "obtained": 600,
     "util": 400
    }
   },
@@ -76,14 +63,14 @@
     "util": 247
    },
    "7225.92.90": {
-    "obtained": 353,
+    "obtained": 353.3,
     "util": 0
    }
   },
   "JKT": {
    "7225.99.90": {
     "obtained": 400,
-    "util": 300
+    "util": 400
    }
   },
   "BHG": {
@@ -92,8 +79,8 @@
     "util": 200
    },
    "7225.92.90": {
-    "obtained": 200,
-    "util": 0
+    "obtained": 150,
+    "util": 150
    }
   },
   "NCT": {
@@ -123,10 +110,6 @@
    }
   },
   "GAS": {
-   "7225.40.90": {
-    "obtained": 0,
-    "util": 0
-   },
    "7225.92.90": {
     "obtained": 200,
     "util": 200
@@ -141,7 +124,7 @@
   "HKG": {
    "7225.99.90": {
     "obtained": 1000,
-    "util": 750
+    "util": 1000
    }
   },
   "SPA": {
@@ -151,18 +134,18 @@
    },
    "7225.92.90": {
     "obtained": 401,
-    "util": 0
+    "util": 401
    }
   },
   "ADP": {
    "7225.99.90": {
-    "obtained": 250,
+    "obtained": 350,
     "util": 250
    }
   },
   "MSN": {
    "7225.99.90": {
-    "obtained": 150,
+    "obtained": 250,
     "util": 150
    }
   },
@@ -180,7 +163,7 @@
   },
   "KAN": {
    "7225.92.90": {
-    "obtained": 80,
+    "obtained": 140,
     "util": 80
    }
   },
@@ -197,14 +180,6 @@
    }
   },
   "MJU": {
-   "7225.40.90": {
-    "obtained": 0,
-    "util": 0
-   },
-   "7306.61.90": {
-    "obtained": 0,
-    "util": 0
-   },
    "7225.30.90": {
     "obtained": 200,
     "util": 0
@@ -217,17 +192,13 @@
    }
   },
   "BDG": {
-   "7225.40.90": {
-    "obtained": 0,
-    "util": 0
-   },
    "7225.99.90": {
-    "obtained": 350,
-    "util": 0
-   },
-   "7225.92.90": {
     "obtained": 650,
     "util": 650
+   },
+   "7225.92.90": {
+    "obtained": 350,
+    "util": 350
    }
   },
   "SGD": {
@@ -237,7 +208,7 @@
    },
    "7225.92.90": {
     "obtained": 500,
-    "util": 0
+    "util": 500
    }
   },
   "BTS": {
@@ -259,13 +230,9 @@
    }
   },
   "SMS": {
-   "7301.10.00": {
-    "obtained": 0,
-    "util": 0
-   },
    "7225.92.90": {
     "obtained": 150,
-    "util": 0
+    "util": 150
    }
   },
   "GIS": {
@@ -295,7 +262,7 @@
   "IKM": {
    "7225.92.90": {
     "obtained": 4150,
-    "util": 0
+    "util": 2300
    },
    "7301.10.00": {
     "obtained": 1750,

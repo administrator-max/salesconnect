@@ -108,9 +108,17 @@ $totalObt   = $sum($payload['spi'], 'obtained');
 $totalUtil  = $sum($payload['spi'], 'utilizationMT');
 $totalAvail = $sum($payload['spi'], 'availableQuota');
 
-ok(abs($totalObt - 33730) < 0.01,   "parity (all companies as SPI rows): total obtained 33730 (got $totalObt)");
-ok(abs($totalUtil - 18346) < 0.01,  "parity (all companies as SPI rows): total utilized 18346 (got $totalUtil)");
-ok(abs($totalAvail - 15384) < 0.01, "parity (all companies as SPI rows): total available 15384 (got $totalAvail)");
+/* These pin quotaLedger.json's totals, so they move whenever the ledger is
+ * regenerated from the master — that is the point: a silent ledger drift
+ * should break a test. Updated 2026-07-27 when the ledger was rebuilt from the
+ * current master via tools/build_quota_ledger.py. It had been frozen at the
+ * 2026-07-01 hand-built snapshot (33,730 / 18,346 / 15,384) for four weeks
+ * while the master moved to 34,240 / 22,547 / 11,693.
+ * Obtained carries .3 from MIN's 353.30 revision (the old file rounded to 353);
+ * the master's own Total cell prints 34,240. */
+ok(abs($totalObt - 34240.3) < 0.01,  "parity (all companies as SPI rows): total obtained 34240.3 (got $totalObt)");
+ok(abs($totalUtil - 22547) < 0.01,   "parity (all companies as SPI rows): total utilized 22547 (got $totalUtil)");
+ok(abs($totalAvail - 11693.3) < 0.01, "parity (all companies as SPI rows): total available 11693.3 (got $totalAvail)");
 
 /* ── invariant 4: company code not present in the ledger contributes 0 ── */
 $t0 = ['companies' => [['code' => 'ZZZ-NOT-IN-LEDGER', 'full_name' => 'Nobody', 'grp' => '', 'section' => 'SPI']]] + $emptyTabs;
