@@ -23,6 +23,9 @@ const PRESETS = {
   feb26: { label:'Feb 2026',  from:new Date(2026,1,1),          to:new Date(2026,1,28) },
   q425:  { label:'Q4 2025',   from:new Date(2025,9,1),          to:new Date(2025,11,31) },
   q126:  { label:'Q1 2026',   from:new Date(2026,0,1),          to:new Date(2026,2,31) },
+  q226:  { label:'Q2 2026',   from:new Date(2026,3,1),          to:new Date(2026,5,30,23,59,59) },
+  q326:  { label:'Q3 2026',   from:new Date(2026,6,1),          to:new Date(2026,8,30,23,59,59) },
+  q426:  { label:'Q4 2026',   from:new Date(2026,9,1),          to:new Date(2026,11,31,23,59,59) },
   ytd:   { label:'YTD 2026',  from:new Date(2026,0,1),          to:new Date(2026,11,31) },
 };
 
