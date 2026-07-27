@@ -15,46 +15,9 @@ require_once __DIR__ . '/iqdash_util.php';
 require_once __DIR__ . '/../lib/GoogleSheets.php';
 require_once __DIR__ . '/../lib/sheet_util.php'; // find_by_id(), used by iq_realizations_delete()
 
-/** (string) cast that treats null/missing the same as JS `undefined`/''. */
-function iq_wstr($v): string {
-    return (string) ($v ?? '');
-}
-
-/**
- * Shared unique-key builder for realization rows: company_code|pib_no|
- * line_no (string-cast, '' for null/missing — mirrors JS `r.company_code ||
- * ''` etc.). Used by both the READ-side dedupe (iq_dedupe_realizations,
- * server.js's dedupeRealizations key, server.js:2312) and the WRITE-side
- * pure merge primitive (iq_realizations_merge, Task 11) so the two stay
- * consistent by construction.
- */
-function iq_realization_key(array $r): string {
-    return iq_wstr($r['company_code'] ?? null) . '|' . iq_wstr($r['pib_no'] ?? null) . '|' . iq_wstr($r['line_no'] ?? null);
-}
-
-/**
- * Collapse duplicate PIB lines (same company_code+pib_no+line_no) that an
- * earlier double-import created. Mirrors server.js's dedupeRealizations():
- * first occurrence wins UNLESS it was imported_by 'migrationA' and a LATER
- * duplicate is NOT 'migrationA' — in that case the later, non-migrationA
- * copy replaces it. Key/iteration order preserved (PHP array insertion
- * order mirrors the JS Map's).
- */
-function iq_dedupe_realizations(array $rows): array {
-    $byKey = [];
-    foreach ($rows as $r) {
-        $k = iq_realization_key($r);
-        if (!array_key_exists($k, $byKey)) {
-            $byKey[$k] = $r;
-            continue;
-        }
-        $cur = $byKey[$k];
-        if (($cur['imported_by'] ?? null) === 'migrationA' && ($r['imported_by'] ?? null) !== 'migrationA') {
-            $byKey[$k] = $r;
-        }
-    }
-    return array_values($byKey);
-}
+/* iq_wstr(), iq_realization_key() and iq_dedupe_realizations() moved to
+ * iqdash_util.php (required above) so iqdash_insights.php — which loads no
+ * other module — can dedupe too. Same implementations, unchanged. */
 
 /**
  * Parse a pib_date string shaped DD/MM/YYYY into a comparable UTC

@@ -161,6 +161,50 @@ ok($vs['realizedMT'] === 300.0, 'vsObtained realizedMT = 300');
 ok($vs['outstandingMT'] === 700.0, 'vsObtained outstandingMT = 700');
 ok($vs['realizedPct'] === 30.0, "vsObtained realizedPct = 30.0 (got {$vs['realizedPct']})");
 
+/* ── realization metrics must dedupe the migrationA double-import ────────
+ * The live `realizations` tab carries 149 rows from the `migrationA`
+ * importer that duplicate rows the later imports already hold — same
+ * (company_code, pib_no, line_no). Both other read paths collapse them
+ * (iqdash_data.php's inline dedupe and iq_realizations_list); insights used
+ * to sum the raw table and reported 27,564.956 MT against a true 15,438.208.
+ * Shape below mirrors the real data: an exact twin, a twin whose volume the
+ * importer misaligned, and a migrationA row with no twin (kept).           */
+$tdup = $t2;
+$tdup['realizations'] = [
+    ['company_code' => 'EMS', 'product' => 'GI', 'volume' => '300', 'pib_date' => '15/01/2026',
+     'pib_no' => 'P1', 'line_no' => '1', 'imported_by' => 'bulk-zip-import'],
+    // exact duplicate from the bad importer -> dropped
+    ['company_code' => 'EMS', 'product' => 'GI', 'volume' => '300', 'pib_date' => '14/01/2026',
+     'pib_no' => 'P1', 'line_no' => '1', 'imported_by' => 'migrationA'],
+    // same key, misaligned volume -> also dropped, the good row wins
+    ['company_code' => 'EMS', 'product' => 'GI', 'volume' => '999', 'pib_date' => '14/01/2026',
+     'pib_no' => 'P1', 'line_no' => '1', 'imported_by' => 'migrationA'],
+    // migrationA row with no twin -> genuine, kept
+    ['company_code' => 'EMS', 'product' => 'GI', 'volume' => '50', 'pib_date' => '15/01/2026',
+     'pib_no' => 'P2', 'line_no' => '1', 'imported_by' => 'migrationA'],
+];
+$rzd = iq_ins_realizationMetrics($tdup, '2026-01-20');
+ok($rzd['totalRealizedMT'] === 350.0,
+   "dedupe: totalRealizedMT = 350 not 1649 (got {$rzd['totalRealizedMT']})");
+ok($rzd['realizedThisMonthMT'] === 350.0,
+   "dedupe: month = 350 (got {$rzd['realizedThisMonthMT']})");
+ok(count($rzd['byProduct']) === 1 && $rzd['byProduct'][0]['mt'] === 350.0,
+   'dedupe: byProduct GI ALLOY = 350');
+ok($rzd['vsObtained'][0]['realizedMT'] === 350.0,
+   "dedupe: vsObtained realizedMT = 350 (got {$rzd['vsObtained'][0]['realizedMT']})");
+
+/* a non-migrationA row must NOT be displaced by a later migrationA twin */
+$tord = $t2;
+$tord['realizations'] = [
+    ['company_code' => 'EMS', 'product' => 'GI', 'volume' => '111', 'pib_date' => '15/01/2026',
+     'pib_no' => 'P9', 'line_no' => '1', 'imported_by' => 'migrationA'],
+    ['company_code' => 'EMS', 'product' => 'GI', 'volume' => '222', 'pib_date' => '15/01/2026',
+     'pib_no' => 'P9', 'line_no' => '1', 'imported_by' => 'bulk-zip-import'],
+];
+$rzo = iq_ins_realizationMetrics($tord, '2026-01-20');
+ok($rzo['totalRealizedMT'] === 222.0,
+   "dedupe: later non-migrationA copy replaces the migrationA one (got {$rzo['totalRealizedMT']})");
+
 // iq_ins_all wiring end to end on the richer dataset (defaults: item GI ALLOY, company = companies[0].code = EMS)
 $all2 = iq_ins_all($t2, ['today' => '2026-01-20']);
 ok($all2['q1_obtainedByPeriod']['week'] === 100, 'iq_ins_all wires q1 correctly');

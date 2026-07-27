@@ -404,7 +404,14 @@ function iq_ins_realizationMetrics(array $t, $today = null): array {
     $totVol = 0; $year = 0; $month = 0; $week = 0;
     $byCompany = []; $byProduct = [];
 
-    foreach (($t['realizations'] ?? []) as $r) {
+    // DELIBERATE DIVERGENCE from insights.js:144, which iterates
+    // t.realizations raw. The live tab carries 149 rows from the
+    // `migrationA` importer duplicating rows the later imports already hold;
+    // summing both reported 27,564.956 MT against a true 15,438.208 (1.79x).
+    // Both other readers — iqdash_data.php and iq_realizations_list() —
+    // already collapse them, so insights was the odd one out. iq_dash's JS
+    // has the same defect upstream.
+    foreach (iq_dedupe_realizations($t['realizations'] ?? []) as $r) {
         $v = iq_ins_num($r['volume'] ?? null);
         $totVol += $v;
         $code = $r['company_code'] ?? null;
