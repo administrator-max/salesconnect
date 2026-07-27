@@ -1168,7 +1168,19 @@ function saveEdit() {
   }
 
   /* ── 3. Mutate RA record + sync from shipment data ── */
-  const ra = RA.find(r => r.code === c);
+  // A company that cleared customs in several waves owns one ra_records row
+  // PER ARRIVAL (decision 2026-07-27). The writes below derive company-wide
+  // totals from co.shipments, so aiming them at a single row would store the
+  // company total against one wave while its siblings keep their own weights
+  // — the double-count iqdash_data.php:460 guards against on the read side,
+  // except persisted to the sheet. Until the edit form is wave-aware, the
+  // per-wave weights (taken from the source REALISASI workbooks) stay
+  // authoritative and only arrival state is asserted.
+  const raTot   = raTotals(c);
+  const raRows  = raTot.rows;
+  const raMulti = raTot.multi;
+  // getRA() returns the LATEST wave; RA.find would return the first.
+  const ra = getRA(c);
 
   // ── 3a. Sync from co.shipments (Sales/Ops role saves) ────────────────
   if (co && co.shipments && (can('salesShipTable') || can('opsShipTable'))) {
@@ -1182,7 +1194,16 @@ function saveEdit() {
     const latestPIB  = allLots.filter(l => l.pibDate).map(l => l.pibDate).join(', ') || '';
     const obtMT      = co.obtained || 1;
 
-    if (ra) {
+    if (ra && raMulti) {
+      // Multi-wave: the company total cannot be attributed to one row, so
+      // leave every wave's weight alone and only assert arrival.
+      if (anyArrived) raRows.forEach(r => { r.cargoArrived = true; });
+      if (latestETA)  ra.etaJKT         = latestETA;
+      if (latestPIB)  ra.pibReleaseDate = latestPIB;
+      if (typeof showToast === 'function') {
+        showToast(`ℹ ${c} punya ${raRows.length} kedatangan — berat per gelombang tidak diubah dari sini, edit di sheet.`, 'info');
+      }
+    } else if (ra) {
       // Merge shipment data into RA record
       if (totalUtil > 0 || totalReal > 0) {
         ra.berat        = anyArrived ? totalReal : totalUtil;
@@ -1214,10 +1235,18 @@ function saveEdit() {
   // ── 3b. Legacy single-field updates (CorpSec / Ops direct entry) ─────
   if (ra) {
     if (!isNaN(newBerat) && newBerat >= 0 && can('eBerat')) {
-      ra.berat = newBerat;
-      const obtMT = (co && co.obtained > 0) ? co.obtained : (ra.obtained || 1);
-      if (ra.cargoArrived) ra.realPct = newBerat / obtMT;
-      else                 ra.utilPct = newBerat / obtMT;
+      if (raMulti) {
+        // Same hazard as 3a: a single berat field cannot say which wave it
+        // belongs to, and silently assigning it to one would corrupt the total.
+        if (typeof showToast === 'function') {
+          showToast(`⚠ Berat ${c} tidak disimpan — ada ${raRows.length} kedatangan, edit per gelombang di sheet.`, 'error');
+        }
+      } else {
+        ra.berat = newBerat;
+        const obtMT = (co && co.obtained > 0) ? co.obtained : (ra.obtained || 1);
+        if (ra.cargoArrived) ra.realPct = newBerat / obtMT;
+        else                 ra.utilPct = newBerat / obtMT;
+      }
     }
     if (newETA        && can('eETA'))        ra.etaJKT         = newETA;
     if (newPIBRelease && can('ePIBRelease')) ra.pibReleaseDate = newPIBRelease;
@@ -1225,8 +1254,10 @@ function saveEdit() {
     // Always sync PERTEK / SPI numbers from CorpSec edits
     if (newPertekNo) { ra.pertek = newPertekNo; ra.pertekNo = newPertekNo; }
     if (newSpiNo)    { ra.spi    = newSpiNo;    ra.spiNo    = newSpiNo; }
-    // Keep ra.obtained in sync if CorpSec changed the obtained MT
-    if (co && co.obtained) ra.obtained = co.obtained;
+    // Keep ra.obtained in sync if CorpSec changed the obtained MT. This one is
+    // a company-level figure duplicated onto every row, so multi-wave
+    // companies get it on all of theirs — unlike berat, it is not per-wave.
+    if (co && co.obtained) raRows.forEach(r => { r.obtained = co.obtained; });
   }
 
   /* ── 3c. Apply product renames → inject Revision cycles into SPI ── */

@@ -477,15 +477,12 @@ function exportExecutivePDF() {
     ${(() => {
       // Build Obtain vs Utilization data from RA pool (same filter as dashboard)
       const ouRows = filteredSPI().map(co => {
-        const ra = getRA ? getRA(co.code) : RA.find(r => r.code === co.code);
+        // Sum across arrival waves — one ra_records row per arrival, so a
+        // per-company row must total them, not take a single wave.
+        const t = raTotals(co.code);
         const obtained = typeof co.obtained === 'number' ? co.obtained : 0;
         if (!obtained) return null;
-        let utilMT = 0, realMT = 0, isArrived = false;
-        if (ra) {
-          isArrived = !!ra.cargoArrived;
-          if (isArrived) { realMT = ra.berat || 0; }
-          else           { utilMT = ra.berat || 0; }
-        }
+        const utilMT = t.utilMT, realMT = t.realMT, isArrived = t.arrived;
         const utilPct = obtained > 0 ? utilMT / obtained : 0;
         const realPct = obtained > 0 ? realMT / obtained : 0;
         return { code: co.code, obtained, utilMT, realMT, isArrived, utilPct, realPct };
@@ -554,13 +551,17 @@ function exportExecutivePDF() {
     ${(() => {
       // Build per-company monitoring table: all RA companies
       const monRows = filteredSPI().map(co => {
-        const ra = RA.find(r => r.code === co.code);
+        // One row per arrival: a per-company monitoring row wants the sum
+        // across waves, not whichever single row happens to match first.
+        // `ra` stays the latest wave for the single-valued columns below
+        // (product, arrival date, ETA, eligibility).
+        const t = raTotals(co.code);
+        const ra = getRA(co.code);
         const obtained = typeof co.obtained === 'number' ? co.obtained : 0;
         if (!obtained || !ra) return null;
-        const isArrived = !!ra.cargoArrived;
-        const utilMT  = !isArrived ? (ra.berat || 0) : 0;
-        const realMT  =  isArrived ? (ra.berat || 0) : 0;
-        const pct     = isArrived ? ra.realPct : (ra.utilPct || (ra.berat / obtained));
+        const isArrived = t.arrived;
+        const utilMT = t.utilMT, realMT = t.realMT;
+        const pct = obtained ? Math.min(1, t.berat / obtained) : 0;
         const pctNum  = typeof pct === 'number' ? pct : 0;
         const barColor = isArrived
           ? (pctNum >= 0.8 ? '#16a34a' : pctNum >= 0.6 ? '#0c7c84' : '#d97706')

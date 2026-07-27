@@ -242,7 +242,12 @@ async function migrateLocalToServer() {
     }
     const savedRa = snap.ra && snap.ra[code];
     if (savedRa && typeof RA !== 'undefined') {
-      const r = RA.find(x => x.code === code);
+      // snap.ra is keyed by company code, so it cannot represent a company
+      // that owns one ra_records row per arrival — replaying it would push a
+      // company-wide berat/realPct onto a single wave. Skip those; their
+      // per-wave weights come from the source documents anyway.
+      const mine = RA.filter(x => x.code === code);
+      const r = mine.length > 1 ? null : mine[0];
       if (r) RA_MUTABLE.forEach(k => {
         if (savedRa[k] !== undefined) r[k] = savedRa[k];
       });

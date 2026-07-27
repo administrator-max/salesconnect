@@ -353,6 +353,31 @@ const getRA  = c => {
   };
   return rows.reduce((best, r) => (key(r) >= key(best) ? r : best), rows[0]);
 };
+/* Every arrival wave for a company, in sheet order. */
+const getRAWaves = (c, pool) => (pool || RA).filter(r => r.code === c);
+
+/* Company-level totals across arrival waves. Anything that reports ONE number
+   per company (exports, monitoring rows) must use this rather than a single
+   row: `berat` is per-wave, so taking one row under-reports a multi-wave
+   company and writing a company total into one row double-counts against its
+   siblings — the hazard guarded on the read side at iqdash_data.php:460.
+   `multi` is the signal that per-wave weights are authoritative and a
+   company-wide figure must not be written back to a single row. */
+function raTotals(c, pool) {
+  const rows = getRAWaves(c, pool);
+  const arrived = rows.some(r => r.cargoArrived);
+  const berat = rows.reduce((s, r) => s + (Number(r.berat) || 0), 0);
+  return {
+    rows,
+    count:   rows.length,
+    multi:   rows.length > 1,
+    arrived,
+    berat,
+    utilMT:  arrived ? 0 : berat,
+    realMT:  arrived ? berat : 0,
+  };
+}
+
 const getSPI = c => SPI.find(s => s.code === c);
 /* Stage 2: Re-Apply already submitted — PERTEK Pending / On Process */
 const isReapplySubmitted = r => r && r.reapplyStage === 2;
@@ -630,4 +655,10 @@ function getCycleBreakdown(co, mode, prod) {
     out.push({ type: c.type, label, mt, date, products: c.products || {} });
   });
   return out;
+}
+
+/* Node (tests) only — harmless in the browser, where this file is a classic
+   script and the declarations above are already globals. */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { getRA, getRAWaves, raTotals, getSPI, isEligible, isReapplySubmitted };
 }

@@ -427,9 +427,12 @@ function applyProductRenames(co) {
       delete co.shipments[origProd];
     }
 
-    // 4. RA record product label
-    const raRec = RA.find(r => r.code === co.code);
-    if (raRec && raRec.product === origProd) raRec.product = newProd;
+    // 4. RA record product label — every arrival wave, not just the first.
+    // Renaming one of a pair would split the company across two product
+    // buckets under the canonical-name row matching added in 1d77143.
+    RA.forEach(r => {
+      if (r.code === co.code && r.product === origProd) r.product = newProd;
+    });
 
     // 5. Inject Revision cycle pair
     const today = new Date().toLocaleDateString('en-GB',
