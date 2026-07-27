@@ -42,6 +42,52 @@ function iq_num($v): float {
     return (float)$s;
 }
 
+/* ── Product aliases ──────────────────────────────────────────────────
+ * The same real product appears under several spellings: shipment lots and
+ * the ledger use the canonical name (`GI ALLOY`), while legacy rows still
+ * carry the alias (`GI BORON`). The payload builder already resolves this on
+ * READ (iqdash_data.php's $aliasMap). The WRITE path did not — it compared
+ * `$s['product'] === $product` literally, so a lot saved under the canonical
+ * name never matched the legacy stats row and a DUPLICATE row was inserted
+ * instead. Six companies (BDG, BHG, HKG, JKT, SMS, SPA) drifted that way,
+ * corrupting the `prevUtil + prevAvail` obtained basis that caps the next lot
+ * edit. See logs/audit-mt-truncation_2026-07-27_log.md.
+ * Every stats lookup must go through iq_find_product_row_idx(). */
+
+/** alias => canonical map read from the `product_aliases` tab. */
+function iq_alias_map(GoogleSheets $gs, string $sid): array {
+    $rows = $gs->table($sid, 'product_aliases')['rows'] ?? [];
+    $map = [];
+    foreach ($rows as $r) {
+        $alias = trim((string) ($r['alias'] ?? ''));
+        $canon = trim((string) ($r['canonical'] ?? ''));
+        if ($alias !== '' && $canon !== '') $map[$alias] = $canon;
+    }
+    return $map;
+}
+
+/** Canonical product name; identity when the name has no alias entry. */
+function iq_canon_product($p, array $aliasMap): string {
+    $s = trim((string) ($p ?? ''));
+    return $aliasMap[$s] ?? $s;
+}
+
+/**
+ * Index of the row in a company+product-keyed table (company_product_stats,
+ * company_reapply_targets) matching $code + $product, comparing
+ * CANONICAL names on both sides, or null when the company holds no row for
+ * that product. Pass an empty $aliasMap for literal matching.
+ */
+function iq_find_product_row_idx(array $stats, string $code, $product, array $aliasMap): ?int {
+    $want = iq_canon_product($product, $aliasMap);
+    if ($want === '') return null;
+    foreach ($stats as $i => $s) {
+        if ((string) ($s['company_code'] ?? '') !== $code) continue;
+        if (iq_canon_product($s['product'] ?? '', $aliasMap) === $want) return $i;
+    }
+    return null;
+}
+
 /** Parse DD/MM/YYYY or ISO YYYY-MM-DD -> ISO YYYY-MM-DD, else null. */
 function iq_date_iso($v): ?string {
     if ($v === null) return null;

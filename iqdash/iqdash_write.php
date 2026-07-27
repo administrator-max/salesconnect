@@ -773,11 +773,12 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
                 $stats = $statsTbl['rows'];
                 $maxSid = 0;
                 foreach ($stats as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxSid) $maxSid = $n; }
+                $aliasMap = iq_alias_map($gs, $sid);
                 foreach ($lotSums as $product => $util) {
-                    $exIdx = null;
-                    foreach ($stats as $i => $s) {
-                        if ((string) ($s['company_code'] ?? '') === $code && (string) ($s['product'] ?? '') === (string) $product) { $exIdx = $i; break; }
-                    }
+                    // Canonical match: lots use `GI ALLOY`, legacy stats rows
+                    // `GI BORON`. A literal compare missed and inserted a
+                    // duplicate row — see iq_find_product_row_idx()'s docblock.
+                    $exIdx = iq_find_product_row_idx($stats, $code, $product, $aliasMap);
                     $prevUtil  = $exIdx !== null ? iq_num($stats[$exIdx]['utilization_mt'] ?? 0) : 0.0;
                     $prevAvail = ($exIdx !== null && ($stats[$exIdx]['available_mt'] ?? null) !== null) ? iq_num($stats[$exIdx]['available_mt']) : 0.0;
                     $obtained  = $exIdx !== null ? $prevUtil + $prevAvail : $util;
@@ -808,16 +809,16 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
             $rt = $rtTbl['rows'];
             $maxId = 0;
             foreach ($rt as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxId) $maxId = $n; }
+            $aliasMapRt = iq_alias_map($gs, $sid);
             foreach ($body['reapplyTargets'] as $t) {
                 $product = is_array($t) ? ($t['product'] ?? null) : null;
-                // Guard as above: a null product must never spuriously match a
-                // sheet row whose product cell is genuinely ''.
-                $exIdx = null;
-                foreach ($rt as $i => $r) {
-                    if ((string) ($r['company_code'] ?? '') === $code
-                        && $product !== null
-                        && (string) ($r['product'] ?? '') === (string) $product) { $exIdx = $i; break; }
-                }
+                // Canonical match, same reason as the stats upsert: a target
+                // saved as `GL ALLOY` must find the legacy `GL BORON` row
+                // instead of inserting a twin (5 such pairs already exist —
+                // AMP, BDG, BHG, HKG, JKT). iq_find_product_row_idx() returns
+                // null for an empty/null product, preserving the original
+                // guard that a null product never matches a genuinely-'' cell.
+                $exIdx = iq_find_product_row_idx($rt, $code, $product, $aliasMapRt);
                 $row = [
                     'company_code' => $code,
                     'product'      => $product,
@@ -877,15 +878,13 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
             }
             $maxSid = 0;
             foreach ($stats as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxSid) $maxSid = $n; }
+            $aliasMapObt = iq_alias_map($gs, $sid);
             foreach ($body['obtainedStats'] as $it) {
                 $product = trim((string) iq_js_or(is_array($it) ? ($it['product'] ?? null) : null, ''));
                 $obtainedRaw = is_array($it) ? ($it['obtained'] ?? null) : null;
                 $obtained = is_numeric($obtainedRaw) ? (float) $obtainedRaw : NAN;
                 if ($product === '' || !is_finite($obtained) || $obtained < 0) continue;
-                $exIdx = null;
-                foreach ($stats as $i => $s) {
-                    if ((string) ($s['company_code'] ?? '') === $code && (string) ($s['product'] ?? '') === $product) { $exIdx = $i; break; }
-                }
+                $exIdx = iq_find_product_row_idx($stats, $code, $product, $aliasMapObt);
                 $util  = $exIdx !== null ? iq_num($stats[$exIdx]['utilization_mt'] ?? 0) : 0.0;
                 $avail = max(0.0, $obtained - $util);
                 if ($exIdx !== null) {
@@ -1305,10 +1304,15 @@ function iq_replace_cycles(GoogleSheets $gs, string $sid, string $code, array $n
  * to apply this plan, mirroring server.js's `if (st) {...} else {...}`
  * branch (server.js:2066-2071).
  */
-function iq_record_obtained_plan(array $statsRows, string $product, float $mt, bool $alreadyTerbit): array {
+function iq_record_obtained_plan(array $statsRows, string $product, float $mt, bool $alreadyTerbit, array $aliasMap = []): array {
+    // $statsRows is already company-scoped by the caller, so match on product
+    // alone — but canonically, so `GI ALLOY` still finds a legacy `GI BORON`
+    // row instead of planning a phantom insert. An empty $aliasMap keeps the
+    // original literal behaviour for callers that have no map to hand.
     $existing = null;
+    $want = iq_canon_product($product, $aliasMap);
     foreach ($statsRows as $s) {
-        if ((string) ($s['product'] ?? '') === $product) { $existing = $s; break; }
+        if (iq_canon_product($s['product'] ?? '', $aliasMap) === $want) { $existing = $s; break; }
     }
     $foundExisting = $existing !== null;
     $prevAvailable = $foundExisting ? iq_num($existing['available_mt'] ?? 0) : 0.0;
@@ -1435,10 +1439,7 @@ function iq_record_obtained(GoogleSheets $gs, string $sid, string $code, array $
         $stats = $statsTbl['rows'];
         $maxSid = 0;
         foreach ($stats as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxSid) $maxSid = $n; }
-        $stIdx = null;
-        foreach ($stats as $i => $s) {
-            if ((string) ($s['company_code'] ?? '') === $code && (string) ($s['product'] ?? '') === $product) { $stIdx = $i; break; }
-        }
+        $stIdx = iq_find_product_row_idx($stats, $code, $product, iq_alias_map($gs, $sid));
         if ($stIdx !== null) {
             $prevAvail = iq_num($stats[$stIdx]['available_mt'] ?? 0);
             $stats[$stIdx]['available_mt'] = max(0.0, $prevAvail - $prevContribution + $mt);
