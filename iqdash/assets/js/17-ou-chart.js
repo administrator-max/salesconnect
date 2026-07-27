@@ -417,7 +417,7 @@ function buildOUChart() {
       },
       scales: {
         x: { stacked: true, grid: { display: false }, ticks: { font: { size: 8.5, family: 'DM Sans' }, color: '#64748b', maxRotation: 40 } },
-        y: { stacked: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 9.5 }, color: '#64748b', callback: v => v.toLocaleString() + ' MT' } }
+        y: { stacked: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 9.5 }, color: '#64748b', callback: v => v.toLocaleString(MT_LOCALE) + ' MT' } }
       }
     }
   });
@@ -509,7 +509,7 @@ function buildOUChart() {
       <td>${prodSummary}</td>
       <td class="t-r t-mono" style="font-weight:700">${Nmt(coObtained)}</td>
       <td class="t-r t-mono" style="color:var(--blue);font-weight:700">${coUtilized > 0 ? Nmt(coUtilized) : '<span style="color:var(--txt3)">—</span>'}</td>
-      <td class="t-r t-mono" style="color:${coRealMT > 0 ? 'var(--green)' : 'var(--txt3)'};font-weight:700">${coRealMT > 0 ? coRealMT.toLocaleString() : '—'}</td>
+      <td class="t-r t-mono" style="color:${coRealMT > 0 ? 'var(--green)' : 'var(--txt3)'};font-weight:700">${coRealMT > 0 ? coRealMT.toLocaleString(MT_LOCALE) : '—'}</td>
       <td>${realPctCell}</td>
       <td>${etaHTML}</td>
       <td>${shipBadge}</td>
@@ -538,7 +538,7 @@ function buildOUChart() {
           : `<span style="font-size:10px;color:var(--txt3)">—</span>`;
 
         const subRealCell = prodRealMT > 0
-          ? `<span style="font-size:11.5px;font-weight:600;color:var(--green)">${prodRealMT.toLocaleString()}</span>`
+          ? `<span style="font-size:11.5px;font-weight:600;color:var(--green)">${prodRealMT.toLocaleString(MT_LOCALE)}</span>`
           : `<span style="font-size:10px;color:var(--txt3);font-style:italic">—</span>`;
 
         html += `<tr style="cursor:pointer;${rowBg}" onclick="openDrawer('${code}')">
@@ -663,7 +663,7 @@ function buildOUChartOverview() {
       },
       scales: {
         x: { stacked: true, grid: { display: false }, ticks: { font: { size: 8, family: 'DM Sans' }, color: '#64748b', maxRotation: 40 } },
-        y: { stacked: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 }, color: '#64748b', callback: v => v.toLocaleString() } }
+        y: { stacked: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 }, color: '#64748b', callback: v => v.toLocaleString(MT_LOCALE) } }
       },
       onClick: (e, els) => {
         if (!els.length) return;
@@ -853,7 +853,7 @@ function renderLtDrillTable() {
       <td style="padding:10px 14px;${leftBd};cursor:pointer"><span style="font-weight:700;font-size:13px;color:var(--blue)">${r.code}</span></td>
       <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--teal)">${fmtMt(r.obtained)} MT</td>
       <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--blue)">${r.utilMT > 0 ? fmtMt(r.utilMT) + ' MT' : '<span style="color:var(--txt3)">—</span>'}</td>
-      <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--green)">${r.realMT > 0 ? r.realMT.toLocaleString() + ' MT' : '<span style="color:var(--txt3)">—</span>'}</td>
+      <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--green)">${r.realMT > 0 ? r.realMT.toLocaleString(MT_LOCALE) + ' MT' : '<span style="color:var(--txt3)">—</span>'}</td>
       <td style="padding:10px 10px;min-width:120px">${realBar}</td>
       <td style="padding:10px 10px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;color:var(--txt2)">${leadStr}</td>
       <td style="padding:10px 14px;text-align:center">${badge}</td>

@@ -267,7 +267,7 @@ function _fmtMT(val) {
   if (val == null || isNaN(val)) return '0';
   const n = Number(val);
   const dec = n % 1 === 0 ? '' : ('.' + n.toFixed(2).split('.')[1].replace(/0+$/, ''));
-  return Math.floor(n).toLocaleString() + dec;
+  return Math.floor(n).toLocaleString(MT_LOCALE) + dec;
 }
 
 /* ── PRODUCT COLORS — final source of truth for chart/badge colors.
@@ -394,7 +394,7 @@ function ceilMt(v) {
    (cards, tables, totals, charts) for util/avail/obtained/submit. */
 function fmtMt(v) {
   const c = ceilMt(v);
-  return typeof c === 'number' ? c.toLocaleString() : c;
+  return typeof c === 'number' ? c.toLocaleString(MT_LOCALE) : c;
 }
 
 /* ════════════════════════════════════════════════════════════════════

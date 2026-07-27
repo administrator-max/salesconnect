@@ -46,10 +46,10 @@ function buildSalesOpsForm(co) {
         <div class="sprod-hdr-left">
           <div class="sprod-hdr-dot" style="background:${dot}"></div>
           <span class="sprod-hdr-name">${prod}</span>
-          <span class="sprod-quota-badge">PERTEK: ${obtMT.toLocaleString()} MT</span>
+          <span class="sprod-quota-badge">PERTEK: ${obtMT.toLocaleString(MT_LOCALE)} MT</span>
         </div>
         <span class="sprod-avail-badge${availMT < 0 ? ' warn' : ''}" id="sales-avail-${prod.replace(/[^a-zA-Z0-9]/g,'_')}">
-          Available: ${availMT.toLocaleString()} MT
+          Available: ${availMT.toLocaleString(MT_LOCALE)} MT
         </span>
       </div>
 
@@ -73,7 +73,7 @@ function buildSalesOpsForm(co) {
           + Add Shipment Lot
         </button>
         <div class="sprod-total-val" id="sales-total-${prod.replace(/[^a-zA-Z0-9]/g,'_')}">
-          ${usedMT.toLocaleString()} / ${obtMT.toLocaleString()} MT used
+          ${usedMT.toLocaleString(MT_LOCALE)} / ${obtMT.toLocaleString(MT_LOCALE)} MT used
         </div>
       </div>
     </div>`;
@@ -85,7 +85,7 @@ function buildSalesOpsForm(co) {
   salesHTML += `
   <div class="grand-total-bar">
     <span>Total Utilization — All Products</span>
-    <span class="grand-total-val" id="sales-grand-total">${grandUtil.toLocaleString()} / ${grandObt.toLocaleString()} MT</span>
+    <span class="grand-total-val" id="sales-grand-total">${grandUtil.toLocaleString(MT_LOCALE)} / ${grandObt.toLocaleString(MT_LOCALE)} MT</span>
   </div>`;
 
   g('salesFormWrap').innerHTML = salesHTML;
@@ -110,10 +110,10 @@ function buildSalesOpsForm(co) {
         <div class="sprod-hdr-left">
           <div class="sprod-hdr-dot" style="background:${dot}"></div>
           <span class="sprod-hdr-name">${prod}</span>
-          <span class="sprod-quota-badge">PERTEK: ${obtMT.toLocaleString()} MT</span>
+          <span class="sprod-quota-badge">PERTEK: ${obtMT.toLocaleString(MT_LOCALE)} MT</span>
         </div>
         <span class="sprod-avail-badge" id="ops-real-${prod.replace(/[^a-zA-Z0-9]/g,'_')}">
-          Realized: ${totalReal.toLocaleString()} MT
+          Realized: ${totalReal.toLocaleString(MT_LOCALE)} MT
         </span>
       </div>
 
@@ -139,7 +139,7 @@ function buildSalesOpsForm(co) {
           Realization synced from Sales shipment lots. PIB Date and Actual MT updated by Operations.
         </div>
         <div class="sprod-total-val" id="ops-total-${prod.replace(/[^a-zA-Z0-9]/g,'_')}">
-          ${totalReal.toLocaleString()} / ${obtMT.toLocaleString()} MT realized
+          ${totalReal.toLocaleString(MT_LOCALE)} / ${obtMT.toLocaleString(MT_LOCALE)} MT realized
         </div>
       </div>
     </div>`;
@@ -151,7 +151,7 @@ function buildSalesOpsForm(co) {
   opsHTML += `
   <div class="grand-total-bar" style="background:#065f46">
     <span>Total Realization — All Products</span>
-    <span class="grand-total-val" id="ops-grand-total">${grandReal.toLocaleString()} / ${grandObt.toLocaleString()} MT</span>
+    <span class="grand-total-val" id="ops-grand-total">${grandReal.toLocaleString(MT_LOCALE)} / ${grandObt.toLocaleString(MT_LOCALE)} MT</span>
   </div>`;
 
   g('opsFormWrap').innerHTML = opsHTML;
@@ -175,9 +175,9 @@ function buildSalesRow(prod, idx, lot, obtMT) {
     const rows = hist.map(h => `
       <div class="util-hist-row">
         <span class="util-hist-date">${h.date || '—'}</span>
-        <span class="util-hist-prev">${(h.prev||0).toLocaleString()}</span>
-        <span class="util-hist-delta">+${(h.delta||0).toLocaleString()}</span>
-        <span class="util-hist-total">${(h.total||0).toLocaleString()}</span>
+        <span class="util-hist-prev">${(h.prev||0).toLocaleString(MT_LOCALE)}</span>
+        <span class="util-hist-delta">+${(h.delta||0).toLocaleString(MT_LOCALE)}</span>
+        <span class="util-hist-total">${(h.total||0).toLocaleString(MT_LOCALE)}</span>
         <span class="util-hist-note">${h.note || ''}</span>
       </div>`).join('');
     histHTML = `
@@ -278,7 +278,7 @@ function buildOpsRow(prod, idx, lot) {
         oninput="onOpsShipNameChange(this)">
     </td>
     <td class="t-r" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--txt2)">
-      ${util != null ? Number(util).toLocaleString() + ' MT' : '<span style="color:var(--txt3)">—</span>'}
+      ${util != null ? Number(util).toLocaleString(MT_LOCALE) + ' MT' : '<span style="color:var(--txt3)">—</span>'}
     </td>
     <td>
       <input type="text" inputmode="numeric"
@@ -368,6 +368,21 @@ function onSalesDirectChange(inp) {
 
   ensureShipments(co);
   const pid    = prod.replace(/[^a-zA-Z0-9]/g,'_');
+  // Ambiguous text (e.g. "2.000") — fmtThousandInline already flagged the
+  // field. Show why and lock Simpan; never fall through to parseFloat, which
+  // is what used to turn 2000 into 2.
+  if (inp.dataset.mtAmbiguous) {
+    const errAmb = g(`util-err-${pid}-${idx}`);
+    if (errAmb) {
+      errAmb.textContent = 'Format tidak jelas — pakai koma untuk ribuan (2,000), bukan titik.';
+      errAmb.style.display = 'block';
+      errAmb.style.color   = 'var(--red2)';
+      errAmb.classList.add('show');
+    }
+    const btnAmb = g(`util-save-${pid}-${idx}`);
+    if (btnAmb) btnAmb.disabled = true;
+    return;
+  }
   const rawVal = inp.value.replace(/,/g,'');
   const newMT  = rawVal === '' ? 0 : parseFloat(rawVal);
   const obtMT  = (getObtainedByProd(co))[prod] || 0;
@@ -388,7 +403,7 @@ function onSalesDirectChange(inp) {
   } else if (available < 0) {
     inp.classList.add('err');
     if (errEl) {
-      errEl.textContent = `Melebihi kuota ${Math.abs(available).toLocaleString()} MT (max ${(obtMT - otherMT).toLocaleString()} MT)`;
+      errEl.textContent = `Melebihi kuota ${Math.abs(available).toLocaleString(MT_LOCALE)} MT (max ${(obtMT - otherMT).toLocaleString(MT_LOCALE)} MT)`;
       errEl.classList.add('show');
     }
     if (saveBtn) saveBtn.disabled = true;
@@ -496,8 +511,21 @@ function saveSalesUtil(prod, idx) {
   const directInp = g(`util-direct-${pid}-${idx}`);
   if (!directInp) return;
 
-  const rawVal = directInp.value.replace(/,/g,'');
-  const newMT  = rawVal === '' ? 0 : parseFloat(rawVal);
+  // parseMT returns null for empty, malformed OR ambiguous text ("2.000").
+  // Treating null as 0 here would re-open the silent-corruption path, so an
+  // ambiguous field stops the save outright.
+  const newMT = directInp.value.trim() === '' ? 0 : parseMT(directInp.value);
+  if (newMT === null) {
+    const errEl0 = g(`util-err-${pid}-${idx}`);
+    if (errEl0) {
+      errEl0.textContent = 'Format tidak jelas — pakai koma untuk ribuan (2,000), bukan titik.';
+      errEl0.style.display = 'block';
+      errEl0.style.color   = 'var(--red2)';
+      errEl0.classList.add('show');
+    }
+    directInp.focus();
+    return;
+  }
   if (newMT < 0) return;
 
   const lot    = co.shipments[prod] && co.shipments[prod][idx];
@@ -536,7 +564,7 @@ function saveSalesUtil(prod, idx) {
   const otherMT = utilBaselineForProd(co, prod) + (totalUtilForProd(co.shipments, prod) - curMT);
 
   if (otherMT + newMT > obtMT) {
-    alert(`Nilai ${newMT.toLocaleString()} MT melebihi kuota PERTEK ${obtMT.toLocaleString()} MT untuk ${prod}.`);
+    alert(`Nilai ${newMT.toLocaleString(MT_LOCALE)} MT melebihi kuota PERTEK ${obtMT.toLocaleString(MT_LOCALE)} MT untuk ${prod}.`);
     return;
   }
 
@@ -569,7 +597,7 @@ function saveSalesUtil(prod, idx) {
   }
 
   // Update input to formatted value
-  directInp.value = newMT > 0 ? newMT.toLocaleString() : '';
+  directInp.value = newMT > 0 ? newMT.toLocaleString(MT_LOCALE) : '';
 
   // Recompute totals & badges (baseline + Σlots so already-recorded util counts)
   const usedMT  = effectiveUtilForProd(co, prod);
@@ -577,18 +605,18 @@ function saveSalesUtil(prod, idx) {
 
   const badge = g(`sales-avail-${pid}`);
   if (badge) {
-    badge.textContent = `Available: ${availMT.toLocaleString()} MT`;
+    badge.textContent = `Available: ${availMT.toLocaleString(MT_LOCALE)} MT`;
     badge.className   = `sprod-avail-badge${availMT < 0 ? ' warn' : ''}`;
   }
   const totalEl = g(`sales-total-${pid}`);
-  if (totalEl) totalEl.textContent = `${usedMT.toLocaleString()} / ${obtMT.toLocaleString()} MT used`;
+  if (totalEl) totalEl.textContent = `${usedMT.toLocaleString(MT_LOCALE)} / ${obtMT.toLocaleString(MT_LOCALE)} MT used`;
 
   const grandEl = g('sales-grand-total');
   if (grandEl && co.shipments) {
     const obtByProd = getObtainedByProd(co);
     const gt = Object.keys(co.shipments).reduce((s, p) => s + effectiveUtilForProd(co, p), 0);
     const go = Object.values(obtByProd).reduce((s, v) => s + v, 0);
-    grandEl.textContent = `${gt.toLocaleString()} / ${go.toLocaleString()} MT`;
+    grandEl.textContent = `${gt.toLocaleString(MT_LOCALE)} / ${go.toLocaleString(MT_LOCALE)} MT`;
   }
 
   // Refresh history display in the row
@@ -647,7 +675,7 @@ function syncOpsUtilDisplay(co, prod) {
     const utilCell = row.querySelectorAll('td')[1];
     if (utilCell) {
       utilCell.innerHTML = lot.utilMT != null
-        ? `<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--txt2)">${Number(lot.utilMT).toLocaleString()} MT</span>`
+        ? `<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--txt2)">${Number(lot.utilMT).toLocaleString(MT_LOCALE)} MT</span>`
         : `<span style="color:var(--txt3)">—</span>`;
     }
     // Re-validate real MT against new util
@@ -665,8 +693,10 @@ function onOpsRealChange(inp) {
   if (!co) return;
 
   ensureShipments(co);
-  const rawVal = inp.value.replace(/,/g,'');
-  const newVal = rawVal === '' ? null : parseFloat(rawVal);
+  // Ambiguous text is flagged by fmtThousandInline — leave the model untouched
+  // rather than writing a guessed realMT. saveEdit() blocks the save too.
+  if (inp.dataset.mtAmbiguous) return;
+  const newVal = inp.value.trim() === '' ? null : parseMT(inp.value);
 
   if (co.shipments[prod] && co.shipments[prod][idx] !== undefined) {
     co.shipments[prod][idx].realMT   = newVal;
@@ -679,7 +709,7 @@ function onOpsRealChange(inp) {
 
   if (newVal != null && utilMT > 0 && newVal > utilMT) {
     inp.classList.add('err');
-    if (errEl) { errEl.textContent = `Cannot exceed Util MT (${utilMT.toLocaleString()} MT)`; errEl.classList.add('show'); }
+    if (errEl) { errEl.textContent = `Cannot exceed Util MT (${utilMT.toLocaleString(MT_LOCALE)} MT)`; errEl.classList.add('show'); }
   } else {
     inp.classList.remove('err');
     if (errEl) errEl.classList.remove('show');
@@ -698,11 +728,11 @@ function onOpsRealChange(inp) {
   const totalReal = lots.reduce((s, l) => s + (l.realMT || 0), 0);
   const obtMT    = (getObtainedByProd(co))[prod] || 0;
   const totalEl  = g(`ops-total-${pid}`);
-  if (totalEl) totalEl.textContent = `${totalReal.toLocaleString()} / ${obtMT.toLocaleString()} MT realized`;
+  if (totalEl) totalEl.textContent = `${totalReal.toLocaleString(MT_LOCALE)} / ${obtMT.toLocaleString(MT_LOCALE)} MT realized`;
 
   // Update ops badge
   const badge = g(`ops-real-${pid}`);
-  if (badge) badge.textContent = `Realized: ${totalReal.toLocaleString()} MT`;
+  if (badge) badge.textContent = `Realized: ${totalReal.toLocaleString(MT_LOCALE)} MT`;
 
   // Update grand total
   const grandEl = g('ops-grand-total');
@@ -711,7 +741,7 @@ function onOpsRealChange(inp) {
     const gr = Object.keys(co.shipments).reduce((s, p) =>
       s + (co.shipments[p] || []).reduce((ss, l) => ss + (l.realMT || 0), 0), 0);
     const go = Object.values(obtByProd).reduce((s, v) => s + v, 0);
-    grandEl.textContent = `${gr.toLocaleString()} / ${go.toLocaleString()} MT`;
+    grandEl.textContent = `${gr.toLocaleString(MT_LOCALE)} / ${go.toLocaleString(MT_LOCALE)} MT`;
   }
 
   livePreview();
@@ -813,9 +843,11 @@ function collectShipmentData(co) {
     const prod = inp.dataset.prod;
     const idx  = parseInt(inp.dataset.idx);
     if (co.shipments && co.shipments[prod] && co.shipments[prod][idx]) {
-      const raw = inp.value.replace(/,/g,'');
-      const val = raw ? parseFloat(raw) : 0;
-      if (val >= 0) co.shipments[prod][idx].utilMT = val;
+      // parseMT rejects ambiguous text; skip the field instead of storing a
+      // guess. saveEdit() refuses the whole save when any field is flagged, so
+      // reaching here with one is not expected — this is belt-and-braces.
+      const val = inp.value.trim() === '' ? 0 : parseMT(inp.value);
+      if (val !== null && val >= 0) co.shipments[prod][idx].utilMT = val;
     }
   });
   document.querySelectorAll('.sales-eta-inp').forEach(inp => {
@@ -834,9 +866,10 @@ function collectShipmentData(co) {
     const prod = inp.dataset.prod;
     const idx  = parseInt(inp.dataset.idx);
     if (co.shipments && co.shipments[prod] && co.shipments[prod][idx]) {
-      const raw = inp.value.replace(/,/g,'');
-      co.shipments[prod][idx].realMT  = raw ? parseFloat(raw) : null;
-      co.shipments[prod][idx].arrived = raw && parseFloat(raw) > 0;
+      const val = inp.value.trim() === '' ? null : parseMT(inp.value);
+      if (val === null && inp.value.trim() !== '') return;   // ambiguous — leave as-is
+      co.shipments[prod][idx].realMT  = val;
+      co.shipments[prod][idx].arrived = val != null && val > 0;
     }
   });
   document.querySelectorAll('.ops-pib-inp').forEach(inp => {
@@ -893,7 +926,7 @@ function buildReapplyTable(co) {
           <span>${p}</span>
         </div>
       </td>
-      <td class="pmt-ref-mt">${obtMT.toLocaleString()} MT</td>
+      <td class="pmt-ref-mt">${obtMT.toLocaleString(MT_LOCALE)} MT</td>
       <td style="width:140px">
         <input type="text" inputmode="numeric"
           class="pmt-mt-inp reapply-prod-inp"
@@ -925,7 +958,7 @@ function buildReapplyTable(co) {
       <tfoot>
         <tr class="pmt-total-row">
           <td colspan="2">Total Re-Apply Target</td>
-          <td class="pmt-total-val" id="reapplyTotal">${grandTotal.toLocaleString()} MT</td>
+          <td class="pmt-total-val" id="reapplyTotal">${grandTotal.toLocaleString(MT_LOCALE)} MT</td>
         </tr>
       </tfoot>
     </table>
@@ -1078,7 +1111,7 @@ function buildRevisionRequestTable(co) {
         ALL_PRODS.map(op =>
           `<option value="${op}" ${op === t.product ? 'selected' : ''}>${op}</option>`
         ).join('');
-      const mt = t.mt != null ? Number(t.mt).toLocaleString() : '';
+      const mt = t.mt != null ? Number(t.mt).toLocaleString(MT_LOCALE) : '';
       const isLast  = i === targets.length - 1;
       const canDel  = targets.length > 1;
       return `<div class="revreq-target-row" data-source="${sourceProd}" data-idx="${i}"
@@ -1118,7 +1151,7 @@ function buildRevisionRequestTable(co) {
     // Sum of all target MTs for display
     const totalTargetMT = targets.reduce((s,t) => s + (parseFloat(String(t.mt||'').replace(/,/g,''))||0), 0);
     const totalDisp = totalTargetMT > 0
-      ? `<span style="font-size:9.5px;color:var(--blue);font-weight:700">${totalTargetMT.toLocaleString()} MT total</span>`
+      ? `<span style="font-size:9.5px;color:var(--blue);font-weight:700">${totalTargetMT.toLocaleString(MT_LOCALE)} MT total</span>`
       : '';
     return `<div class="revreq-row" id="revreq-row-${pid}"
       style="padding:10px;border:1px solid var(--border);border-radius:7px;margin-bottom:8px;
@@ -1137,7 +1170,7 @@ function buildRevisionRequestTable(co) {
               <div class="pmt-prod-dot" style="background:${dot}"></div>
               <span style="font-weight:700">${p}</span>
             </div>
-            <span style="font-size:9.5px;color:var(--txt3)">Obtained: ${obtMT.toLocaleString()} MT</span>
+            <span style="font-size:9.5px;color:var(--txt3)">Obtained: ${obtMT.toLocaleString(MT_LOCALE)} MT</span>
             ${totalDisp}
           </div>
           <input type="text" class="fi revreq-note-inp" data-prod="${p}"
@@ -1295,7 +1328,7 @@ function syncRevReqTotal(sourceProd) {
     const chip = rowEl.querySelector('.pmt-prod-chip');
     if (chip && chip.parentNode) chip.parentNode.insertBefore(badge, chip.nextSibling);
   }
-  badge.textContent = total > 0 ? `${total.toLocaleString()} MT total` : '';
+  badge.textContent = total > 0 ? `${total.toLocaleString(MT_LOCALE)} MT total` : '';
 }
 
 function toggleRevReqRow(pid, checked) {

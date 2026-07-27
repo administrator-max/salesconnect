@@ -276,7 +276,7 @@ function buildSalesPriorityData() {
         signals.push({ text: `${numProds} products`, color: '#64748b', bg: '#f1f5f9', bd: '#e2e8f0' });
 
       // ── Recommendation ────────────────────────────────────────
-      const N   = v => Math.round(v).toLocaleString();
+      const N   = v => Math.round(v).toLocaleString(MT_LOCALE);
       const pct = v => Math.round(v * 100) + '%';
       let rec;
       if (priority === 'HIGH') {
@@ -488,10 +488,10 @@ function renderSPTable() {
           <span style="font-size:11.5px;font-weight:600">${r.prod}</span>
         </span>
       </td>
-      <td style="padding:9px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:11.5px">${r.obtMT.toLocaleString()}</td>
+      <td style="padding:9px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:11.5px">${r.obtMT.toLocaleString(MT_LOCALE)}</td>
       <td style="padding:9px 10px;min-width:100px">${utilBar}</td>
       <td style="padding:9px 10px;text-align:center">${ldCell}</td>
-      <td style="padding:9px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:11.5px;font-weight:700;color:${r.isOverdue ? '#dc2626' : 'var(--teal)'}">${Math.round(r.remainMT).toLocaleString()} MT</td>
+      <td style="padding:9px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:11.5px;font-weight:700;color:${r.isOverdue ? '#dc2626' : 'var(--teal)'}">${Math.round(r.remainMT).toLocaleString(MT_LOCALE)} MT</td>
       <td style="padding:9px 10px;max-width:180px">${sigHtml}</td>
       <td style="padding:9px 10px;text-align:center">${pBadge(r.priority)}</td>
       <td style="padding:9px 16px;font-size:11px;color:var(--txt2);max-width:260px;line-height:1.5">${r.rec}</td>

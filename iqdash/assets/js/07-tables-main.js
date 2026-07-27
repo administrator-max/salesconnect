@@ -208,7 +208,7 @@ function renderMain() {
           <td class="t-r t-mono" style="color:var(--txt3)">${s.subP>0?fmtMt(s.subP):'—'}</td>
           <td class="t-r t-mono" style="color:${s.obtP>0?'var(--teal)':'var(--txt3)'}">${s.obtP>0?fmtMt(s.obtP):'—'}</td>
           <td class="t-r">${s.utilP>0?`<span style="color:var(--blue);font-family:'DM Mono',monospace">${fmtMt(s.utilP)}</span>`:'<span style="color:var(--txt3)">—</span>'}</td>
-          <td class="t-r">${s.realP>0?`<span style="color:var(--green);font-family:'DM Mono',monospace">${Number(s.realP).toLocaleString()}</span>`:'<span style="color:var(--txt3)">—</span>'}</td>
+          <td class="t-r">${s.realP>0?`<span style="color:var(--green);font-family:'DM Mono',monospace">${Number(s.realP).toLocaleString(MT_LOCALE)}</span>`:'<span style="color:var(--txt3)">—</span>'}</td>
           <td style="min-width:90px">${mkPctCell(dispPctS, s.realPctP==null && s.utilPctP!=null)}</td>
           <td class="t-r">${mkAvqCell(s.avqP, false)}</td>
           <td></td><td></td><td></td>`;
@@ -262,7 +262,7 @@ function renderMain() {
       <td class="t-r t-mono">${fmtMt(tSubmit)}</td>
       <td class="t-r t-mono" style="color:var(--teal)">${fmtMt(tObtain)}</td>
       <td class="t-r t-mono" style="color:var(--blue)">${fmtMt(tUtil)}</td>
-      <td class="t-r t-mono" style="color:var(--green)">${tReal.toLocaleString()}</td>
+      <td class="t-r t-mono" style="color:var(--green)">${tReal.toLocaleString(MT_LOCALE)}</td>
       <td style="min-width:90px">${pctStr}</td>
       <td class="t-r t-mono" style="color:var(--teal)">${fmtMt(tAvail)} MT</td>
       <td></td><td></td><td></td>
@@ -292,7 +292,7 @@ function renderMain() {
       `<span style="opacity:.3">·</span>` +
       `<span style="color:var(--blue)">Utilized: <strong>${fmtMt(tU)}</strong></span>` +
       `<span style="opacity:.3">·</span>` +
-      `<span style="color:var(--green)">Realized: <strong>${tR.toLocaleString()}</strong></span>` +
+      `<span style="color:var(--green)">Realized: <strong>${tR.toLocaleString(MT_LOCALE)}</strong></span>` +
       `<span style="opacity:.3">·</span>` +
       `<span style="color:#0891b2">Available: <strong>${fmtMt(tA)}</strong></span>`;
   }

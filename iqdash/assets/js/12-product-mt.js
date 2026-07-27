@@ -86,7 +86,7 @@ function buildProductMTTables(co) {
       const ALL_PROD_KEYS = Object.keys(PROD_DOT_COLORS);
 
       let rows = allProds.map((p, ri) => {
-        const v  = typeof subProds[p] === 'number' ? subProds[p].toLocaleString() : '';
+        const v  = typeof subProds[p] === 'number' ? subProds[p].toLocaleString(MT_LOCALE) : '';
         const hs = prodHS(p);
         const opts = ALL_PROD_KEYS.map(op =>
           `<option value="${op}"${op === p ? ' selected' : ''}>${op} · HS ${prodHS(op)}</option>`
@@ -139,7 +139,7 @@ function buildProductMTTables(co) {
           <tfoot>
             <tr class="pmt-total-row">
               <td>Total Submitted</td>
-              <td class="pmt-total-val" id="submitMTTotal">${totalSubmit.toLocaleString()} MT</td>
+              <td class="pmt-total-val" id="submitMTTotal">${totalSubmit.toLocaleString(MT_LOCALE)} MT</td>
             </tr>
           </tfoot>
         </table>
@@ -154,8 +154,8 @@ function buildProductMTTables(co) {
       obtWrap.innerHTML = '<div class="pmt-note">No products found for this company.</div>';
     } else {
       let rows = allProds.map(p => {
-        const sv = typeof subProds[p] === 'number' ? subProds[p].toLocaleString() + ' MT' : '—';
-        const ov = typeof obtProds[p] === 'number' ? obtProds[p].toLocaleString() : '';
+        const sv = typeof subProds[p] === 'number' ? subProds[p].toLocaleString(MT_LOCALE) + ' MT' : '—';
+        const ov = typeof obtProds[p] === 'number' ? obtProds[p].toLocaleString(MT_LOCALE) : '';
         const hs = prodHS(p);
         return `<tr>
           <td style="padding:5px 8px">
@@ -195,7 +195,7 @@ function buildProductMTTables(co) {
           <tfoot>
             <tr class="pmt-total-row">
               <td colspan="2">Total Obtained</td>
-              <td class="pmt-total-val" id="obtainedMTTotal">${totalObtained.toLocaleString()} MT</td>
+              <td class="pmt-total-val" id="obtainedMTTotal">${totalObtained.toLocaleString(MT_LOCALE)} MT</td>
             </tr>
           </tfoot>
         </table>
@@ -349,7 +349,7 @@ function removeProductRow(btn) {
     if (!isNaN(n)) st += n;
   });
   const subTotEl = g('submitMTTotal');
-  if (subTotEl) subTotEl.textContent = st.toLocaleString() + ' MT';
+  if (subTotEl) subTotEl.textContent = st.toLocaleString(MT_LOCALE) + ' MT';
   updateObtainedTotal();
   livePreview();
 }
@@ -469,7 +469,7 @@ function applyProductRenames(co) {
     co.revSubmitDate = today;
     co.revStatus     = 'Menunggu PERTEK Perubahan — ' + origProd + ' → ' + newProd;
     co.revNote       = 'Product change: ' + origProd + ' → ' + newProd +
-                       (origMT > 0 ? ' (' + origMT.toLocaleString() + ' MT)' : '');
+                       (origMT > 0 ? ' (' + origMT.toLocaleString(MT_LOCALE) + ' MT)' : '');
     co.revFrom = co.revFrom || [];
     co.revTo   = co.revTo   || [];
     co.revMT   = co.revMT   || 0;
@@ -484,17 +484,49 @@ function applyProductRenames(co) {
   Object.keys(_pendingRenames).forEach(k => delete _pendingRenames[k]);
 }
 
+/* ── Ambiguous-input guard ──────────────────────────────────────────────
+   Flag an MT input whose text we refuse to interpret (see mtAmbiguous in
+   00-num.js). A flagged field must never be read as a number: the save paths
+   check mtInputsAmbiguous() and refuse rather than store a guess. This is the
+   second line of defence behind the en-US locale lock — if some display site
+   is ever missed and shows "2.000" again, typing that back now raises an
+   error instead of silently storing 2. */
+function markMtInput(el, bad) {
+  if (!el) return;
+  if (bad) {
+    el.dataset.mtAmbiguous = '1';
+    el.classList.add('err');
+    el.title = 'Format tidak jelas. Pakai koma untuk ribuan — tulis 2,000 atau 2000, bukan 2.000.';
+  } else if (el.dataset.mtAmbiguous) {
+    delete el.dataset.mtAmbiguous;
+    el.classList.remove('err');
+    el.title = '';
+  }
+}
+
+/* Every MT input currently holding text we refuse to interpret. */
+function mtInputsAmbiguous(root) {
+  return Array.prototype.slice.call(
+    (root || document).querySelectorAll('[data-mt-ambiguous="1"]'));
+}
+
 /* Thousand-separator for inline pmt inputs (no fixed ID) */
 function fmtThousandInline(el) {
   // Allow decimal up to 2 digits (e.g. 1,234.56)
   // Strip anything that's not digit, comma, or dot
   let raw = el.value.replace(/[^0-9.,]/g, '');
+  // A trailing dot group of 3+ digits is either Indonesian thousands ("2.000")
+  // or more precision than this field holds. Both used to be silently mangled
+  // into a wrong number. Flag it and leave the text exactly as typed so the
+  // user can see and fix what they wrote.
+  if (mtAmbiguous(raw)) { markMtInput(el, true); return; }
+  markMtInput(el, false);
   // Normalize: only keep first dot as decimal separator
   const parts = raw.replace(/,/g, '').split('.');
   const intPart = parts[0] || '';
   const decPart = parts.length > 1 ? parts[1].slice(0, 2) : null;
   // Format integer part with thousand separators
-  const intFormatted = intPart ? Number(intPart).toLocaleString('en-US') : '';
+  const intFormatted = intPart ? Number(intPart).toLocaleString(MT_LOCALE) : '';
   el.value = decPart !== null ? intFormatted + '.' + decPart : intFormatted;
   // Update submit total live
   let st = 0;
@@ -503,7 +535,7 @@ function fmtThousandInline(el) {
     if (!isNaN(n)) st += n;
   });
   const stEl = g('submitMTTotal');
-  if (stEl) stEl.textContent = st.toLocaleString() + ' MT';
+  if (stEl) stEl.textContent = st.toLocaleString(MT_LOCALE) + ' MT';
 }
 
 function updateObtainedTotal() {
@@ -513,7 +545,7 @@ function updateObtainedTotal() {
     if (!isNaN(n)) tot += n;
   });
   const el = g('obtainedMTTotal');
-  if (el) el.textContent = tot.toLocaleString() + ' MT';
+  if (el) el.textContent = tot.toLocaleString(MT_LOCALE) + ' MT';
 }
 
 /* Read all per-product MT inputs → { PRODUCT: mt, ... } and total */
@@ -597,7 +629,7 @@ function loadEdit() {
   g('eStatusUpdate').value = co ? (co.statusUpdate || '') : '';
 
   // ── Other roles ──
-  g('eUtilMT').value     = (co && co.utilizationMT != null) ? co.utilizationMT.toLocaleString() : '';
+  g('eUtilMT').value     = (co && co.utilizationMT != null) ? co.utilizationMT.toLocaleString(MT_LOCALE) : '';
   g('eBerat').value      = ra ? (ra.berat || '') : '';
   g('eETA').value        = ra ? (ra.etaJKT || '') : '';
   g('ePIBRelease').value = ra ? (ra.pibReleaseDate || '') : '';

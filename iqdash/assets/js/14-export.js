@@ -747,8 +747,8 @@ function exportExecutivePDF() {
         `<tr>
           <td style="padding:3px 7px;font-size:7pt;font-weight:700;color:#1e293b">${r.code}</td>
           <td style="padding:3px 7px;font-size:7pt;color:#64748b">${r.product}</td>
-          <td style="padding:3px 7px;font-size:7pt;text-align:right;font-variant-numeric:tabular-nums">${r.obtained.toLocaleString()} MT</td>
-          <td style="padding:3px 7px;font-size:7pt;text-align:right">${r.utilized > 0 ? r.utilized.toLocaleString() + ' MT' : '—'}</td>
+          <td style="padding:3px 7px;font-size:7pt;text-align:right;font-variant-numeric:tabular-nums">${r.obtained.toLocaleString(MT_LOCALE)} MT</td>
+          <td style="padding:3px 7px;font-size:7pt;text-align:right">${r.utilized > 0 ? r.utilized.toLocaleString(MT_LOCALE) + ' MT' : '—'}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:center">${fmtD2(r.pertekDate)}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:center">${r.firstUtilDate ? fmtD2(r.firstUtilDate) : '<em>No entry</em>'}</td>
           <td style="padding:3px 7px;font-size:7.5pt;font-weight:700;color:#991b1b;text-align:center">${r.leadDays !== null ? r.leadDays + 'd' : '—'}</td>
@@ -759,8 +759,8 @@ function exportExecutivePDF() {
         `<tr>
           <td style="padding:3px 7px;font-size:7pt;font-weight:700;color:#1e293b">${r.code}</td>
           <td style="padding:3px 7px;font-size:7pt;color:#64748b">${r.product}</td>
-          <td style="padding:3px 7px;font-size:7pt;text-align:right;font-variant-numeric:tabular-nums">${r.obtained.toLocaleString()} MT</td>
-          <td style="padding:3px 7px;font-size:7pt;text-align:right">${r.utilized > 0 ? r.utilized.toLocaleString() + ' MT' : '—'}</td>
+          <td style="padding:3px 7px;font-size:7pt;text-align:right;font-variant-numeric:tabular-nums">${r.obtained.toLocaleString(MT_LOCALE)} MT</td>
+          <td style="padding:3px 7px;font-size:7pt;text-align:right">${r.utilized > 0 ? r.utilized.toLocaleString(MT_LOCALE) + ' MT' : '—'}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:center">${fmtD2(r.pertekDate)}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:center">${r.firstUtilDate ? fmtD2(r.firstUtilDate) : '<em>No entry</em>'}</td>
           <td style="padding:3px 7px;font-size:7.5pt;font-weight:700;color:#b45309;text-align:center">${r.leadDays !== null ? r.leadDays + 'd' : '—'}</td>
@@ -896,7 +896,7 @@ function exportExecutivePDF() {
           <td style="padding:4px 7px;font-size:7.5pt;font-weight:700;color:#1e293b">${d.code}</td>
           <td style="padding:4px 7px;font-size:7pt;color:#475569">${d.group}</td>
           <td style="padding:4px 7px;font-size:7pt">${(d.products||[]).join(', ')}</td>
-          <td style="padding:4px 7px;font-size:7.5pt;font-weight:700;text-align:right;font-variant-numeric:tabular-nums">${typeof d.mt==='number'?d.mt.toLocaleString():'TBA'}</td>
+          <td style="padding:4px 7px;font-size:7.5pt;font-weight:700;text-align:right;font-variant-numeric:tabular-nums">${typeof d.mt==='number'?d.mt.toLocaleString(MT_LOCALE):'TBA'}</td>
           <td style="padding:4px 7px;font-size:7pt;color:#475569;white-space:nowrap">${submitDate}</td>
           <td style="padding:4px 7px;font-size:7pt;color:#991b1b;font-style:italic">${stage}</td>
         </tr>`;
@@ -1027,7 +1027,7 @@ async function doExportXLSX() {
   function prodsStr(prods) {
     if (!prods) return '';
     if (Array.isArray(prods)) return prods.join('; ');
-    return Object.entries(prods).map(([k,v]) => v === 'TBA' ? `${k}: TBA` : `${k}: ${Number(v).toLocaleString()} MT`).join('; ');
+    return Object.entries(prods).map(([k,v]) => v === 'TBA' ? `${k}: TBA` : `${k}: ${Number(v).toLocaleString(MT_LOCALE)} MT`).join('; ');
   }
 
   /* ── collect filtered data (same logic as dashboard) ── */

@@ -419,6 +419,10 @@ tr:hover td { background:#f9fafb }
 .util-add-inp    { width:72px; padding:3px 7px; border:1.5px solid var(--green-bd); border-radius:var(--r); font-family:'DM Mono',monospace; font-size:12px; font-weight:700; color:var(--green); background:var(--green-bg); outline:none; text-align:right }
 .util-add-inp:focus { border-color:var(--green) }
 .util-add-inp.err   { border-color:var(--red-lt); background:var(--red-bg); color:var(--red2) }
+/* MT input holding text we refuse to interpret (e.g. "2.000" — 2000 or 2.0?).
+   Keyed on the marker markMtInput() sets, so every flagged field shows red
+   whatever its class. Saving is blocked while any of these is present. */
+input[data-mt-ambiguous="1"] { border-color:var(--red-lt) !important; background:var(--red-bg) !important; color:var(--red2) !important }
 .util-apply-btn  { font-size:10px; font-weight:700; padding:3px 9px; border-radius:var(--r); border:1px solid var(--green-bd); background:var(--green-bg); color:var(--green); cursor:pointer; transition:all .12s; flex-shrink:0; line-height:1.4 }
 .util-apply-btn:hover:not(:disabled) { background:var(--green); color:#fff; border-color:var(--green) }
 .util-apply-btn:disabled { opacity:.35; cursor:not-allowed }

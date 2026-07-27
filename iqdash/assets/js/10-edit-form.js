@@ -6,12 +6,16 @@
 /* ── Thousand-separator helpers ───────────────────────── */
 function fmtThousand(el) {
   const raw = el.value.replace(/[^0-9]/g, '');
-  el.value = raw ? Number(raw).toLocaleString() : '';
+  el.value = raw ? Number(raw).toLocaleString(MT_LOCALE) : '';
 }
+/* Fixed-ID MT field -> whole MT, or null when empty/malformed/ambiguous.
+   Routed through parseMT so "2.000" is refused here too rather than read as 2
+   (callers already treat null as "no value"). */
 function parseMTField(id) {
-  const v = document.getElementById(id).value.replace(/,/g, '');
-  const n = parseInt(v, 10);
-  return isNaN(n) ? null : n;
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const n = parseMT(el.value);
+  return n === null ? null : Math.trunc(n);
 }
 function g(id) { return document.getElementById(id); }
 function gv(id) { return g(id) ? g(id).value.trim() : ''; }
@@ -49,10 +53,10 @@ function livePreview() {
   const avqColor = avq != null ? (avq > 0 ? 'var(--teal)' : 'var(--red2)') : 'var(--txt3)';
   g('epContent').innerHTML =
     `${whoTag} <strong>${c}</strong> &nbsp;·&nbsp; ` +
-    `Submit: <strong>${sMT != null ? sMT.toLocaleString() : '—'} MT</strong> &nbsp;·&nbsp; ` +
-    `Obtained: <strong>${oMT != null ? oMT.toLocaleString() : '—'} MT</strong><br>` +
-    `Utilization: <strong>${uMT != null ? uMT.toLocaleString() : '—'} MT</strong> &nbsp;·&nbsp; ` +
-    `Available Quota: <strong style="color:${avqColor}">${avq != null ? avq.toLocaleString() : '—'} MT</strong><br>` +
+    `Submit: <strong>${sMT != null ? sMT.toLocaleString(MT_LOCALE) : '—'} MT</strong> &nbsp;·&nbsp; ` +
+    `Obtained: <strong>${oMT != null ? oMT.toLocaleString(MT_LOCALE) : '—'} MT</strong><br>` +
+    `Utilization: <strong>${uMT != null ? uMT.toLocaleString(MT_LOCALE) : '—'} MT</strong> &nbsp;·&nbsp; ` +
+    `Available Quota: <strong style="color:${avqColor}">${avq != null ? avq.toLocaleString(MT_LOCALE) : '—'} MT</strong><br>` +
     `PERTEK No: <strong>${pn||'—'}</strong> &nbsp; Terbit: <strong>${pd||'TBA'}</strong> &nbsp;·&nbsp; ` +
     `SPI No: <strong>${sn||'—'}</strong> &nbsp; Terbit: <strong>${sd||'TBA'}</strong><br>` +
     `Category: ${cat}`;
@@ -447,7 +451,7 @@ function buildRoleHistory() {
     cycles.filter(c => /^submit/i.test(c.type) && !/obtained/i.test(c.type)).forEach(c => {
       if (c.submitDate) entries.push({
         date: c.submitDate, icon: '📤', section: 'Submission & PERTEK',
-        text: `<strong>${c.type}</strong> — Submit: ${fmtD(c.submitDate)}${c.mt ? ' · ' + c.mt.toLocaleString() + ' MT' : ''}${c.submitType ? ' · ' + c.submitType : ''}`,
+        text: `<strong>${c.type}</strong> — Submit: ${fmtD(c.submitDate)}${c.mt ? ' · ' + c.mt.toLocaleString(MT_LOCALE) + ' MT' : ''}${c.submitType ? ' · ' + c.submitType : ''}`,
         color: 'var(--blue)'
       });
     });
@@ -456,7 +460,7 @@ function buildRoleHistory() {
     cycles.filter(c => /^obtained/i.test(c.type)).forEach(c => {
       if (c.submitDate || c.releaseDate) entries.push({
         date: cycleTerbitDate(c) || c.submitDate, icon: '📄', section: 'Submission & PERTEK',
-        text: `<strong>${c.type}</strong> — PERTEK/SPI: ${fmtD(cycleTerbitDate(c))}${c.mt ? ' · ' + c.mt.toLocaleString() + ' MT' : ''}${c.status ? ' · <em>' + c.status + '</em>' : ''}`,
+        text: `<strong>${c.type}</strong> — PERTEK/SPI: ${fmtD(cycleTerbitDate(c))}${c.mt ? ' · ' + c.mt.toLocaleString(MT_LOCALE) + ' MT' : ''}${c.status ? ' · <em>' + c.status + '</em>' : ''}`,
         color: 'var(--teal)'
       });
     });
@@ -465,7 +469,7 @@ function buildRoleHistory() {
     cycles.filter(c => c._isRevReq).forEach(c => {
       entries.push({
         date: c.releaseDate, icon: '✅', section: 'Revision & Status',
-        text: `<strong>Rev Konfirmasi</strong> — ${c.type.replace('Revision Request — ','')}${c.mt ? ' · ' + c.mt.toLocaleString() + ' MT' : ''} · ${c.status||''}`,
+        text: `<strong>Rev Konfirmasi</strong> — ${c.type.replace('Revision Request — ','')}${c.mt ? ' · ' + c.mt.toLocaleString(MT_LOCALE) + ' MT' : ''} · ${c.status||''}`,
         color: 'var(--green)'
       });
     });
@@ -499,9 +503,9 @@ function buildRoleHistory() {
       reqEntries.forEach(([prod, req]) => {
         const targets  = (req.targetProducts||[]).filter(t => t.product);
         const tDisp    = targets.length > 1
-          ? targets.map(t => `<strong>${t.product}</strong>${t.mt ? ' ('+Number(t.mt).toLocaleString()+' MT)' : ''}`).join(' + ')
+          ? targets.map(t => `<strong>${t.product}</strong>${t.mt ? ' ('+Number(t.mt).toLocaleString(MT_LOCALE)+' MT)' : ''}`).join(' + ')
           : targets.length === 1 && targets[0].product
-            ? `<strong>${targets[0].product}</strong>${targets[0].mt ? ' ('+Number(targets[0].mt).toLocaleString()+' MT)' : ''}`
+            ? `<strong>${targets[0].product}</strong>${targets[0].mt ? ' ('+Number(targets[0].mt).toLocaleString(MT_LOCALE)+' MT)' : ''}`
             : req.newProduct ? `<strong>${req.newProduct}</strong>` : '<em>Tetap sama</em>';
 
         const isConf   = req.status === 'confirmed';
@@ -523,7 +527,7 @@ function buildRoleHistory() {
           responseHtml = `<div style="margin-top:4px;display:flex;align-items:center;gap:5px;flex-wrap:wrap">
             <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;
               background:${stBg};color:${stColor};border:1px solid ${stBd}">${stIcon} ${stLabel}</span>
-            ${req.confirmedMT ? `<span style="font-size:10px;font-family:'DM Mono',monospace;font-weight:700;color:${stColor}">${Number(req.confirmedMT).toLocaleString()} MT dikonfirmasi</span>` : ''}
+            ${req.confirmedMT ? `<span style="font-size:10px;font-family:'DM Mono',monospace;font-weight:700;color:${stColor}">${Number(req.confirmedMT).toLocaleString(MT_LOCALE)} MT dikonfirmasi</span>` : ''}
             ${req.confirmedDate ? `<span style="font-size:9.5px;color:var(--txt3)">oleh ${req.confirmedBy||'CorpSec'} · ${(typeof fmtDateStd==='function'?fmtDateStd(req.confirmedDate):req.confirmedDate)}</span>` : ''}
           </div>`;
         } else if (isBatal) {
@@ -565,7 +569,7 @@ function buildRoleHistory() {
           const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:${prodDot(prod)};margin-right:3px;vertical-align:middle"></span>`;
           shipEntries.push({
             date: lot.etaJKT || null, icon: '📦',
-            text: `${dot}<strong>${prod}</strong> Lot ${lot.lotNo||1} — ${lot.utilMT ? '<strong>'+lot.utilMT.toLocaleString()+' MT</strong>' : '<em style="color:var(--txt3)">Util belum diisi</em>'} · ETA: ${lot.etaJKT || '—'}${lot.note ? ' · <em>'+lot.note+'</em>' : ''}`,
+            text: `${dot}<strong>${prod}</strong> Lot ${lot.lotNo||1} — ${lot.utilMT ? '<strong>'+lot.utilMT.toLocaleString(MT_LOCALE)+' MT</strong>' : '<em style="color:var(--txt3)">Util belum diisi</em>'} · ETA: ${lot.etaJKT || '—'}${lot.note ? ' · <em>'+lot.note+'</em>' : ''}`,
             color: lot.utilMT ? 'var(--blue)' : 'var(--txt3)',
             section: 'Utilisasi & ETA Shipment',
           });
@@ -582,7 +586,7 @@ function buildRoleHistory() {
     if (reapplyEntries.length) entries.push({
       date: null, icon: '♻️',
       text: `Re-Apply Target: ${reapplyEntries.map(([p,v]) =>
-        `<span style="display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;background:var(--violet-bg);color:var(--violet);border:1px solid var(--violet-bd)">${p}: ${Number(v).toLocaleString()} MT</span>`
+        `<span style="display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;background:var(--violet-bg);color:var(--violet);border:1px solid var(--violet-bd)">${p}: ${Number(v).toLocaleString(MT_LOCALE)} MT</span>`
       ).join(' ')}`,
       color: 'var(--violet)',
       section: 'Target Re-Apply',
@@ -600,7 +604,7 @@ function buildRoleHistory() {
             ? `<span style="font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">✅ Arrived</span>` : '';
           entries.push({
             date: lot.pibDate || null, icon: '🚢',
-            text: `${dot}<strong>${prod}</strong> Lot ${lot.lotNo} — Real: ${lot.realMT ? lot.realMT.toLocaleString() + ' MT' : '—'} · PIB: ${lot.pibDate || '—'} ${arrived}`,
+            text: `${dot}<strong>${prod}</strong> Lot ${lot.lotNo} — Real: ${lot.realMT ? lot.realMT.toLocaleString(MT_LOCALE) + ' MT' : '—'} · PIB: ${lot.pibDate || '—'} ${arrived}`,
             color: 'var(--green)'
           });
         }
@@ -610,7 +614,7 @@ function buildRoleHistory() {
     // RA realization
     if (ra && (ra.berat || ra.realPct)) entries.push({
       date: ra.arrivalDate || null, icon: '📊', section: 'Realisasi',
-      text: `Realisasi: <strong>${(ra.berat||0).toLocaleString()} MT</strong> · ${(ra.realPct*100||0).toFixed(1)}% · ${ra.cargoArrived ? '✅ Cargo Arrived' : '🚢 In Transit'} · ETA: ${ra.etaJKT || '—'}`,
+      text: `Realisasi: <strong>${(ra.berat||0).toLocaleString(MT_LOCALE)} MT</strong> · ${(ra.realPct*100||0).toFixed(1)}% · ${ra.cargoArrived ? '✅ Cargo Arrived' : '🚢 In Transit'} · ETA: ${ra.etaJKT || '—'}`,
       color: ra.cargoArrived ? 'var(--green)' : 'var(--blue)'
     });
   }

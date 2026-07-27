@@ -95,7 +95,7 @@ function buildRevMgmtSection(co) {
   // ── 2. Summary stats row ───────────────────────────────────────────────
   const cycleCount = ac.length;
   const latestObt  = ac.filter(c => /^obtained/i.test(c.type)).pop();
-  const obtMT      = latestObt ? (typeof latestObt.mt === 'number' ? latestObt.mt.toLocaleString() + ' MT' : 'TBA') : '—';
+  const obtMT      = latestObt ? (typeof latestObt.mt === 'number' ? latestObt.mt.toLocaleString(MT_LOCALE) + ' MT' : 'TBA') : '—';
   const realPct    = ra ? (ra.realPct * 100).toFixed(1) + '%' : '—';
   html += `<div class="rr-status-grid">
     <div class="rr-stat-box"><div class="rr-stat-val" style="color:var(--teal)">${obtMT}</div><div class="rr-stat-lbl">Obtained #1</div></div>
@@ -113,18 +113,18 @@ function buildRevMgmtSection(co) {
     let reqRows = reqProds.map(([prod, req], _ri) => {
       const dot      = prodDot(prod);
       const pid      = prod.replace(/[^a-zA-Z0-9]/g,'_') + '_cs' + _ri;
-      const reqMT    = req.requestedMT != null ? req.requestedMT.toLocaleString() + ' MT' : '—';
+      const reqMT    = req.requestedMT != null ? req.requestedMT.toLocaleString(MT_LOCALE) + ' MT' : '—';
       // Support split: show all target products
       const targets  = req.targetProducts && req.targetProducts.length
                      ? req.targetProducts
                      : (req.newProduct ? [{ product: req.newProduct, mt: req.requestedMT }] : []);
       const newP     = targets.length > 0 && targets.some(t => t.product)
-        ? targets.map(t => t.product ? ` → <strong style="color:var(--blue)">${t.product}</strong>${t.mt ? ` <span style="font-size:9.5px;color:var(--txt3)">(${Number(t.mt).toLocaleString()} MT)</span>` : ''}` : '').filter(Boolean).join(', ')
+        ? targets.map(t => t.product ? ` → <strong style="color:var(--blue)">${t.product}</strong>${t.mt ? ` <span style="font-size:9.5px;color:var(--txt3)">(${Number(t.mt).toLocaleString(MT_LOCALE)} MT)</span>` : ''}` : '').filter(Boolean).join(', ')
         : '';
       const note     = req.note || '';
       const isConf   = req.status === 'confirmed';
       const isBatal  = req.status === 'rejected';
-      const confMT   = req.confirmedMT != null ? Number(req.confirmedMT).toLocaleString() : (req.requestedMT != null ? Number(req.requestedMT).toLocaleString() : '');
+      const confMT   = req.confirmedMT != null ? Number(req.confirmedMT).toLocaleString(MT_LOCALE) : (req.requestedMT != null ? Number(req.requestedMT).toLocaleString(MT_LOCALE) : '');
 
       // Status badge
       const statusBadge = isConf
@@ -168,7 +168,7 @@ function buildRevMgmtSection(co) {
         <td style="padding:8px 10px;text-align:right;vertical-align:top">
           ${targets.length > 1
             ? targets.map(t => `<div style="font-size:10px;color:var(--amber);font-family:'DM Mono',monospace;white-space:nowrap">
-                ${t.product||'(sama)'}: <strong>${t.mt!=null?Number(t.mt).toLocaleString():'—'} MT</strong>
+                ${t.product||'(sama)'}: <strong>${t.mt!=null?Number(t.mt).toLocaleString(MT_LOCALE):'—'} MT</strong>
               </div>`).join('')
             : `<span style="font-weight:700;color:var(--amber);font-family:'DM Mono',monospace">${reqMT}</span>`
           }
@@ -225,20 +225,20 @@ function buildRevMgmtSection(co) {
                    : 'var(--border2)';
 
     const prodStr = c.products
-      ? Object.entries(c.products).map(([p,m]) => `${p}: ${typeof m==='number'?m.toLocaleString():m} MT`).join(' · ')
+      ? Object.entries(c.products).map(([p,m]) => `${p}: ${typeof m==='number'?m.toLocaleString(MT_LOCALE):m} MT`).join(' · ')
       : '—';
 
     // Detect if this Obtained #2 is TBA/empty — offer quick-fill button
     const isObt2TBA = /^obtained #2/i.test(c.type) && (c.mt == null || c.mt === 0 || c.mt === 'TBA');
     const mtDisp = (c.mt != null && c.mt !== 'TBA' && c.mt > 0)
-      ? `<strong style="color:var(--teal)">${Number(c.mt).toLocaleString()} MT</strong>`
+      ? `<strong style="color:var(--teal)">${Number(c.mt).toLocaleString(MT_LOCALE)} MT</strong>`
       : `<span style="color:var(--txt3);font-style:italic">TBA MT</span>`;
 
     // Build per-product MT display
     const prodLines = c.products && Object.keys(c.products).length
       ? Object.entries(c.products).map(([p,m]) => {
           const dotC = (typeof prodDot==='function') ? prodDot(p) : '#94a3b8';
-          const safeM = (!isNaN(Number(m)) && Number(m) > 0) ? Number(m).toLocaleString() + ' MT' : 'TBA';
+          const safeM = (!isNaN(Number(m)) && Number(m) > 0) ? Number(m).toLocaleString(MT_LOCALE) + ' MT' : 'TBA';
           return `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px">
             <span style="width:6px;height:6px;border-radius:2px;background:${dotC};display:inline-block"></span>
             <span style="font-size:10px">${p}: <strong>${safeM}</strong></span></span>`;
@@ -285,9 +285,9 @@ function buildRevMgmtSection(co) {
       co.revFrom.forEach((f, i) => {
         const t = (co.revTo || [])[i] || {};
         changeHtml += `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px">
-          <span style="padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-weight:600">${f.prod} — ${(f.mt||'').toLocaleString ? (typeof f.mt==='number'?f.mt.toLocaleString():f.mt) : f.mt} MT</span>
+          <span style="padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-weight:600">${f.prod} — ${(f.mt||'').toLocaleString ? (typeof f.mt==='number'?f.mt.toLocaleString(MT_LOCALE):f.mt) : f.mt} MT</span>
           <span style="color:var(--txt3)">→</span>
-          <span style="padding:2px 8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:3px;font-weight:700;color:var(--green)">${t.prod||'?'} — ${(typeof t.mt==='number'?t.mt.toLocaleString():t.mt)||'TBA'} MT</span>
+          <span style="padding:2px 8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:3px;font-weight:700;color:var(--green)">${t.prod||'?'} — ${(typeof t.mt==='number'?t.mt.toLocaleString(MT_LOCALE):t.mt)||'TBA'} MT</span>
         </div>`;
       });
       changeHtml += `</div></div>`;
@@ -339,7 +339,7 @@ function buildRevMgmtSection(co) {
         const existNum = (!isNaN(existParsed) && existParsed > 0)
           ? existParsed
           : revToMT;
-        const existVal = existNum != null ? existNum.toLocaleString() : '';
+        const existVal = existNum != null ? existNum.toLocaleString(MT_LOCALE) : '';
         const dotColor = (typeof prodDot === 'function') ? prodDot(prodName) : '#94a3b8';
         const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:${dotColor};margin-right:5px;vertical-align:middle;flex-shrink:0"></span>`;
         return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -359,7 +359,7 @@ function buildRevMgmtSection(co) {
         const v = (!isNaN(parsed) && parsed > 0) ? parsed : revToMT2;
         return s + v;
       }, 0);
-      const initTotalDisp = initTotal > 0 ? initTotal.toLocaleString() + ' MT' : '—';
+      const initTotalDisp = initTotal > 0 ? initTotal.toLocaleString(MT_LOCALE) + ' MT' : '—';
 
       obtainedHtml = `<div style="margin-bottom:12px;padding:10px;background:var(--teal-bg);border:1px solid var(--teal-bd);border-radius:7px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -389,7 +389,7 @@ function buildRevMgmtSection(co) {
       </div>`;
     } else {
       // No product breakdown — single MT field
-      const singleVal = (obt2MT != null && !isNaN(Number(obt2MT))) ? Number(obt2MT).toLocaleString() : '';
+      const singleVal = (obt2MT != null && !isNaN(Number(obt2MT))) ? Number(obt2MT).toLocaleString(MT_LOCALE) : '';
       obtainedHtml = `<div style="margin-bottom:12px;padding:10px;background:var(--teal-bg);border:1px solid var(--teal-bd);border-radius:7px">
         <div class="fl" style="color:var(--teal);margin-bottom:8px">Obtained MT (Total)</div>
         <input type="text" inputmode="decimal" class="fi rr-obt-prod-inp" data-prod="_total"
@@ -463,8 +463,8 @@ function buildRevMgmtSection(co) {
     html += `<div class="notice" style="margin-top:10px;padding:10px;border:1px solid #d9a441;background:#fff8e6;border-radius:6px">
       <div style="font-weight:700;color:#8a5a00;font-size:11.5px">⏳ PERTEK Perubahan belum terbit</div>
       <div style="font-size:11px;color:var(--txt3);margin:4px 0">
-        Menampilkan PERTEK asal: <strong>${pr.from} ${Number(pr.origMT).toLocaleString()} MT</strong>.
-        Split ke <strong>${pr.to} ${Number(pr.mt).toLocaleString()} MT</strong> akan tampil setelah tanggal terbit diisi.
+        Menampilkan PERTEK asal: <strong>${pr.from} ${Number(pr.origMT).toLocaleString(MT_LOCALE)} MT</strong>.
+        Split ke <strong>${pr.to} ${Number(pr.mt).toLocaleString(MT_LOCALE)} MT</strong> akan tampil setelah tanggal terbit diisi.
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <input class="fi" id="ppReleaseDate_${code}" type="text" placeholder="DD/MM/YYYY" style="max-width:130px">
@@ -628,7 +628,7 @@ function rrApplyObtained(code) {
   if (spiDateVal) { obt2Cy.spiDate = spiDateVal; co.spiDate = spiDateVal; }
   if (pkNoVal)    { co.pertekNo = pkNoVal; }
   if (pkDateVal)  { co.pertekDate = pkDateVal; }
-  obt2Cy.status = `Obtained #2 — ${obtTotal.toLocaleString()} MT${spiNoVal ? ' · SPI: ' + spiNoVal : ''}${spiDateVal ? ' · ' + spiDateVal : ''}`;
+  obt2Cy.status = `Obtained #2 — ${obtTotal.toLocaleString(MT_LOCALE)} MT${spiNoVal ? ' · SPI: ' + spiNoVal : ''}${spiDateVal ? ' · ' + spiDateVal : ''}`;
   co.revMT = obtTotal;
 
   // Visual feedback on button
@@ -647,7 +647,7 @@ function rrApplyObtained(code) {
   saveToStorage();
   patchToServer(co).catch(err => notifySaveError('rrApplyObtained', err));
 
-  nsShowToast(`✓ Obtained #2 updated — ${obtTotal.toLocaleString()} MT`);
+  nsShowToast(`✓ Obtained #2 updated — ${obtTotal.toLocaleString(MT_LOCALE)} MT`);
 }
 
 /* ── Record obtained as TERBIT new quota ──────────────────────────────
@@ -664,7 +664,7 @@ async function rrRecordObtainedTerbit(code) {
   if (!terbit) terbit = (prompt('Tanggal SPI terbit untuk Obtained ini (DD/MM/YYYY):') || '').trim();
   if (!terbit) return;
   if (!confirm(`Catat sebagai Obtained TERBIT (kuota baru) — ${code}\n` +
-      prods.map(([p, m]) => `• ${p}: ${Number(m).toLocaleString()} MT`).join('\n') +
+      prods.map(([p, m]) => `• ${p}: ${Number(m).toLocaleString(MT_LOCALE)} MT`).join('\n') +
       `\nTerbit: ${terbit}\n\nAkan masuk ke Total Obtained (overview) + Available.`)) return;
   try {
     for (const [product, mt] of prods) {
@@ -691,7 +691,7 @@ async function rrSavePertekPerubahan(code) {
   const releaseDate = ((input || {}).value || '').trim();
   if (!releaseDate) { alert('Isi Tanggal Terbit PERTEK Perubahan dulu (DD/MM/YYYY).'); return; }
   if (!confirm(`Catat PERTEK Perubahan TERBIT — ${code}\n` +
-      `${pr.from} → ${pr.to} ${Number(pr.mt).toLocaleString()} MT\n` +
+      `${pr.from} → ${pr.to} ${Number(pr.mt).toLocaleString(MT_LOCALE)} MT\n` +
       `Terbit: ${releaseDate}\n\nSetelah ini split ${pr.to} akan tampil di dashboard.`)) return;
   try {
     const res = await fetch(`api/company/${encodeURIComponent(code)}/pertek-perubahan-release`, {
@@ -716,7 +716,7 @@ function rrUpdateObtTotal() {
   document.querySelectorAll('.rr-obt-prod-inp').forEach(inp => {
     t += parseFloat(inp.value.replace(/,/g,'')) || 0;
   });
-  el.textContent = t > 0 ? t.toLocaleString() + ' MT' : '—';
+  el.textContent = t > 0 ? t.toLocaleString(MT_LOCALE) + ' MT' : '—';
 }
 
 function rrSaveStatus(code) {
@@ -909,6 +909,19 @@ function saveEdit() {
   // ── Role guard: must have a role selected ──
   if (!currentRole) {
     alert('Please select your role before saving.');
+    return;
+  }
+
+  // ── Ambiguous MT guard: refuse the whole save rather than store a guess ──
+  // Nothing here may be interpreted for the user — a field reading "2.000"
+  // could mean 2000 or 2.0, and guessing wrong silently corrupts quota data
+  // (that is exactly how IKM lost 1998 MT). Send them back to fix it.
+  const badMt = (typeof mtInputsAmbiguous === 'function') ? mtInputsAmbiguous() : [];
+  if (badMt.length) {
+    badMt[0].focus();
+    alert('Ada ' + badMt.length + ' isian MT dengan format tidak jelas (mis. "2.000").\n\n'
+      + 'Pakai koma untuk pemisah ribuan — tulis 2,000 atau 2000.\n'
+      + 'Isian yang bermasalah ditandai merah.');
     return;
   }
 
