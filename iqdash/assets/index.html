@@ -59,19 +59,9 @@ window.ensureXLSX = function () {
     </div>
     <div style="padding:10px 14px 6px;border-bottom:1px solid var(--border)">
       <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--txt3);margin-bottom:7px">Quick Presets</div>
-      <div class="pf-presets" style="padding:0">
-        <div class="pf-preset active" id="pre-all" onclick="applyPreset('all',this)">All Time</div>
-        <div class="pf-preset" id="pre-oct25" onclick="applyPreset('oct25',this)">Oct 2025</div>
-        <div class="pf-preset" id="pre-nov25" onclick="applyPreset('nov25',this)">Nov 2025</div>
-        <div class="pf-preset" id="pre-dec25" onclick="applyPreset('dec25',this)">Dec 2025</div>
-        <div class="pf-preset" id="pre-jan26" onclick="applyPreset('jan26',this)">Jan 2026</div>
-        <div class="pf-preset" id="pre-feb26" onclick="applyPreset('feb26',this)">Feb 2026</div>
-        <div class="pf-preset" id="pre-q425" onclick="applyPreset('q425',this)">Q4 2025</div>
-        <div class="pf-preset" id="pre-q126" onclick="applyPreset('q126',this)">Q1 2026</div>
-        <div class="pf-preset" id="pre-q226" onclick="applyPreset('q226',this)">Q2 2026</div>
-        <div class="pf-preset" id="pre-q326" onclick="applyPreset('q326',this)">Q3 2026</div>
-        <div class="pf-preset" id="pre-q426" onclick="applyPreset('q426',this)">Q4 2026</div>
-        <div class="pf-preset" id="pre-ytd" onclick="applyPreset('ytd',this)">YTD 2026</div>
+      <!-- Quick presets removed 2026-07-27: the date range below is the single
+           source of period truth, so any window (month / quarter / half-year)
+           is expressible without maintaining a chip per period. -->
       </div>
     </div>
     <div style="padding:10px 14px 6px;border-bottom:1px solid var(--border)">
@@ -1531,7 +1521,7 @@ window.ensureXLSX = function () {
 <div id="pendingQuick" style="display:none"></div>
 <script defer src="assets/js/00-num.js?v=1"></script>
 <script defer src="assets/js/01-data.js?v=24"></script>
-<script defer src="assets/js/02-period-filter.js?v=6"></script>
+<script defer src="assets/js/02-period-filter.js?v=7"></script>
 <script defer src="assets/js/03-kpis.js?v=13"></script>
 <script defer src="assets/js/04-charts.js?v=11"></script>
 <script defer src="assets/js/05-tables-spi.js?v=6"></script>

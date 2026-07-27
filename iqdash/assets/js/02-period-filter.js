@@ -413,10 +413,14 @@ function closePeriod() {
   document.getElementById('pfIco').textContent = '▾';
 }
 
+/* The chips are gone from the UI, but this stays: reports and automation call
+   applyPreset('q226') to reproduce a named window. `el` is now optional — it
+   used to throw on a missing element, which is exactly what broke headless use. */
 function applyPreset(key, el) {
   const p = PRESETS[key];
+  if (!p) { console.warn('applyPreset: unknown preset', key); return; }
   document.querySelectorAll('.pf-preset').forEach(x => x.classList.remove('active'));
-  el.classList.add('active');
+  if (el && el.classList) el.classList.add('active');
   PERIOD.from   = p.from;
   PERIOD.to     = p.to;
   PERIOD.label  = p.label;
@@ -431,7 +435,7 @@ function applyPreset(key, el) {
 function onCustomDate() {
   const f = document.getElementById('pfFrom').value;
   const t = document.getElementById('pfTo').value;
-  if (!f && !t) { applyPreset('all', document.getElementById('pre-all')); return; }
+  if (!f && !t) { applyPreset('all'); return; }
   // Deactivate presets
   document.querySelectorAll('.pf-preset').forEach(x => x.classList.remove('active'));
   PERIOD.from   = f ? new Date(f) : null;
@@ -448,7 +452,8 @@ function clearPeriod() {
   PERIOD = { from:null, to:null, label:'All Time', active:false };
   FILTER_MODE = 'both';
   document.querySelectorAll('.pf-preset').forEach(x => x.classList.remove('active'));
-  document.getElementById('pre-all').classList.add('active');
+  // #pre-all no longer exists (preset chips removed) — the date inputs below
+  // are cleared instead, which is what "All Time" now means.
   document.getElementById('pf-mode-both').classList.add('active');
   document.getElementById('pf-mode-submit').classList.remove('active');
   document.getElementById('pf-mode-release').classList.remove('active');
