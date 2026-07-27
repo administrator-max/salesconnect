@@ -54,3 +54,41 @@ bulan, selisih 3 = kuartal, selisih 6 = semester.
   multi-tahun (di luar cakupan permintaan ini).
 - SKILL.md SOQR/SOHR masih menyebut `applyPreset('q226', el)`; kini `el` opsional, tapi
   narasi "presets are chips" perlu disegarkan bila skill di-update lagi.
+
+---
+
+## Lanjutan — Dashboard SalesPulse ikut pakai range (2026-07-27, sesi sama)
+
+Halaman **Dashboard** (`dashboard.php` / `assets/index.html`) sebelumnya hanya paham satu bulan
+(`FILTER_MONTH`, `-1` = semua). Akibatnya hand-off dari Executive tidak bisa membawa kuartal atau
+semester — pilihan itu mengecil jadi bulan terakhirnya saja.
+
+- `FILTER_FROM`/`FILTER_TO` jadi sumber kebenaran, sama seperti Executive.
+- `FILTER_MONTH` **tetap ada tapi turunan**: indeks bulan bila range tepat 1 bulan, selain itu `-1`.
+  Ini yang berbahaya: membandingkan `FILTER_MONTH !== i` akan diam-diam melebarkan pilihan 6 bulan
+  jadi 12. Semua consumer diganti ke `monthInFilter(i)` / `filterMonthIndices()`:
+  set bulan chart, skip baris tabel margin & waterfall, mapping klik bar, month keys analytics,
+  dan label baris total.
+- Badge aktif dulu mengecek `FILTER_MONTH !== -1` → range 6 bulan dianggap "tidak terfilter" dan
+  tampil "All". Kini `filterSpan() < 12`.
+- `getAnalyticsAnchorMonthIndex()` berlabuh di `FILTER_TO` (Jan-Jun → Juni), meniru Executive.
+- `app.js` mendahulukan `dash_from`/`dash_to` daripada `dash_month` lama.
+- `setFilterMonth()` dipertahankan sebagai pembungkus supaya tombol reset tetap jalan.
+
+### Bug yang tertangkap saat uji live
+Menghapus `const fm = ...` di `buildChart()` menyisakan 3 pemakaian `fm` di bawahnya
+(`aspectRatio`, warna bar, dan argumen ke `_buildChartForProduct`) → `ReferenceError: fm is not
+defined`, chart mati total. **Lolos dari `node --check`** karena secara sintaks sah. Ditemukan hanya
+karena filter benar-benar dijalankan di browser. `fm` dikembalikan sebagai nilai turunan
+(`-1` bila 12 bulan tampil). Pelajaran: `node --check` tidak cukup untuk refactor variabel.
+
+### Verifikasi live (dashboard.php)
+| Range | label | bulan | month keys | badge | FILTER_MONTH |
+|---|---|---|---|---|---|
+| 0-5  | H1 | 6 | jan..jun | `H1 2026` | -1 |
+| 3-5  | Q2 | 3 | apr,may,jun | `Q2 2026` | -1 |
+| 5-5  | June | 1 | jun | `June 2026` | **5** |
+| 0-11 | All Months | 12 | jan..dec | `All · 2026` | -1 |
+
+Helper juga diuji headless: label, jumlah bulan, keanggotaan batas, pilihan terbalik
+(5..2 → 2..5), dan turunan `FILTER_MONTH`. Semua lulus.

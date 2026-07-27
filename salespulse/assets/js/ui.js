@@ -9,6 +9,9 @@ function buildChart() {
   const activeIndices = (typeof filterMonthIndices === 'function')
     ? filterMonthIndices()
     : Array.from({length: 12}, (_, i) => i);
+  // `fm` drives chart cosmetics only (aspect ratio, bar colour): -1 means the
+  // full year is on screen, otherwise the chart is a narrowed range.
+  const fm = activeIndices.length === 12 ? -1 : activeIndices[activeIndices.length - 1];
   const activeLabels  = activeIndices.map(i => MONTHS[i]);
 
   // ── Branch: filter ke specific canonical product ───────────────────────────
