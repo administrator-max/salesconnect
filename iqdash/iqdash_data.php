@@ -441,11 +441,29 @@ function iq_build_payload_raw(array $t): array {
     }
     $spiObtained = [];
     foreach ($spi as $c) { $spiObtained[$c['code']] = iq_num($c['obtained'] ?? 0); }
+    // Index RA rows per company. A company that cleared customs in several
+    // waves now owns SEVERAL ra_records rows (one per arrival), so count them:
+    // the PIB-realized override below replaces one row's berat with the
+    // company TOTAL, which would double-count against its siblings' own
+    // per-wave weights. Only override when the company has exactly one row;
+    // with multiple rows the sheet already carries the correct split, taken
+    // from the source REALISASI workbooks.
     $raIdx = [];
-    foreach ($ra as $i => $r) { $raIdx[$r['code']] = $i; }
+    $raCount = [];
+    foreach ($ra as $i => $r) {
+        $raIdx[$r['code']] = $i;
+        $raCount[$r['code']] = ($raCount[$r['code']] ?? 0) + 1;
+    }
     foreach ($pibRealized as $code => $mtRaw) {
         $mt = round($mtRaw * 1000) / 1000;
         if (!($mt > 0)) continue;
+        if (isset($raIdx[$code]) && ($raCount[$code] ?? 0) > 1) {
+            // multi-wave: trust the per-row weights, only assert arrival
+            foreach ($ra as $j => $rr) {
+                if ($rr['code'] === $code) $ra[$j]['cargoArrived'] = true;
+            }
+            continue;
+        }
         if (isset($raIdx[$code])) {
             $i = $raIdx[$code];
             $ra[$i]['berat']        = $mt;

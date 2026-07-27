@@ -33,7 +33,7 @@ function exportExecutivePDF() {
   const arrivedRA = RA.filter(r => {
     if (!r.cargoArrived) return false;
     if (!PERIOD.active) return true;
-    const ad = r.arrivalDate ? new Date(r.arrivalDate) : null;
+    const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
     return inPd(ad);
   });
   const s3_co    = arrivedRA.length;
@@ -106,7 +106,7 @@ function exportExecutivePDF() {
   const realRows = RA.filter(r => {
     if (!r.cargoArrived) return false;
     if (!PERIOD.active) return true;
-    const ad = r.arrivalDate ? new Date(r.arrivalDate) : null;
+    const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
     return inPd(ad);
   }).map(r => ({
     code:r.code, product:r.product, obtained:r.obtained, berat:r.berat,

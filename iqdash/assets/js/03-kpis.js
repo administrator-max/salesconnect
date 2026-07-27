@@ -91,12 +91,15 @@ function updateOverviewKPIs() {
   const arrivedRa = RA.filter(r => {
     if (!r.cargoArrived) return false;
     if (!PERIOD.active) return true;
-    const ad = r.arrivalDate ? new Date(r.arrivalDate) : null;
+    const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
     return inPd(ad);
   });
-  const realizedCount   = arrivedRa.length;
+  // COUNT COMPANIES, NOT ROWS — the card is labelled "Companies with
+  // utilization" and a company that cleared customs in two waves now owns two
+  // ra_records rows.
+  const realizedCount   = new Set(arrivedRa.map(r => r.code)).size;
   const totalRealizedMT = arrivedRa.reduce((s, r) => s + r.berat, 0);
-  const arrivedCodes    = arrivedRa.map(r => r.code).join(', ') || '—';
+  const arrivedCodes    = [...new Set(arrivedRa.map(r => r.code))].join(', ') || '—';
 
   /* ── KPI 4: Re-Apply Eligible / Submitted ───────────────────────────── */
   // Scope re-apply pool to companies whose SPI cycles match the active period
@@ -127,8 +130,11 @@ function updateOverviewKPIs() {
      not just filteredSPI() — the Excel total covers every company in the sheet.
      Period filter passes through filteredSPI semantics when active.
   ────────────────────────────────────────────────────────────────────────── */
+  // Union with companies whose LOTS fall in the period — cycle-scoped
+  // filtering alone drops a company whose permit and cargo land in
+  // different quarters (see utilizationPool()'s docblock).
   const utilPool = PERIOD.active
-    ? [...filteredSPI(), ...filteredPending()]
+    ? utilizationPool([...filteredSPI(), ...filteredPending()])
     : allCompanies; // already SPI + PENDING from KPI 1
   const totalUtilizedMT = utilPool.reduce((s, co) => s + scopedUtilTotal(co), 0); // rule #3: lot-date sliced
   const utilCoCount     = utilPool.filter(co => scopedUtilTotal(co) > 0).length;
@@ -356,11 +362,11 @@ function refreshRealizedDrill() {
   const rows = RA.filter(r => {
     if (!r.cargoArrived) return false;
     if (!PERIOD.active) return true;
-    const ad = r.arrivalDate ? new Date(r.arrivalDate) : null;
+    const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
     return inPd(ad);
   }).sort((a,b) => {
-    const da = a.arrivalDate ? new Date(a.arrivalDate) : null;
-    const db = b.arrivalDate ? new Date(b.arrivalDate) : null;
+    const da = a.arrivalDate ? raDate(a.arrivalDate) : null;
+    const db = b.arrivalDate ? raDate(b.arrivalDate) : null;
     if (da && db) return da - db;
     return a.code.localeCompare(b.code);
   });
@@ -391,7 +397,7 @@ function refreshRealizedDrill() {
   }
 
   body.innerHTML = rows.map(r => {
-    const arrDate  = r.arrivalDate ? new Date(r.arrivalDate) : null;
+    const arrDate  = r.arrivalDate ? raDate(r.arrivalDate) : null;
     const pct      = (r.realPct*100).toFixed(1)+'%';
     const pctColor = realColor(r.realPct);
     const eligible = r.realPct >= 0.6 ? '✅ Eligible' : '✗ Below 60%';

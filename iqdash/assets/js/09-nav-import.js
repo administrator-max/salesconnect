@@ -59,7 +59,7 @@ function hdAnswer(q) {
       ? SPI.reduce((s,d)=>s+canonicalObtained(d),0)
       : SPI.reduce((s,d)=>s+d.obtained,0);
     const pendT = PENDING.reduce((s,d)=>s+d.mt,0);
-    return `<strong>Summary:</strong><br>Obtained: ${spiT.toLocaleString(MT_LOCALE)} MT · ${SPI.length} co.<br>Pending: ${pendT.toLocaleString(MT_LOCALE)} MT · ${PENDING.length} co.<br>Re-Apply Eligible: ${SPI.length} co. · ${spiT.toLocaleString(MT_LOCALE)} MT quota<br>Re-Apply Submitted (Stage 2): ${RA.filter(isReapplySubmitted).length} co.<br>Realized (cargo arrived): ${RA.filter(r=>r.cargoArrived).length} co.<br><br>Eligibility rule: Realization ≥ 60% AND cargo arrived at JKT`;
+    return `<strong>Summary:</strong><br>Obtained: ${spiT.toLocaleString(MT_LOCALE)} MT · ${SPI.length} co.<br>Pending: ${pendT.toLocaleString(MT_LOCALE)} MT · ${PENDING.length} co.<br>Re-Apply Eligible: ${SPI.length} co. · ${spiT.toLocaleString(MT_LOCALE)} MT quota<br>Re-Apply Submitted (Stage 2): ${RA.filter(isReapplySubmitted).length} co.<br>Realized (cargo arrived): ${new Set(RA.filter(r=>r.cargoArrived).map(r=>r.code)).size} co.<br><br>Eligibility rule: Realization ≥ 60% AND cargo arrived at JKT`;
   }
   return `Try: company name (e.g. "BTS"), "who is eligible", "active revisions", "pending companies", "top realization", or "total summary".`;
 }

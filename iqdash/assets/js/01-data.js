@@ -338,7 +338,21 @@ const prodHS = p => {
 };
 
 /* ── HELPERS ── */
-const getRA  = c => RA.find(r => r.code === c);
+/* A company can clear customs in several waves, so ra_records may hold MORE
+   THAN ONE row per company — one per arrival. RA.find() would silently return
+   whichever came first in sheet order and hide the rest. Return the LATEST
+   arrival instead: that is the row callers mean by "this company's
+   realization" (most recent state), and it is deterministic. Callers needing
+   every wave should filter RA by code themselves. */
+const getRA  = c => {
+  const rows = RA.filter(r => r.code === c);
+  if (rows.length < 2) return rows[0];
+  const key = r => {
+    const d = (typeof raDate === 'function') ? raDate(r.arrivalDate) : null;
+    return d ? d.getTime() : -Infinity;
+  };
+  return rows.reduce((best, r) => (key(r) >= key(best) ? r : best), rows[0]);
+};
 const getSPI = c => SPI.find(s => s.code === c);
 /* Stage 2: Re-Apply already submitted — PERTEK Pending / On Process */
 const isReapplySubmitted = r => r && r.reapplyStage === 2;

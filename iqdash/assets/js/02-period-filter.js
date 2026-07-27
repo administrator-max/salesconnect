@@ -176,6 +176,56 @@ function scopedUtilByProd(co) {
   });
   return out;
 }
+/* ── Arrival dates (ra_records) ────────────────────────────────────────
+   `arrival_date` arrives in two shapes: a full ISO timestamp
+   (2026-02-22T17:00:00.000Z) and a bare slash date (12/06/2026). Feeding the
+   latter to `new Date()` makes JS read it as US M/D — BTS's "12/06/2026" was
+   parsed as 6 December instead of 12 June, moving 219.43 MT out of Q2 and into
+   Q4. Everywhere else this app reads slash dates as DD/MM via pDate().
+   Keep native parsing for unambiguous ISO timestamps; route everything else
+   through pDate(), which refuses what it cannot read rather than guessing. */
+function raDate(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {          // ISO timestamp — unambiguous
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return pDate(s);
+}
+
+/* ── Utilization pooling ───────────────────────────────────────────────
+   Utilization lives on shipment LOTS and is sliced by lot date, but the KPI
+   used to pool companies with filteredSPI(), which gates on CYCLE dates. A
+   company whose permit is issued in one quarter and whose cargo lands in the
+   next then falls out of BOTH: in the first its lot is out of range, in the
+   second the company is. IKM's 2,000 MT disappeared from every quarter that
+   way — permit Q2 (Submit 30/04, PERTEK 30/06), cargo mid-September (Q3).
+   Pool by lot date as well as cycle date. */
+function companiesWithLotsInPeriod() {
+  if (!PERIOD.active) return [];
+  const all = []
+    .concat(typeof SPI     !== 'undefined' && SPI     ? SPI     : [])
+    .concat(typeof PENDING !== 'undefined' && PENDING ? PENDING : []);
+  return all.filter(co => {
+    const ships = (co && co.shipments) || {};
+    return Object.keys(ships).some(p => (ships[p] || []).some(l => {
+      const mt = Number(l && l.utilMT) || 0;
+      return mt > 0 && inPd(lotUtilDate(l));
+    }));
+  });
+}
+
+/* cycle-scoped companies ∪ companies holding a lot dated in the period. */
+function utilizationPool(cycleScoped) {
+  const base = cycleScoped || [];
+  if (!PERIOD.active) return base;
+  const seen = new Set(base.map(c => c && c.code));
+  const extra = companiesWithLotsInPeriod().filter(c => !seen.has(c.code));
+  return extra.length ? base.concat(extra) : base;
+}
+
 /* Company-level utilization total, period-sliced. */
 function scopedUtilTotal(co) {
   if (!co) return 0;
@@ -494,3 +544,12 @@ function applyPeriodFilter() {
    KPI 4 Re-Apply         : eligible/submitted RA companies in period
    KPI 5 Pending          : Submit MOI date of any submit cycle in PENDING
    ───────────────────────────────────────────────────────────────────────── */
+/* Node (tests) only — harmless in the browser, where this file is a classic
+   script and the declarations above are already globals. */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    PERIOD, PRESETS, pDate, raDate, inPd, lotUtilDate,
+    companiesWithLotsInPeriod, utilizationPool,
+    scopedUtilByProd, scopedUtilTotal, scopedAvailByProd,
+  };
+}
