@@ -57,13 +57,9 @@ window.ensureXLSX = function () {
       <span class="pf-ph-t">📅 Filter Periode</span>
       <button class="pf-ph-x" onclick="closePeriod()">✕</button>
     </div>
-    <div style="padding:10px 14px 6px;border-bottom:1px solid var(--border)">
-      <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--txt3);margin-bottom:7px">Quick Presets</div>
-      <!-- Quick presets removed 2026-07-27: the date range below is the single
-           source of period truth, so any window (month / quarter / half-year)
-           is expressible without maintaining a chip per period. -->
-      </div>
-    </div>
+    <!-- Quick-preset chips removed 2026-07-27. The custom date range below is
+         the single source of period truth: any month, quarter or half-year is
+         just a pair of dates, with no chip to maintain per period. -->
     <div style="padding:10px 14px 6px;border-bottom:1px solid var(--border)">
       <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--txt3);margin-bottom:7px">Filter By Date Type</div>
       <div style="display:flex;gap:5px;flex-wrap:wrap">
