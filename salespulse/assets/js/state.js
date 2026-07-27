@@ -41,7 +41,30 @@ function setChartProduct(p) {
 
 // ── Dashboard filter state ───────────────────────────────────────────────────
 let FILTER_YEAR  = new Date().getFullYear();
-let FILTER_MONTH = -1; // -1 = all months, 0-11 = specific month
+/* Period is a month RANGE, same model as the Executive Summary page, so a
+   single month, a quarter and a half-year are all one control.
+   FILTER_MONTH is kept as a DERIVED compatibility value: the month index when
+   the range is exactly one month, else -1. Anything that needs range semantics
+   must call monthInFilter(i) — comparing FILTER_MONTH !== i silently widens a
+   6-month pick to all 12. */
+let FILTER_FROM  = 0;
+let FILTER_TO    = 11;
+let FILTER_MONTH = -1;
+
+function monthInFilter(i) { return i >= FILTER_FROM && i <= FILTER_TO; }
+function filterMonthIndices() {
+  return Array.from({length: FILTER_TO - FILTER_FROM + 1}, (_, k) => FILTER_FROM + k);
+}
+function filterSpan() { return FILTER_TO - FILTER_FROM + 1; }
+function filterRangeLabel() {
+  const n = filterSpan();
+  if (n === 12) return 'All Months';
+  if (n === 1)  return _MF[FILTER_FROM];
+  if (n === 3 && FILTER_FROM % 3 === 0) return 'Q' + (FILTER_FROM / 3 + 1);
+  if (n === 6 && FILTER_FROM === 0) return 'H1';
+  if (n === 6 && FILTER_FROM === 6) return 'H2';
+  return _MS[FILTER_FROM] + ' – ' + _MS[FILTER_TO];
+}
 const _MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const _MF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -60,20 +83,27 @@ function _syncYearLabels() {
   });
 }
 
-function setFilterMonth(month) {
-  FILTER_MONTH = month;
-  // Update dropdown item active state
-  document.querySelectorAll('.month-dd-item').forEach(btn => {
-    btn.classList.toggle('active', parseInt(btn.dataset.month) === month);
-  });
-  // Update button label
+function setFilterRange(from, to) {
+  from = parseInt(from, 10); to = parseInt(to, 10);
+  if (isNaN(from)) from = 0;
+  if (isNaN(to))   to   = 11;
+  if (from > to) { const t = from; from = to; to = t; }   // tolerate reversed picks
+  FILTER_FROM = from; FILTER_TO = to;
+  FILTER_MONTH = (from === to) ? from : -1;
+  const f = document.getElementById('filter-from'), t2 = document.getElementById('filter-to');
+  if (f) f.value = from;
+  if (t2) t2.value = to;
   const lbl = document.getElementById('filter-month-label');
-  if (lbl) lbl.textContent = month === -1 ? 'All Months' : _MF[month];
-  // Close dropdown
-  const dd = document.getElementById('filter-month-dropdown');
-  if (dd) dd.style.display = 'none';
+  if (lbl) lbl.textContent = filterRangeLabel();
   _updateFilterBadge();
   refreshAll();
+}
+
+/* Back-compat: a single month, or -1 for the whole year. */
+function setFilterMonth(month) {
+  month = parseInt(month, 10);
+  if (month === -1 || isNaN(month)) setFilterRange(0, 11);
+  else setFilterRange(month, month);
 }
 
 function getReportedMonthIndices() {
@@ -95,6 +125,9 @@ function getReportedMonthIndices() {
 }
 
 function getAnalyticsAnchorMonthIndex() {
+  // Anchor on the END of the range: for Jan-Jun that is June, matching how the
+  // Executive page treats curMonth as the last month of its window.
+  if (typeof FILTER_TO === 'number' && filterSpan() < 12) return FILTER_TO;
   const fm = (typeof FILTER_MONTH !== 'undefined') ? FILTER_MONTH : -1;
   if (fm >= 0 && fm <= 11) return fm;
   const reported = getReportedMonthIndices();
@@ -170,12 +203,15 @@ function _updateFilterBadge() {
   const tableTag  = document.getElementById('table-filter-label');
   const filterBtn = document.getElementById('filter-month-btn');
 
-  const isFiltered = FILTER_MONTH !== -1;
-  const labelText  = isFiltered ? (_MS[FILTER_MONTH] + ' ' + FILTER_YEAR) : ('All · ' + FILTER_YEAR);
+  // "Filtered" now means the range is narrower than the full year — checking
+  // FILTER_MONTH !== -1 would call a 6-month pick unfiltered and show "All".
+  const isFiltered = (typeof filterSpan === 'function') ? filterSpan() < 12 : FILTER_MONTH !== -1;
+  const rangeTxt   = (typeof filterRangeLabel === 'function') ? filterRangeLabel() : _MS[FILTER_MONTH];
+  const labelText  = isFiltered ? (rangeTxt + ' ' + FILTER_YEAR) : ('All · ' + FILTER_YEAR);
 
   if (badge)    { badge.style.display = isFiltered ? 'inline-block' : 'none'; badge.textContent = labelText; }
   if (resetBtn) { resetBtn.style.display = isFiltered ? 'block' : 'none'; }
-  if (tableTag) { tableTag.textContent = isFiltered ? (_MF[FILTER_MONTH] + ' ' + FILTER_YEAR) : ('All ' + FILTER_YEAR); }
+  if (tableTag) { tableTag.textContent = isFiltered ? (rangeTxt + ' ' + FILTER_YEAR) : ('All ' + FILTER_YEAR); }
   // Highlight the button when filtered (header is dark blue, so use white tint)
   if (filterBtn) {
     filterBtn.style.borderColor = isFiltered ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)';

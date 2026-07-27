@@ -545,10 +545,17 @@ function parseProjectSheetData(lines) {
     const lbl = document.getElementById('filter-year-label');
     if (lbl) lbl.textContent = FILTER_YEAR;
   }
-  if (sm !== null) {
+  // Executive Summary now hands over an explicit range; prefer it, because the
+  // legacy dash_month key cannot represent a quarter or a half-year.
+  const sf = sessionStorage.getItem('dash_from');
+  const st = sessionStorage.getItem('dash_to');
+  if (sf !== null && st !== null && typeof setFilterRange === 'function') {
+    setFilterRange(sf, st);
+  } else if (sm !== null) {
     const m = parseInt(sm);
     if (m !== -1) {
       FILTER_MONTH = m;
+
       // Update dropdown button label
       const btnLbl = document.getElementById('filter-month-label');
       if (btnLbl && typeof _MF !== 'undefined') btnLbl.textContent = _MF[m];

@@ -6,8 +6,9 @@ function buildChart() {
   if (mainChart) mainChart.destroy();
 
   // ── Tentukan bulan yang ditampilkan berdasarkan filter ──────────────────────
-  const fm = (typeof FILTER_MONTH !== 'undefined') ? FILTER_MONTH : -1;
-  const activeIndices = fm === -1 ? Array.from({length: 12}, (_, i) => i) : [fm];
+  const activeIndices = (typeof filterMonthIndices === 'function')
+    ? filterMonthIndices()
+    : Array.from({length: 12}, (_, i) => i);
   const activeLabels  = activeIndices.map(i => MONTHS[i]);
 
   // ── Branch: filter ke specific canonical product ───────────────────────────
@@ -265,8 +266,8 @@ function buildChart() {
       onClick: (e, els) => {
         if (els.length > 0) {
           // Klik bar → buka product detail modal, mapping slot ke month index
-          const monthIdx = (typeof FILTER_MONTH !== 'undefined' && FILTER_MONTH !== -1)
-            ? FILTER_MONTH
+          const monthIdx = (typeof filterMonthIndices === 'function')
+            ? (filterMonthIndices()[els[0].index] ?? els[0].index)
             : els[0].index;
           if (typeof openQtyProductModal === 'function') openQtyProductModal(monthIdx);
         }
@@ -405,7 +406,7 @@ function buildTable() {
 
   MONTHS.forEach((m,i) => {
     // Skip months that don't match active filter
-    if (typeof FILTER_MONTH !== 'undefined' && FILTER_MONTH !== -1 && FILTER_MONTH !== i) return;
+    if (typeof monthInFilter === 'function' && !monthInFilter(i)) return;
     const budget=BUDGET.margin[i], actual=ACTUAL.margin[i], plan=ACTUAL.plan[i], rev=ACTUAL.revenue[i];
     const isCur=i===NOW_MONTH, isPS=PS_CHAINS[m.toLowerCase()] && PS_CHAINS[m.toLowerCase()].length > 0;
     const attPct = actual!=null && budget>0 ? (actual/budget)*100 : null;
@@ -453,8 +454,8 @@ function buildTable() {
   // Total row
   const tr = document.createElement('tr');
   tr.classList.add('total-row');
-  const totalLabel = (typeof FILTER_MONTH !== 'undefined' && FILTER_MONTH !== -1 && typeof MONTHS !== 'undefined')
-    ? `${MONTHS[FILTER_MONTH]} TOTAL`
+  const totalLabel = (typeof filterSpan === 'function' && filterSpan() < 12)
+    ? `${filterRangeLabel().toUpperCase()} TOTAL`
     : 'FULL YEAR';
   const totalPct = totActual>0 && totBudget > 0?(totActual/totBudget*100).toFixed(1):null;
   const col = totalPct!=null?(totalPct>=80?'var(--brand-green-dark)':totalPct>=30?'var(--brand-blue)':'var(--muted)'):'var(--muted)';
@@ -476,7 +477,7 @@ function buildWaterfall() {
   el.innerHTML = '';
   const maxBudget = Math.max(...BUDGET.margin, 1);
   MONTHS.forEach((m,i) => {
-    if (typeof FILTER_MONTH !== 'undefined' && FILTER_MONTH !== -1 && FILTER_MONTH !== i) return;
+    if (typeof monthInFilter === 'function' && !monthInFilter(i)) return;
     const budget=BUDGET.margin[i], actual=ACTUAL.margin[i];
     const isPS = PS_CHAINS[m.toLowerCase()] && PS_CHAINS[m.toLowerCase()].length > 0;
     const budgetW=(budget/maxBudget)*100;
@@ -564,9 +565,8 @@ function updateKPIs() {
 // ── ANALYTICS CARDS LOGIC ──
 // ── Filter helper: return month keys yang aktif sesuai FILTER_MONTH ──────────
 function getActiveMonthKeys() {
-  const fm = (typeof FILTER_MONTH !== 'undefined') ? FILTER_MONTH : -1;
-  if (fm === -1) return MONTH_KEYS;                    // All months
-  return [MONTH_KEYS[fm]];                             // Specific month
+  if (typeof filterMonthIndices !== 'function') return MONTH_KEYS;
+  return filterMonthIndices().map(i => MONTH_KEYS[i]).filter(Boolean);
 }
 
 function getMonthKeysFromIndices(indices) {
