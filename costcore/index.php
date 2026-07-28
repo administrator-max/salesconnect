@@ -146,6 +146,8 @@ tbody tr:hover{background:var(--bg)}
 .mg-row .fl{width:3rem;flex-shrink:0}
 .srch-wrap{position:relative}.srch-dd{position:absolute;top:100%;left:0;right:0;background:var(--bg2);border:1px solid var(--bdr);border-radius:0 0 7px 7px;max-height:180px;overflow-y:auto;z-index:10;box-shadow:0 6px 16px rgba(0,0,0,.08);display:none}
 .srch-dd.show{display:block}.srch-dd div{padding:.35rem .55rem;font-size:.76rem;cursor:pointer;color:var(--t2)}.srch-dd div:hover,.srch-dd div.hl{background:var(--prBg);color:var(--pr)}
+.srch-dd div.none{cursor:default;color:var(--t4);font-style:italic}.srch-dd div.none:hover{background:none;color:var(--t4)}
+.tuj-warn{display:none;margin-top:.25rem;font-size:.68rem;line-height:1.35;color:#b45309}
 .info-box{background:var(--prBg);border:1px solid var(--prBdr);border-radius:8px;padding:.5rem .7rem;font-size:.72rem;color:var(--pr2);margin-top:.4rem}
 .xl-mi{display:block;width:100%;text-align:left;padding:.55rem .85rem;background:none;border:none;font-family:inherit;font-size:.8rem;font-weight:500;color:var(--t1);cursor:pointer;white-space:nowrap}
 .xl-mi:hover{background:var(--prBg);color:var(--pr)}
@@ -325,6 +327,8 @@ function _md(){return{id:Date.now()+Math.random(),name:"",qtyKg:"",buyPrice:"",m
 function fI(v){if(isNaN(v)||v==null)return"-";return new Intl.NumberFormat("id-ID").format(Math.round(v))}
 function fD(v,d){d=d||2;if(isNaN(v)||v==null)return"-";return new Intl.NumberFormat("id-ID",{minimumFractionDigits:d,maximumFractionDigits:d}).format(v)}
 function esc(s){var d=document.createElement("div");d.textContent=s||"";return d.innerHTML}
+// esc() only handles & < > — use this when the value lands inside a quoted attribute.
+function escA(s){return esc(s).replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 function r25(v){return Math.ceil(v/25)*25}
 
 // ═══ CALCULATIONS ═══
@@ -513,7 +517,29 @@ function resetAll(){
 
 function showTujDD(){var dd=document.getElementById("tujDD");if(dd){dd.classList.add("show");dd.scrollTop=0;}document.addEventListener("click",hideTujDD)}
 function hideTujDD(e){var w=document.querySelector(".srch-wrap");if(w&&!w.contains(e.target)){var dd=document.getElementById("tujDD");if(dd)dd.classList.remove("show");document.removeEventListener("click",hideTujDD)}}
-function filterTujDD(val){var dd=document.getElementById("tujDD");if(!dd)return;dd.classList.add("show");var items=dd.querySelectorAll("div");var lv=val.toLowerCase();items.forEach(function(d){d.style.display=d.textContent.toLowerCase().indexOf(lv)>=0?"":"none"})}
+function tujOptions(){return I.shipType==="breakbulk"?Object.keys(TRK_BB):Object.keys(TRK_CT)}
+function filterTujDD(val){var dd=document.getElementById("tujDD");if(!dd)return;dd.classList.add("show");
+  var lv=val.trim().toLowerCase(),shown=0;
+  dd.querySelectorAll("div[data-tuj]").forEach(function(d){var ok=d.textContent.toLowerCase().indexOf(lv)>=0;d.style.display=ok?"":"none";if(ok)shown++});
+  var none=document.getElementById("tujNone");if(none)none.style.display=shown?"none":"block";
+  tujWarn(val)}
+// Warn while the typed text has not been committed to I.tujuan — the calculation
+// still uses the old destination until an option is actually picked.
+function tujWarn(val){var w=document.getElementById("tujWarn");if(!w)return;
+  var v=String(val).trim();
+  if(!v||v.toLowerCase()===String(I.tujuan).toLowerCase()){w.style.display="none";return}
+  var hit=tujOptions().some(function(k){return k.toLowerCase()===v.toLowerCase()});
+  w.textContent=hit
+    ? "⚠ Tekan Enter atau pilih dari daftar — perhitungan masih pakai " + I.tujuan + "."
+    : "⚠ \"" + v + "\" tidak ada di tabel tarif trucking — perhitungan masih pakai " + I.tujuan + ". Tambahkan lewat ⚙️ Settings → Trucking Rates.";
+  w.style.display="block"}
+// Commit on blur / Enter: an exact (case-insensitive) match wins, anything else reverts.
+function commitTuj(val){var v=String(val).trim();
+  var m=tujOptions().filter(function(k){return k.toLowerCase()===v.toLowerCase()})[0];
+  if(m&&m!==I.tujuan){pickTuj(m);return}
+  var inp=document.getElementById("tujSearch");if(inp)inp.value=I.tujuan;
+  var dd=document.getElementById("tujDD");if(dd)dd.classList.remove("show");
+  tujWarn(m?I.tujuan:val)}
 function pickTuj(v){I.tujuan=v;var dd=document.getElementById("tujDD");if(dd)dd.classList.remove("show");render()}
 
 
@@ -590,11 +616,15 @@ function renderImport(today){
     var a=iAll(),R=a.R,tT=a.tT,tP=a.tP,tM=a.tM,tPP=a.tPP,kso=a.kso,trk=a.trk;
     var pbm=PBM_MAP[I.shipType]||230;
     var tujList=I.shipType==="breakbulk"?Object.keys(TRK_BB):Object.keys(TRK_CT);
-    if(tujList.indexOf(I.tujuan)<0)I.tujuan=tujList[0]||"Cakung";
     var sl=I.shipType==="breakbulk"?"Break Bulk":I.shipType==="container20"?"Container 20ft":"Container 40ft";
+    // A destination can have rates for one shipment type only (e.g. Surabaya has
+    // break-bulk rates but no container rates). Falling back silently made the
+    // calculation switch destination behind the user's back — say so instead.
+    var tujReset="";
+    if(tujList.indexOf(I.tujuan)<0){tujReset=I.tujuan;I.tujuan=tujList[0]||"Cakung"}
     var h="";
     h+='<div class="top-g">';
-    h+='<div class="pnl"><div class="pnl-h"><h3>\uD83D\uDCE6 Shipment</h3></div><div class="pnl-b"><div class="fg mb"><label class="fl">Shipment Type</label><select class="fi" onchange="I.shipType=this.value;render()">'+CC_CFG.shipment_types.map(function(o){return '<option value="'+o.value+'" '+(I.shipType===o.value?"selected":"")+'>'+(o.label||o.value)+'</option>';}).join("")+'</select></div><div class="fg mb"><label class="fl">Trucking Destination</label><div class="srch-wrap"><input type="text" class="fi" id="tujSearch" value="'+esc(I.tujuan)+'" onfocus="showTujDD()" oninput="filterTujDD(this.value)" placeholder="Type to search..."><div class="srch-dd" id="tujDD">'+tujList.map(function(k){return'<div onclick="pickTuj(\''+k+'\')">'+k+'</div>'}).join("")+'</div></div></div><label class="cb-label"><input type="checkbox" '+(I.isPipa?"checked":"")+' onchange="I.isPipa=this.checked;render()"> Stripping Options</label><div class="info-box mt"><b>KSO:</b> '+fD(kso,2)+' IDR/kg <span class="tm">('+(tT<=0?"-":I.shipType==="breakbulk"?(tT<=180?"USD 315 total / "+fD(tT)+" MT":tT<=1428?"USD 1.75/MT":"USD 2500 total / "+fD(tT)+" MT"):(function(){var n=Math.ceil(tT/20);return n<=3?"USD 315 total / "+n+" cnt":n<=26?"USD 95 x "+n+" cnt":"USD 2500 total / "+n+" cnt"})())+')</span><br><b>Trucking:</b> '+fD(trk,2)+' IDR/kg <span class="tm">('+esc(I.tujuan)+(I.isPipa?", pipe":", non-pipe")+')</span></div></div></div>';
+    h+='<div class="pnl"><div class="pnl-h"><h3>\uD83D\uDCE6 Shipment</h3></div><div class="pnl-b"><div class="fg mb"><label class="fl">Shipment Type</label><select class="fi" onchange="I.shipType=this.value;render()">'+CC_CFG.shipment_types.map(function(o){return '<option value="'+o.value+'" '+(I.shipType===o.value?"selected":"")+'>'+(o.label||o.value)+'</option>';}).join("")+'</select></div><div class="fg mb"><label class="fl">Trucking Destination</label><div class="srch-wrap"><input type="text" class="fi" id="tujSearch" value="'+escA(I.tujuan)+'" autocomplete="off" onfocus="showTujDD()" oninput="filterTujDD(this.value)" onblur="commitTuj(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}else if(event.key===\'Escape\'){this.value=I.tujuan;commitTuj(this.value)}" placeholder="Type to search..."><div class="srch-dd" id="tujDD">'+tujList.map(function(k){return'<div data-tuj onmousedown="event.preventDefault();pickTuj(\''+escA(k)+'\')">'+esc(k)+'</div>'}).join("")+'<div class="none" id="tujNone" style="display:none">Tidak ada tujuan yang cocok — tambahkan di Settings</div></div></div><div class="tuj-warn" id="tujWarn"'+(tujReset?' style="display:block"':'')+'>'+(tujReset?esc('⚠ "'+tujReset+'" tidak punya tarif '+sl+' — otomatis diganti ke '+I.tujuan+'. Isi kolom tarif '+sl+' di Settings → Trucking Rates kalau memang dipakai.'):'')+'</div></div><label class="cb-label"><input type="checkbox" '+(I.isPipa?"checked":"")+' onchange="I.isPipa=this.checked;render()"> Stripping Options</label><div class="info-box mt"><b>KSO:</b> '+fD(kso,2)+' IDR/kg <span class="tm">('+(tT<=0?"-":I.shipType==="breakbulk"?(tT<=180?"USD 315 total / "+fD(tT)+" MT":tT<=1428?"USD 1.75/MT":"USD 2500 total / "+fD(tT)+" MT"):(function(){var n=Math.ceil(tT/20);return n<=3?"USD 315 total / "+n+" cnt":n<=26?"USD 95 x "+n+" cnt":"USD 2500 total / "+n+" cnt"})())+')</span><br><b>Trucking:</b> '+fD(trk,2)+' IDR/kg <span class="tm">('+esc(I.tujuan)+(I.isPipa?", pipe":", non-pipe")+')</span></div></div></div>';
     h+='<div class="pnl"><div class="pnl-h"><h3>\uD83D\uDCB1 Exchange Rate</h3></div><div class="pnl-b"><div class="fg mb"><label class="fl">Rate IDR/USD</label><input type="number" class="fi" value="'+I.kurs+'" onchange="I.kurs=Number(this.value);render()"></div><div class="fg mb"><label class="fl">Customer</label><input type="text" class="fi" value="'+esc(I.customer)+'" placeholder="Customer name" onchange="I.customer=this.value;render()"></div><div class="fg"><label class="fl">Hedging Days</label><select class="fi" onchange="I.hedgeDays=Number(this.value);render()">'+CC_CFG.hedging_days.map(function(o){return '<option value="'+o.value+'" '+(I.hedgeDays===Number(o.value)?"selected":"")+'>'+o.value+' days</option>';}).join("")+'</select></div></div></div>';
     h+='<div class="pnl"><div class="pnl-h"><h3>\uD83D\uDCC8 Margin & Costs</h3></div><div class="pnl-b"><div class="fg mb"><label class="fl">Margin Type</label><select class="fi" onchange="I.marginType=this.value;render()">'+CC_CFG.margin_types.map(function(o){return '<option value="'+o.value+'" '+(I.marginType===o.value?"selected":"")+'>'+(o.label||o.value)+'</option>';}).join("")+'</select></div><div class="fg mb"><label class="fl">'+(I.marginType==="fixed"?"Margin (IDR/kg)":"Margin (%)")+'</label><div class="fi-w"><input type="number" class="fi suf" value="'+I.margin+'" onchange="I.margin=Number(this.value);render()"><span class="fi-s">'+(I.marginType==="fixed"?"IDR/kg":"%")+'</span></div></div><div class="fg mb"><label class="fl">Commission</label><div style="display:flex;gap:.35rem"><div class="fi-w" style="flex:1"><input type="number" class="fi suf" value="'+I.commission+'" onchange="I.commission=Number(this.value);render()" style="padding-right:3rem"><span class="fi-s">'+(I.commUnit==="idr"?"IDR/kg":"USD/MT")+'</span></div><select class="fi" style="width:5.2rem;flex-shrink:0" onchange="I.commUnit=this.value;render()">'+CC_CFG.commission_units.map(function(o){return '<option value="'+o.value+'" '+(I.commUnit===o.value?"selected":"")+'>'+(o.label||o.value)+'</option>';}).join("")+'</select></div></div><div class="fg mb"><label class="fl">Payment Terms</label><select class="fi" onchange="I.payTerms=this.value;render()">'+PAY_OPTS.map(function(o){return'<option value="'+o+'" '+(o===I.payTerms?"selected":"")+'>'+o+'</option>'}).join("")+'</select></div><div class="fg"><label class="fl">Additional Cost</label><div class="fi-w"><input type="number" class="fi suf" value="'+I.addCost+'" onchange="I.addCost=Number(this.value);render()"><span class="fi-s">IDR/kg</span></div></div></div></div>';
     h+='</div>';
