@@ -83,6 +83,39 @@ $maps3 = [
 $res3 = iq_apply_pending_revision($maps3, $revDef, '');
 ok($res3['reversed'] === false, 'pending revision NOT reversed once "to" product has been utilized');
 
+/* ── def normalization: a single def and a list of defs read the same way ── */
+ok(iq_pending_revision_defs($revDef) === [$revDef], 'single def normalizes to a one-element list');
+ok(iq_pending_revision_defs([$revDef, $revDef]) === [$revDef, $revDef], 'a list of defs passes through');
+ok(iq_pending_revision_defs([]) === [], 'empty def yields no defs');
+ok(iq_pending_revision_defs(['from' => 'A', 'mt' => 5]) === [], 'def missing "to" is dropped, never half-gating');
+
+/* ── multi-target split (GIS: SHEET PILE 400 -> WELDED 325 + FABRICATED 75) ──
+ * Both targets must reverse into the SAME `from`, and origMT must report the
+ * whole 400 — not the 325 it holds midway through the loop. */
+$coG = ['code' => 'GIS', 'shipments' => []];
+$leG = ['7306.40.90' => ['obtained' => 325, 'util' => 0], '7326.90.99' => ['obtained' => 75, 'util' => 0]];
+$hsG = ['7306.40.90' => 'WELDED STAINLESS STEEL PIPE', '7326.90.99' => 'FABRICATED STEEL PAINTED FRAME'];
+$revG = [
+    ['from' => 'SHEET PILE', 'to' => 'WELDED STAINLESS STEEL PIPE', 'mt' => 325],
+    ['from' => 'SHEET PILE', 'to' => 'FABRICATED STEEL PAINTED FRAME', 'mt' => 75],
+];
+iq_apply_ledger($coG, $leG, $hsG, '', $revG);
+ok(abs($coG['_ledgerObtainedByProd']['SHEET PILE'] - 400) < 0.01, 'multi-split gated: both targets fold back into "from"');
+ok(!array_key_exists('WELDED STAINLESS STEEL PIPE', $coG['_ledgerObtainedByProd'])
+   && !array_key_exists('FABRICATED STEEL PAINTED FRAME', $coG['_ledgerObtainedByProd']),
+   'multi-split gated: neither target is shown while pending');
+ok(abs($coG['obtained'] - 400) < 0.01 && abs($coG['availableQuota'] - 400) < 0.01, 'multi-split gated: company total unchanged at 400');
+ok(count($coG['_pendingRevision']['targets']) === 2, 'multi-split banner carries both targets');
+ok(abs($coG['_pendingRevision']['origMT'] - 400) < 0.01, 'origMT is the FULL restored amount, not a partial');
+ok($coG['_pendingRevision']['from'] === 'SHEET PILE', 'banner names the shared "from" product');
+
+$coG2 = ['code' => 'GIS', 'shipments' => []];
+iq_apply_ledger($coG2, $leG, $hsG, '01/08/2026', $revG); // released -> split shows
+ok(abs($coG2['_ledgerObtainedByProd']['WELDED STAINLESS STEEL PIPE'] - 325) < 0.01
+   && abs($coG2['_ledgerObtainedByProd']['FABRICATED STEEL PAINTED FRAME'] - 75) < 0.01,
+   'multi-split released: both targets show at their own MT');
+ok(!isset($coG2['_pendingRevision']), 'released multi-split clears the banner');
+
 /* ── full-payload wiring, section 1: SPI company + ledger entry present ── */
 $ledger = iq_ledger();
 $companiesRows = [];

@@ -524,6 +524,29 @@ function iq_is_released($releaseDate): bool {
 }
 
 /**
+ * Normalize one `pendingRevisions.json` value into a LIST of `{from,to,mt}`
+ * defs. A company whose PERTEK splits into a single product stores one def
+ * (`{"from":...,"to":...,"mt":...}`); one that splits into several stores a
+ * list of them, each naming the same `from`:
+ *
+ *   "GIS": [ {"from":"SHEET PILE","to":"WELDED STAINLESS STEEL PIPE","mt":325},
+ *            {"from":"SHEET PILE","to":"FABRICATED STEEL PAINTED FRAME","mt":75} ]
+ *
+ * Both shapes are read the same way here so iq_apply_pending_revision() keeps
+ * handling exactly one def. Defs missing `from`/`to` are dropped — a malformed
+ * entry must not silently un-gate (or half-gate) a split.
+ */
+function iq_pending_revision_defs($revDef): array {
+    if (!is_array($revDef) || !count($revDef)) return [];
+    // A single def is an assoc array with a 'from' key; a list has integer keys.
+    $list = array_key_exists('from', $revDef) ? [$revDef] : array_values($revDef);
+    return array_values(array_filter(
+        $list,
+        fn($d) => is_array($d) && ($d['from'] ?? '') !== '' && ($d['to'] ?? '') !== ''
+    ));
+}
+
+/**
  * Port of `applyPendingRevision` (IQ/lib/pendingRevisionGate.js). A company's
  * PERTEK can be revised into a product split (e.g. Wear Plate 600 ->
  * Wear Plate 247 + GI Alloy 353); the split only becomes official once its
@@ -620,16 +643,32 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
     // dashboard shows the ORIGINAL PERTEK until the release date is entered.
     if ($revDef) {
         $maps = ['obtByProd' => $obtByProd, 'utilByProd' => $utilByProd, 'availByProd' => $availByProd];
-        $res = iq_apply_pending_revision($maps, $revDef, $releaseDate);
+        // A company's PERTEK can be revised into a split with MORE THAN ONE
+        // target (GIS: SHEET PILE 400 -> WELDED 325 + FABRICATED 75), so a
+        // pendingRevisions.json value may be a LIST of defs as well as a
+        // single one. Reverse each in turn; iq_apply_pending_revision() still
+        // handles exactly one def and is unchanged.
+        $defs = iq_pending_revision_defs($revDef);
+        $targets = [];
+        $from = null;
+        foreach ($defs as $def) {
+            if (iq_apply_pending_revision($maps, $def, $releaseDate)['reversed']) {
+                $targets[] = ['to' => $def['to'] ?? null, 'mt' => $def['mt'] ?? null];
+                $from ??= $def['from'] ?? null;
+            }
+        }
         $obtByProd = $maps['obtByProd'];
         $utilByProd = $maps['utilByProd'];
         $availByProd = $maps['availByProd'];
-        if ($res['reversed']) {
+        if (count($targets)) {
+            // origMT is only whole once EVERY target has been reversed back
+            // into `from` — hence reading it here rather than inside the loop.
             $co['_pendingRevision'] = [
-                'from'   => $revDef['from'] ?? null,
-                'to'     => $revDef['to'] ?? null,
-                'mt'     => $revDef['mt'] ?? null,
-                'origMT' => $obtByProd[$revDef['from'] ?? ''] ?? 0,
+                'from'    => $from,
+                'to'      => $targets[0]['to'],
+                'mt'      => $targets[0]['mt'],
+                'targets' => $targets,
+                'origMT'  => $obtByProd[$from ?? ''] ?? 0,
             ];
         } else {
             unset($co['_pendingRevision']);

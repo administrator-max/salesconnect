@@ -1,3 +1,8 @@
 {
-  "MIN": { "from": "BORDES ALLOY", "to": "GI ALLOY", "mt": 353 }
+  "MIN": { "from": "BORDES ALLOY", "to": "GI ALLOY", "mt": 353 },
+  "MJU": { "from": "HRPO ALLOY", "to": "CRC ALLOY", "mt": 200 },
+  "GIS": [
+    { "from": "SHEET PILE", "to": "WELDED STAINLESS STEEL PIPE", "mt": 325 },
+    { "from": "SHEET PILE", "to": "FABRICATED STEEL PAINTED FRAME", "mt": 75 }
+  ]
 }

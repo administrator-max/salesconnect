@@ -76,6 +76,18 @@ function rrGetActiveCycle(co) {
   return submitCycles[submitCycles.length - 1] || null;
 }
 
+/* "WELDED STAINLESS STEEL PIPE 325 MT + FABRICATED STEEL PAINTED FRAME 75 MT"
+   — every target of a gated PERTEK Perubahan split, in one line. Falls back to
+   the flat to/mt pair when the payload carries no `targets` list. */
+function prTargets(pr) {
+  return (pr && pr.targets && pr.targets.length) ? pr.targets : [{ to: pr.to, mt: pr.mt }];
+}
+function prTargetText(pr) {
+  return prTargets(pr)
+    .map(t => `${t.to} ${Number(t.mt).toLocaleString(MT_LOCALE)} MT`)
+    .join(' + ');
+}
+
 /* Build the full Revision & Re-Apply panel */
 function buildRevMgmtSection(co) {
   const el = g('revMgmtBody');
@@ -458,13 +470,16 @@ function buildRevMgmtSection(co) {
   }
 
   // -- PERTEK Perubahan gate — original PERTEK shown until terbit date entered --
+  // A split can have several targets (GIS: SHEET PILE 400 -> WELDED 325 +
+  // FABRICATED 75), so read `targets`; `to`/`mt` are the first target, kept
+  // for older payloads that predate the list.
   if (co._pendingRevision) {
     const pr = co._pendingRevision;
     html += `<div class="notice" style="margin-top:10px;padding:10px;border:1px solid #d9a441;background:#fff8e6;border-radius:6px">
       <div style="font-weight:700;color:#8a5a00;font-size:11.5px">⏳ PERTEK Perubahan belum terbit</div>
       <div style="font-size:11px;color:var(--txt3);margin:4px 0">
         Menampilkan PERTEK asal: <strong>${pr.from} ${Number(pr.origMT).toLocaleString(MT_LOCALE)} MT</strong>.
-        Split ke <strong>${pr.to} ${Number(pr.mt).toLocaleString(MT_LOCALE)} MT</strong> akan tampil setelah tanggal terbit diisi.
+        Split ke <strong>${prTargetText(pr)}</strong> akan tampil setelah tanggal terbit diisi.
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <input class="fi" id="ppReleaseDate_${code}" type="text" placeholder="DD/MM/YYYY" style="max-width:130px">
@@ -690,16 +705,18 @@ async function rrSavePertekPerubahan(code) {
   const input = g('ppReleaseDate_' + code);
   const releaseDate = ((input || {}).value || '').trim();
   if (!releaseDate) { alert('Isi Tanggal Terbit PERTEK Perubahan dulu (DD/MM/YYYY).'); return; }
+  const targetText = prTargetText(pr);
+  const targetNames = prTargets(pr).map(t => t.to).join(' + ');
   if (!confirm(`Catat PERTEK Perubahan TERBIT — ${code}\n` +
-      `${pr.from} → ${pr.to} ${Number(pr.mt).toLocaleString(MT_LOCALE)} MT\n` +
-      `Terbit: ${releaseDate}\n\nSetelah ini split ${pr.to} akan tampil di dashboard.`)) return;
+      `${pr.from} → ${targetText}\n` +
+      `Terbit: ${releaseDate}\n\nSetelah ini split ${targetNames} akan tampil di dashboard.`)) return;
   try {
     const res = await fetch(`api/company/${encodeURIComponent(code)}/pertek-perubahan-release`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ releaseDate, updatedBy: co.updatedBy || '' }),
     });
     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || ('HTTP ' + res.status)); }
-    if (typeof nsShowToast === 'function') nsShowToast(`✓ ${code} — PERTEK Perubahan terbit ${releaseDate} · split ${pr.to} kini tampil`);
+    if (typeof nsShowToast === 'function') nsShowToast(`✓ ${code} — PERTEK Perubahan terbit ${releaseDate} · split ${targetNames} kini tampil`);
     if (typeof loadData === 'function') await loadData();
     const co2 = getSPI(code) || co;
     if (typeof buildRevMgmtSection === 'function') buildRevMgmtSection(co2);

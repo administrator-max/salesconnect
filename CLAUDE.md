@@ -85,6 +85,7 @@ Tidak pakai `.env`. Konfigurasi di `config.php` (PHP, tidak diserve sebagai teks
 ## Aturan & gotcha
 - **`valueInputOption=RAW` wajib dipertahankan.** Kalau diganti `USER_ENTERED`, tanggal/ID akan dikonversi tipe dan bikin bug. Baca via default (FORMATTED) aman karena semua sel teks.
 - **Perbandingan ID selalu cast string** (`(string)`), karena ID record/complaint CIL berupa angka 13-digit (`Date.now()`) yang bisa terbaca sebagai number.
+- **`GoogleSheets::updateAssoc()` menulis SELURUH kolom header**, bukan hanya key yang dioper — key yang absen ditulis `''`. Memanggilnya dengan satu field saja akan **mengosongkan seisi baris**. Selalu oper assoc lengkap; untuk patch parsial, baca barisnya dulu lalu merge.
 - **Butuh mod_rewrite.** Kalau `api/...` balas 404 → rewrite mati. Tes: buka `/taskflow/api/staff` saat login → harus JSON.
 - **Cache vs realtime.** Penulis melihat perubahannya seketika (write meng-clear cache); user lain paling lama `cache_ttl` (10s) saat reload. Tidak ada polling → user harus reload. Realtime instan (push) tidak mungkin di stack ini.
 - **Race CRUD.** Update/hapus memakai nomor baris hasil pembacaan; ada celah milidetik saat 2 orang menulis bersamaan. Delete saat ini **fisik** (padahal ada kolom `deleted` — belum dipakai untuk soft-delete). Untuk jaminan lebih kuat: soft-delete menyeluruh (lihat TODO).
