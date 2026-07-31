@@ -111,6 +111,68 @@ function iq_date_iso($v): ?string {
     return null;
 }
 
+/* ── "is this cell a real date?" ─────────────────────────────────────────
+ * The period filter lives in the browser and decides with pDate()
+ * (assets/js/02-period-filter.js). Any server-side rule about dates has to
+ * agree with it cell-for-cell, otherwise the API "fixes" something the
+ * dashboard still reads as blank (or vice versa). iq_date_iso() is NOT that
+ * rule — it is deliberately stricter (DD/MM/YYYY + ISO only, real-calendar
+ * checked) and is used to VALIDATE user input. This one is the permissive
+ * recogniser that mirrors pDate()'s accepted set, including the 'DD-Mon-YY'
+ * shape todayStd() stamps onto revision cycles ("30-Jul-26") and the
+ * Indonesian month names already sitting in the sheet ("12 Mei 2026"). */
+
+/** Month name (EN + ID, long + short, lowercase) => 1-12. Mirrors _MONTH_NAME_MAP in assets/js/01-data.js. */
+function iq_month_name_map(): array {
+    static $map = null;
+    if ($map !== null) return $map;
+    // Kept key-for-key identical to the JS map — NOT a superset. A name PHP
+    // accepts but pDate() does not would let the backfill below write a
+    // "date" the dashboard still reads as blank, which is exactly the class
+    // of drift this whole change removes.
+    $map = [
+        // English short + long
+        'jan' => 1, 'january' => 1, 'feb' => 2, 'february' => 2, 'mar' => 3, 'march' => 3,
+        'apr' => 4, 'april' => 4, 'may' => 5, 'jun' => 6, 'june' => 6, 'jul' => 7, 'july' => 7,
+        'aug' => 8, 'august' => 8, 'sep' => 9, 'sept' => 9, 'september' => 9,
+        'oct' => 10, 'october' => 10, 'nov' => 11, 'november' => 11, 'dec' => 12, 'december' => 12,
+        // Indonesian short + long
+        'mei' => 5, 'agu' => 8, 'agust' => 8, 'agustus' => 8, 'okt' => 10, 'oktober' => 10,
+        'des' => 12, 'desember' => 12,
+        'januari' => 1, 'februari' => 2, 'maret' => 3, 'juni' => 6, 'juli' => 7,
+    ];
+    return $map;
+}
+
+/**
+ * True when $v reads as a calendar date to the dashboard's pDate(): ISO
+ * 'YYYY-MM-DD', 'D/M/YY(YY)', or 'DD-Mon-YY' / 'DD Month YYYY' (EN + ID).
+ * 'TBA', a document number ('1075/ILMATE/PERTEK-SPI-U-Rev.1/VI/2026'), an
+ * empty cell and free text all return false.
+ */
+function iq_is_date_like($v): bool {
+    if ($v === null) return false;
+    $s = trim((string) $v);
+    if ($s === '' || preg_match('/^(tba|null|undefined)$/i', $s)) return false;
+
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m)) {
+        return checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
+    }
+    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/', $s, $m)) {
+        $y = (int) $m[3];
+        if ($y < 100) $y += 2000;
+        return checkdate((int) $m[2], (int) $m[1], $y);
+    }
+    if (preg_match('/^(\d{1,2})[-\s]([A-Za-z]+)[-\s](\d{2,4})$/', $s, $m)) {
+        $mo = iq_month_name_map()[strtolower($m[2])] ?? null;
+        if ($mo === null) return false;
+        $y = (int) $m[3];
+        if ($y < 100) $y += 2000;
+        return checkdate($mo, (int) $m[1], $y);
+    }
+    return false;
+}
+
 /** Cached json_decode of iqdash/data/quotaLedger.json. */
 function iq_ledger(): array {
     static $data = null;

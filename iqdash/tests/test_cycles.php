@@ -79,4 +79,78 @@ ok($newCpIds === [4, 5, 6], 'new cycle_product ids are globally sequential (4,5,
 ok(count($cycles) === 3, 'total cycles = 1 (ATH) + 2 (new EMS)');
 ok(count($cp) === 4, 'total cycle_products = 1 (ATH) + 3 (new EMS)');
 
+/* ═══════════════════════════════════════════════════════════════════════
+ * DEDICATED DATE COLUMNS — iq_cycle_backfill_dates()
+ *
+ * `release_date` is overloaded: it holds the terbit DATE for cycles written
+ * by the main edit form and by /record-obtained, but older Revision-
+ * Management saves put the document NUMBER there instead. The browser filter
+ * has a fallback on the Obtained side (pDate(releaseDate) || pDate(spiDate))
+ * and NONE on the Submit side (pertekTerbit = pDate(releaseDate)), so a cycle
+ * whose release_date is a number falls out of every period. Copying a real
+ * release_date into the dedicated column on write means the date survives
+ * even if release_date is later overwritten.
+ * ═══════════════════════════════════════════════════════════════════════ */
+echo "\n-- iq_is_date_like --\n";
+ok(iq_is_date_like('15/02/2026') === true,  'DD/MM/YYYY is a date');
+ok(iq_is_date_like('2026-02-15') === true,  'ISO is a date');
+ok(iq_is_date_like('30-Jun-26')  === true,  "'DD-Mon-YY' (what todayStd() stamps) is a date");
+ok(iq_is_date_like('12 Mei 2026') === true, 'Indonesian month name is a date');
+ok(iq_is_date_like('1075/ILMATE/PERTEK-SPI-U-Rev.1/VI/2026') === false, 'a PERTEK document number is NOT a date');
+ok(iq_is_date_like('04.PI-05.26.0450.1') === false, 'an SPI document number is NOT a date');
+ok(iq_is_date_like('TBA') === false, "'TBA' is NOT a date");
+ok(iq_is_date_like('')    === false, 'blank is NOT a date');
+ok(iq_is_date_like(null)  === false, 'null is NOT a date');
+ok(iq_is_date_like('31/02/2026') === false, '31 February is refused (real calendar check)');
+
+echo "\n-- iq_cycle_backfill_dates --\n";
+// Submit/Revision rows: release_date == PERTEK Terbit -> pertek_date
+$r = iq_cycle_backfill_dates(['cycle_type' => 'Submit #1', 'release_date' => '10/01/2026', 'pertek_date' => '', 'spi_date' => '']);
+ok($r['pertek_date'] === '10/01/2026', 'Submit #1: real release_date fills the blank pertek_date');
+ok($r['spi_date'] === '', 'Submit #1: spi_date is left alone (wrong column for this row type)');
+
+$r = iq_cycle_backfill_dates(['cycle_type' => 'Revision #2', 'release_date' => '2026-03-04', 'pertek_date' => '', 'spi_date' => '']);
+ok($r['pertek_date'] === '2026-03-04', 'Revision #N is treated like Submit #N');
+
+// Obtained rows: release_date == SPI Terbit -> spi_date
+$r = iq_cycle_backfill_dates(['cycle_type' => 'Obtained #1', 'release_date' => '15/02/2026', 'pertek_date' => '', 'spi_date' => '']);
+ok($r['spi_date'] === '15/02/2026', 'Obtained #1: real release_date fills the blank spi_date');
+ok($r['pertek_date'] === '', 'Obtained #1: pertek_date is left alone');
+
+// Fill-blanks ONLY — never clobber a date the user actually entered.
+$r = iq_cycle_backfill_dates(['cycle_type' => 'Submit #1', 'release_date' => '10/01/2026', 'pertek_date' => '05/01/2026', 'spi_date' => '']);
+ok($r['pertek_date'] === '05/01/2026', 'an existing pertek_date is NEVER overwritten');
+
+// 'TBA' parked in the dedicated column is the same "no date yet" state as blank.
+$r = iq_cycle_backfill_dates(['cycle_type' => 'Obtained #1', 'release_date' => '15/02/2026', 'pertek_date' => '', 'spi_date' => 'TBA']);
+ok($r['spi_date'] === '15/02/2026', "'TBA' in spi_date counts as empty and gets filled");
+
+// A release_date that is NOT a date must not be copied anywhere — that is how
+// document numbers would leak into the dedicated date columns.
+$r = iq_cycle_backfill_dates(['cycle_type' => 'Submit #2', 'release_date' => '601/ILMATE/PERTEK-SPI-P/II/2026', 'pertek_date' => '', 'spi_date' => '']);
+ok($r['pertek_date'] === '', 'a document number in release_date is NOT copied into pertek_date');
+
+$r = iq_cycle_backfill_dates(['cycle_type' => 'Submit #1', 'release_date' => 'TBA', 'pertek_date' => '', 'spi_date' => '']);
+ok($r['pertek_date'] === '', "release_date 'TBA' fills nothing");
+
+// Row types with no dedicated column pass through untouched.
+$r = iq_cycle_backfill_dates(['cycle_type' => 'Revision Request — GL ALLOY', 'release_date' => '30-Jul-26', 'pertek_date' => '', 'spi_date' => '']);
+ok($r['pertek_date'] === '' && $r['spi_date'] === '', 'Revision Request rows have no dedicated date column — untouched');
+
+// End-to-end through the replacement builder: the Obtained #1 cycle above
+// (releaseDate 15/02/2026, no spiDate sent by the client) must come out dated.
+$obt = null;
+foreach ($cycles as $cy) {
+    if (($cy['company_code'] ?? '') === 'EMS' && ($cy['cycle_type'] ?? '') === 'Obtained #1') { $obt = $cy; break; }
+}
+ok($obt !== null && $obt['spi_date'] === '15/02/2026',
+   'iq_build_cycles_replacement() backfills spi_date even when the client sent none');
+
+$sub = null;
+foreach ($cycles as $cy) {
+    if (($cy['company_code'] ?? '') === 'EMS' && ($cy['cycle_type'] ?? '') === 'Submit #1') { $sub = $cy; break; }
+}
+ok($sub !== null && $sub['pertek_date'] === '',
+   "a TBA release_date still leaves pertek_date blank (nothing to backfill)");
+
 echo empty($GLOBALS['fail']) ? "ALL PASS\n" : "FAILURES\n";

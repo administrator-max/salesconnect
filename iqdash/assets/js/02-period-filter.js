@@ -413,6 +413,34 @@ function closePeriod() {
   document.getElementById('pfIco').textContent = '▾';
 }
 
+/* ── Date-input ↔ Date object, always in LOCAL time ───────────────────────
+   An <input type="date"> hands back "YYYY-MM-DD". Passing that bare string to
+   `new Date()` parses it as UTC midnight — that is the ECMAScript rule for
+   the date-ONLY form — whereas "YYYY-MM-DDTHH:MM:SS" with no zone parses as
+   LOCAL. onCustomDate() used to mix the two: `new Date(f)` for the start and
+   `new Date(t+'T23:59:59')` for the end, so in WIB (UTC+7) the range started
+   at 07:00 on the from-day while every record date comes from pDate()'s
+   `new Date(y, m-1, d)` — local midnight. A record dated exactly ON the
+   from-day therefore sat 7 hours BEFORE the range start and was dropped:
+   filtering 01–30 Jun silently lost everything dated 1 June, and the same for
+   the 1st of every other month. Both helpers below stay in local time so the
+   boundaries line up with the dates being compared. */
+function pfParseInputDate(dateStr, endOfDay) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + (endOfDay ? 'T23:59:59' : 'T00:00:00'));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/* Date -> "YYYY-MM-DD" for an <input type="date">, read in LOCAL time.
+   `toISOString().slice(0,10)` converts to UTC first, so a local-midnight date
+   in WIB comes back as the PREVIOUS day (1 Apr -> "2026-03-31") — that made
+   applyPreset() write a start date one day early into the input. */
+function pfFormatInputDate(d) {
+  if (!d) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 /* The chips are gone from the UI, but this stays: reports and automation call
    applyPreset('q226') to reproduce a named window. `el` is now optional — it
    used to throw on a missing element, which is exactly what broke headless use. */
@@ -425,9 +453,9 @@ function applyPreset(key, el) {
   PERIOD.to     = p.to;
   PERIOD.label  = p.label;
   PERIOD.active = key !== 'all';
-  // Sync date inputs
-  document.getElementById('pfFrom').value = p.from ? p.from.toISOString().slice(0,10) : '';
-  document.getElementById('pfTo').value   = p.to   ? p.to.toISOString().slice(0,10)   : '';
+  // Sync date inputs (local-time formatting — see pfFormatInputDate)
+  document.getElementById('pfFrom').value = pfFormatInputDate(p.from);
+  document.getElementById('pfTo').value   = pfFormatInputDate(p.to);
   updatePeriodUI();
   applyPeriodFilter();
 }
@@ -438,11 +466,13 @@ function onCustomDate() {
   if (!f && !t) { applyPreset('all'); return; }
   // Deactivate presets
   document.querySelectorAll('.pf-preset').forEach(x => x.classList.remove('active'));
-  PERIOD.from   = f ? new Date(f) : null;
-  PERIOD.to     = t ? new Date(t+'T23:59:59') : null;
+  PERIOD.from   = pfParseInputDate(f, false);   // local 00:00:00 on the from-day
+  PERIOD.to     = pfParseInputDate(t, true);    // local 23:59:59 on the to-day
   PERIOD.active = !!(f || t);
-  const fStr = f ? new Date(f).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-  const tStr = t ? new Date(t).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  // Label off the SAME Date objects the filter uses, so what the banner says
+  // and what the filter does can never drift apart.
+  const fStr = PERIOD.from ? PERIOD.from.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  const tStr = PERIOD.to   ? PERIOD.to.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})   : '—';
   PERIOD.label = f && t ? fStr + ' – ' + tStr : f ? '≥ ' + fStr : '≤ ' + tStr;
   updatePeriodUI();
   applyPeriodFilter();
@@ -554,6 +584,7 @@ function applyPeriodFilter() {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     PERIOD, PRESETS, pDate, raDate, inPd, lotUtilDate,
+    pfParseInputDate, pfFormatInputDate,
     companiesWithLotsInPeriod, utilizationPool,
     scopedUtilByProd, scopedUtilTotal, scopedAvailByProd,
   };

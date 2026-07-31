@@ -333,11 +333,26 @@ function buildRevMgmtSection(co) {
     const obt2Cy = (co.cycles||[]).find(c => /^obtained\s*#2/i.test(c.type) || /^obtained.*revision/i.test(c.type));
     const obt2Prods = obt2Cy ? (obt2Cy.products || {}) : {};
     const obt2MT    = obt2Cy ? obt2Cy.mt : null;
-    const obt2SPI   = obt2Cy ? (obt2Cy.releaseDate||'') : '';
-    const obt2SpiDate = obt2Cy ? (obt2Cy.spiDate||'') : '';
+    // Document NUMBERS come from co.spiNo / co.pertekNo — the company-level
+    // fields that have always been their real home. They used to be read back
+    // out of cycle.releaseDate, which is why the save path wrote them there
+    // and clobbered the terbit date. Dates come from the dedicated
+    // spi_date / pertek_date columns, with releaseDate as fallback for rows
+    // written before this split (only when it actually parses as a date —
+    // legacy rows may still hold a number there).
+    const _dateOr = (dedicated, release) => {
+      const d = String(dedicated || '').trim();
+      if (d && d !== 'TBA') return d;
+      const r = String(release || '').trim();
+      return (r && r !== 'TBA' && typeof pDate === 'function' && pDate(r)) ? r : '';
+    };
+    const obt2SPI   = co.spiNo || '';
+    const obt2SpiDate = obt2Cy ? _dateOr(obt2Cy.spiDate, obt2Cy.releaseDate) : '';
     const obt2PERTEK= (co.cycles||[]).find(c => /^(submit\s*#2|revision\s*#)/i.test(c.type));
-    const pertekVal = obt2PERTEK ? (obt2PERTEK.releaseDate||'') : (co.pertekNo||'');
-    const pertekDateVal = obt2PERTEK ? (obt2PERTEK.pertekDate||'') : (co.pertekDate||'');
+    const pertekVal = co.pertekNo || '';
+    const pertekDateVal = obt2PERTEK
+      ? _dateOr(obt2PERTEK.pertekDate, obt2PERTEK.releaseDate)
+      : (co.pertekDate || '');
 
     // Per-product obtained MT inputs
     let obtainedHtml = '';
@@ -639,8 +654,15 @@ function rrApplyObtained(code) {
   const spiDateVal = (g('rrRevSpiDate')  || {}).value || '';
   const pkNoVal    = (g('rrRevPertekNo') || {}).value || '';
   const pkDateVal  = (g('rrRevPertekDate')|| {}).value || '';
-  if (spiNoVal)   { obt2Cy.releaseDate = spiNoVal; co.spiNo = spiNoVal; }
-  if (spiDateVal) { obt2Cy.spiDate = spiDateVal; co.spiDate = spiDateVal; }
+  // The document NUMBER goes to co.spiNo / co.pertekNo; the cycle's
+  // releaseDate gets the DATE. Writing the number into releaseDate (what
+  // this used to do) is what put strings like
+  // "04.PI-05.26.0450.1" into cycles.release_date — the filter reads that
+  // column with pDate(), so those cycles fell out of every period. See
+  // cycleTerbitDate() in 02-period-filter.js for the read-side workaround
+  // this removes the need for.
+  if (spiNoVal)   { co.spiNo = spiNoVal; }
+  if (spiDateVal) { obt2Cy.spiDate = spiDateVal; obt2Cy.releaseDate = spiDateVal; co.spiDate = spiDateVal; }
   if (pkNoVal)    { co.pertekNo = pkNoVal; }
   if (pkDateVal)  { co.pertekDate = pkDateVal; }
   obt2Cy.status = `Obtained #2 — ${obtTotal.toLocaleString(MT_LOCALE)} MT${spiNoVal ? ' · SPI: ' + spiNoVal : ''}${spiDateVal ? ' · ' + spiDateVal : ''}`;
@@ -768,15 +790,15 @@ function rrSaveStatus(code) {
   }
   if (obtTotal > 0) { obt2Cy.mt = obtTotal; co.revMT = obtTotal; }
   if (Object.keys(obtByProd).length) obt2Cy.products = obtByProd;
-  if (spiNo)    { obt2Cy.releaseDate = spiNo; }
-  if (spiDate)  { obt2Cy.spiDate = spiDate; }
+  // Number → co.spiNo (set above); DATE → the cycle's date columns. See
+  // rrApplyObtained() for why releaseDate must never hold the document No.
+  if (spiDate)  { obt2Cy.spiDate = spiDate; obt2Cy.releaseDate = spiDate; }
 
   // Update active Submit #2 / Revision cycle with PERTEK no + date
   const activeCy = rrGetActiveCycle(co);
   if (activeCy) {
     activeCy.status = `Update ${dateStr} - ${stage}`;
-    if (pertekNo)   activeCy.releaseDate = pertekNo;
-    if (pertekDate) activeCy.pertekDate  = pertekDate;
+    if (pertekDate) { activeCy.pertekDate = pertekDate; activeCy.releaseDate = pertekDate; }
   }
 
   _refreshAfterRREdit();
@@ -802,17 +824,19 @@ function rrMarkApproved(code) {
     ? `SPI Perubahan Terbit — No. ${spiNo}`
     : (pertekNo ? `PERTEK Perubahan Terbit — No. ${pertekNo}` : `APPROVED — ${stage}`);
 
-  // Update active Submit #2 / Revision cycle
+  // Update active Submit #2 / Revision cycle.
+  // The PERTEK No. lives on co.pertekNo (set below) — releaseDate carries the
+  // DATE, so this cycle stays visible to the period filter. See
+  // rrApplyObtained() for the full rationale.
   const activeCy = rrGetActiveCycle(co);
   if (activeCy) {
     activeCy.status = `APPROVED — ${stage}`;
-    if (pertekNo) activeCy.releaseDate = pertekNo;
   }
 
   // Update / create Obtained #2 cycle
   let obt2Cy = (co.cycles||[]).find(c => /^obtained\s*#2/i.test(c.type) || /^obtained.*revision/i.test(c.type));
   if (!obt2Cy) {
-    obt2Cy = { type: 'Obtained #2', mt: null, products: {}, submitType: 'Submit MOT (Submit #2) Perubahan', submitDate: date || 'TBA', releaseType: 'SPI Perubahan', releaseDate: spiNo || 'TBA', status: '', _fromRevReq: true };
+    obt2Cy = { type: 'Obtained #2', mt: null, products: {}, submitType: 'Submit MOT (Submit #2) Perubahan', submitDate: date || 'TBA', releaseType: 'SPI Perubahan', releaseDate: spiDate || 'TBA', spiDate: spiDate || '', status: '', _fromRevReq: true };
     if (!co.cycles) co.cycles = [];
     co.cycles.push(obt2Cy);
   }
@@ -824,15 +848,17 @@ function rrMarkApproved(code) {
   }
   if (Object.keys(obtByProd).length) obt2Cy.products = obtByProd;
   if (spiNo) {
-    obt2Cy.releaseDate = spiNo;
     co.spiNo = spiNo;
     obt2Cy.status = `SPI Perubahan TERBIT — No. ${spiNo}${spiDate ? ' · ' + spiDate : ''}`;
   } else if (pertekNo) {
     obt2Cy.status = `PERTEK Perubahan TERBIT — No. ${pertekNo}${pertekDate ? ' · ' + pertekDate : ''} · SPI TBA`;
   }
   if (pertekNo)   { co.pertekNo = pertekNo; }
-  if (pertekDate) { co.pertekDate = pertekDate; if (activeCy) activeCy.pertekDate = pertekDate; }
-  if (spiDate)    { co.spiDate = spiDate; obt2Cy.spiDate = spiDate; }
+  if (pertekDate) {
+    co.pertekDate = pertekDate;
+    if (activeCy) { activeCy.pertekDate = pertekDate; activeCy.releaseDate = pertekDate; }
+  }
+  if (spiDate)    { co.spiDate = spiDate; obt2Cy.spiDate = spiDate; obt2Cy.releaseDate = spiDate; }
 
   _refreshAfterRREdit();
   buildRevMgmtSection(co);
@@ -945,6 +971,24 @@ function saveEdit() {
   const allowed = ROLE_PERMISSIONS[currentRole] || [];
   const can = id => allowed.includes(id);
 
+  // ── Utilization date guard: refuse rather than store a dateless lot ──
+  // lotUtilDate() is what slices utilization into periods; inPd(null) is
+  // FALSE, so a lot with MT and no ETA/PIB is not "unfiltered", it is gone
+  // from every period view. The per-lot 💾 Simpan button has always blocked
+  // this; the main Save button reads the raw inputs via collectShipmentData()
+  // and used to write them through dateless. Same rule, both paths.
+  if (can('salesShipTable') || can('opsShipTable')) {
+    const missingDates = (typeof lotsMissingUtilDate === 'function') ? lotsMissingUtilDate() : [];
+    if (missingDates.length) {
+      if (typeof flagMissingUtilDates === 'function') flagMissingUtilDates(missingDates);
+      alert('Ada ' + missingDates.length + ' lot utilisasi dengan MT tapi tanpa tanggal '
+        + '(' + missingDates.map(m => `${m.prod} Lot ${m.idx + 1}`).join(', ') + ').\n\n'
+        + 'Isi ETA JKT (atau PIB Date) dulu — tanpa tanggal, MT tersebut tidak akan '
+        + 'muncul di filter periode manapun.');
+      return;
+    }
+  }
+
   // ── Collect shipment data from Sales & Ops forms ─────────────────
   const co_live = getSPI(c) || PENDING.find(p => p.code === c);
   if (co_live && (can('salesShipTable') || can('opsShipTable'))) {
@@ -990,6 +1034,31 @@ function saveEdit() {
 
   const hasPERTEK = newPertekDate !== '' && newPertekDate != null;
   const hasSPI    = newSpiDate    !== '' && newSpiDate    != null;
+
+  // ── Submit date guard: a Submit cycle carrying MT must carry its date ──
+  // KPI1 and the whole "which companies were active this quarter" filter run
+  // off cycleDates().submitMOI = pDate(cycle.submitDate). Persisting a
+  // Submit #1 with MT but submit_date='' hides that submission from every
+  // period, and cycles has no created_at column to fall back on — the date
+  // has to come from the form. Only enforced when this save actually writes
+  // Submit MT (CorpSec/SuperAdmin); other roles never touch the cycle.
+  if (canSubmit && newSubmitMT != null && newSubmitMT > 0) {
+    const _existingSubmitDate = (() => {
+      const _co = getSPI(c) || PENDING.find(p => p.code === c);
+      const _cy = ((_co && _co.cycles) || []).find(cy => /^submit #1/i.test(cy.type));
+      const _d  = _cy ? String(_cy.submitDate || '').trim() : '';
+      return (_d && _d !== 'TBA') ? _d : '';
+    })();
+    if (!newSubmitDate && !_existingSubmitDate) {
+      const el = g('eSubmitDate');
+      if (el) { el.style.borderColor = 'var(--red2)'; el.focus(); }
+      alert('Submit Date wajib diisi saat mencatat Submit MT.\n\n'
+        + 'Tanpa tanggal submit, submission ini tidak akan muncul di filter periode manapun.');
+      return;
+    }
+    const el = g('eSubmitDate');
+    if (el) el.style.borderColor = '';
+  }
 
   // ── Auto-extract PERTEK date from status text if not formally filled ──────
   // CorpSec sometimes types "PERTEK TERBIT 14/04/2026" in the Status Update field
@@ -1046,6 +1115,11 @@ function saveEdit() {
             { type: 'Obtained #1', mt: obtMT, products: obtProdObj,
               submitType: 'Submit MOT', submitDate: 'TBA',
               releaseType: 'SPI', releaseDate: hasSPI ? newSpiDate : 'TBA',
+              // Dedicated date column — kept in step with the Submit #1 row
+              // above (which already carries pertekDate). Without it an
+              // Obtained cycle promoted from PENDING held its SPI date only
+              // in the overloadable release_date.
+              spiDate: hasSPI ? newSpiDate : '',
               status: hasSPI ? `SPI TERBIT ${newSpiDate}` : `PERTEK Terbit: ${_pertekDateFinal} · SPI: belum terbit` },
           ],
         };
@@ -1109,11 +1183,20 @@ function saveEdit() {
     if (newPertekNo) co.pertekNo = newPertekNo;
 
     // ── PERTEK date → Submit #1 releaseDate (KPI2 filter date) ───────
-    if (hasPERTEK && subCy) {
-      subCy.releaseDate = newPertekDate;
+    // Uses _autoPertekDate / _hasPERTEK, not the raw field: when CorpSec
+    // types "PERTEK TERBIT 14/04/2026" into Status Update instead of the
+    // formal date input, the extracted date must land in the cycle here too.
+    // The PENDING-promotion branch above already did this; this branch (an
+    // existing SPI company) silently dropped it and left the cycle undated.
+    if (_hasPERTEK && subCy) {
+      subCy.releaseDate = _autoPertekDate;
+      // Mirror into the DEDICATED date column. release_date is overloaded —
+      // the Revision Management screen can overwrite it with a document
+      // number — so pertek_date is what guarantees the date survives.
+      subCy.pertekDate  = _autoPertekDate;
       subCy.status = newStatusUpdate
-        ? `PERTEK TERBIT ${newPertekDate} · ${newStatusUpdate}`
-        : `PERTEK TERBIT ${newPertekDate}`;
+        ? `PERTEK TERBIT ${_autoPertekDate} · ${newStatusUpdate}`
+        : `PERTEK TERBIT ${_autoPertekDate}`;
     }
 
     // ── Obtained MT (per product) → KPI2 ────────────────────────────
@@ -1137,6 +1220,7 @@ function saveEdit() {
     // ── SPI date → Obtained #1 releaseDate (SPI Terbit) ──────────────
     if (hasSPI && obtCy) {
       obtCy.releaseDate = newSpiDate;
+      obtCy.spiDate     = newSpiDate;   // dedicated column — see PERTEK above
       obtCy.status = `SPI TERBIT ${newSpiDate}`;
     }
 
