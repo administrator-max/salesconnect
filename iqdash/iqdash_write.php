@@ -1042,6 +1042,46 @@ function iq_create_company(GoogleSheets $gs, string $sid, array $body): array {
 }
 
 /**
+ * PURE: guarantee a cycle row carries its terbit date in the DEDICATED date
+ * column, not only in `release_date`.
+ *
+ * `release_date` is doubly overloaded in this data set: it holds the terbit
+ * DATE for cycles written by the main edit form and by /record-obtained, but
+ * older Revision-Management saves put the document NUMBER there instead
+ * (e.g. '1075/ILMATE/PERTEK-SPI-U-Rev.1/VI/2026'). The browser filter copes
+ * on the Obtained side — cycleDates() reads `pDate(releaseDate) ||
+ * pDate(spiDate)` — but the Submit/Revision side has NO fallback
+ * (`pertekTerbit = pDate(releaseDate)`, deliberately not widened, see the
+ * 2026-07-08 decision in assets/js/02-period-filter.js:271). A cycle whose
+ * release_date is a number therefore drops out of every active period.
+ *
+ * This copies a REAL release_date into the matching dedicated column when
+ * that column is still blank, so the date survives even if a later save
+ * overwrites release_date with a number:
+ *   Submit #N / Revision #N  -> pertek_date   (release_date = PERTEK Terbit)
+ *   Obtained #N              -> spi_date      (release_date = SPI Terbit)
+ * Fill-blanks only: an existing pertek_date/spi_date is never overwritten,
+ * and a release_date that is not a date (number/'TBA'/blank) is left alone
+ * — this normalises going forward, it does not rewrite historical cells.
+ */
+function iq_cycle_backfill_dates(array $row): array {
+    $rd = $row['release_date'] ?? null;
+    if (!iq_is_date_like($rd)) return $row;
+
+    $type = (string) ($row['cycle_type'] ?? '');
+    if (preg_match('/^obtained/i', $type)) {
+        $target = 'spi_date';
+    } elseif (preg_match('/^(submit|revision)\s*#/i', $type)) {
+        $target = 'pertek_date';
+    } else {
+        return $row; // Revision Request / anything else: no dedicated column
+    }
+
+    if (!iq_is_date_like($row[$target] ?? null)) $row[$target] = $rd;
+    return $row;
+}
+
+/**
  * PURE: build the full replacement `cycles` + `cycle_products` matrices
  * for a full-replace PATCH /api/company/:code/cycles — mirrors the Sheets
  * branch of server.js's cycles-replace handler (server.js:1924-1946)
@@ -1062,10 +1102,17 @@ function iq_create_company(GoogleSheets $gs, string $sid, array $body): array {
  *     existing `cycle_products` rows across ALL companies, and keeps
  *     incrementing across every new cycle in this same call — i.e. NOT
  *     reset per cycle).
- *   - a submit/release date of 'TBA' (any case, trimmed) is normalized to
- *     '' (server.js's inline `norm()`) — TBA dates are stored BLANK =
- *     pending; any other value (including a non-TBA string with
- *     surrounding whitespace) is passed through as-is.
+ *   - a date of 'TBA' (any case, trimmed) is normalized to '' (server.js's
+ *     inline `norm()`) — TBA dates are stored BLANK = pending; any other
+ *     value (including a non-TBA string with surrounding whitespace) is
+ *     passed through as-is. Applied to all four date columns
+ *     (submit/release/pertek/spi), not just submit+release: a literal 'TBA'
+ *     parked in `pertek_date`/`spi_date` is the same "no date yet" state and
+ *     must not masquerade as a filled dedicated date column below.
+ *   - `iq_cycle_backfill_dates()` then copies a REAL `release_date` into the
+ *     matching dedicated column (`pertek_date` for Submit/Revision rows,
+ *     `spi_date` for Obtained rows) when that column is still blank — see
+ *     its docblock for why the dedicated column must never be left empty.
  *   - `from_rev_req` is stored as a real boolean via iq_js_truthy() (same
  *     simplification Task 12 already applies to boolean-shaped fields
  *     like `cargo_arrived`, rather than JS's `x || false` which can also
@@ -1110,7 +1157,7 @@ function iq_build_cycles_replacement(array $allCycleRows, array $allCycleProduct
         $c = is_array($c) ? $c : [];
         $cyId++;
         $id = $cyId;
-        $addCycles[] = [
+        $addCycles[] = iq_cycle_backfill_dates([
             'id' => $id,
             'company_code' => $code,
             'cycle_type' => iq_js_or($c['type'] ?? null, ''),
@@ -1121,11 +1168,11 @@ function iq_build_cycles_replacement(array $allCycleRows, array $allCycleProduct
             'release_date' => $norm($c['releaseDate'] ?? null),
             'status' => iq_js_or($c['status'] ?? null, ''),
             'sort_order' => $i,
-            'pertek_date' => iq_js_or($c['pertekDate'] ?? null, ''),
-            'spi_date' => iq_js_or($c['spiDate'] ?? null, ''),
+            'pertek_date' => $norm($c['pertekDate'] ?? null),
+            'spi_date' => $norm($c['spiDate'] ?? null),
             'from_rev_req' => iq_js_truthy($c['_fromRevReq'] ?? null),
             'source_program' => 'B',
-        ];
+        ]);
 
         if (isset($c['products']) && is_array($c['products'])) {
             foreach ($c['products'] as $product => $mt) {

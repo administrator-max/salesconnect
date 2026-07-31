@@ -407,6 +407,19 @@ function onSalesDirectChange(inp) {
       errEl.classList.add('show');
     }
     if (saveBtn) saveBtn.disabled = true;
+  } else if (newMT > 0 && !lotHasUtilDate({
+      etaJKT:  (document.querySelector(`.sales-eta-inp[data-prod="${prod}"][data-idx="${idx}"]`) || {}).value || '',
+      pibDate: (document.querySelector(`.ops-pib-inp[data-prod="${prod}"][data-idx="${idx}"]`)  || {}).value || '',
+    })) {
+    // Same rule saveSalesUtil() enforces on click — surfaced while typing so
+    // the user sees WHY Simpan is disabled instead of hitting it and being
+    // bounced. A dateless lot cannot be attributed to any period.
+    inp.classList.remove('err');
+    if (errEl) {
+      errEl.textContent = 'ETA JKT wajib diisi — tanpa tanggal, MT ini tidak masuk filter periode.';
+      errEl.classList.add('show');
+    }
+    if (saveBtn) saveBtn.disabled = true;
   } else {
     inp.classList.remove('err');
     if (errEl) errEl.classList.remove('show');
@@ -538,7 +551,12 @@ function saveSalesUtil(prod, idx) {
   // field if it's empty. (Clearing a lot to 0 MT does not require an ETA.)
   const etaInp  = document.querySelector(`.sales-eta-inp[data-prod="${prod}"][data-idx="${idx}"]`);
   const etaVal  = etaInp ? etaInp.value.trim() : String(lot.etaJKT || '').trim();
-  if (newMT > 0 && !etaVal) {
+  const pibInp  = document.querySelector(`.ops-pib-inp[data-prod="${prod}"][data-idx="${idx}"]`);
+  const pibVal  = pibInp ? pibInp.value.trim() : String(lot.pibDate || '').trim();
+  // The filter reads PIB date first and falls back to ETA, so an Ops-entered
+  // PIB date satisfies this just as well — requiring ETA on top of it would
+  // block a lot that is already fully dated.
+  if (newMT > 0 && !lotHasUtilDate({ etaJKT: etaVal, pibDate: pibVal })) {
     const errEl = g(`util-err-${pid}-${idx}`);
     if (errEl) {
       errEl.textContent = 'ETA JKT wajib diisi sebelum simpan utilisasi.';
@@ -775,6 +793,9 @@ function onSalesEtaChange(inp) {
   if (co.shipments[prod] && co.shipments[prod][idx] !== undefined) {
     co.shipments[prod][idx].etaJKT = inp.value.trim();
   }
+  // Clear the "missing utilization date" flag as soon as something is typed
+  // (flagMissingUtilDates paints it; only that guard sets these two).
+  if (inp.value.trim()) { inp.style.borderColor = ''; inp.title = ''; }
   livePreview();
   scheduleShipmentsPersist();
 }
@@ -831,6 +852,66 @@ function applyShipmentRoleLock() {
   document.querySelectorAll('.reapply-prod-inp').forEach(el => {
     el.disabled = !canSales;
   });
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   UTILIZATION DATE — every lot that carries MT must carry a date
+   ──────────────────────────────────────────────────────────────────────
+   Utilization is sliced by each lot's OWN date: lotUtilDate() = PIB date,
+   else expected ETA JKT (02-period-filter.js). inPd(null) is FALSE, so a
+   lot with MT but no parseable date does not merely "not match" a period —
+   it is invisible in EVERY period, and its MT silently vanishes from the
+   KPIs, the AVQ cards and the O/U chart the moment anyone picks a quarter.
+
+   saveSalesUtil() (the per-lot 💾 Simpan button) has always enforced this.
+   The main Save button does not go through it — it reads the raw inputs via
+   collectShipmentData() — so the same lot saved from there slipped through
+   dateless. This is the shared rule both paths now use.
+══════════════════════════════════════════════════════════════════════ */
+
+/** True when this lot carries a date the period filter can actually read. */
+function lotHasUtilDate(lot) {
+  if (!lot) return false;
+  return !!(typeof lotUtilDate === 'function'
+    ? lotUtilDate(lot)
+    : (String(lot.pibDate || '').trim() || String(lot.etaJKT || '').trim()));
+}
+
+/** Lots with MT > 0 but no usable date, read from the LIVE form inputs (not
+    the model) so it reflects what the user is about to save. Returns
+    [{ prod, idx, etaInput }] — empty when everything is dated. */
+function lotsMissingUtilDate() {
+  const out = [];
+  document.querySelectorAll('.sales-util-direct-inp').forEach(inp => {
+    const prod = inp.dataset.prod;
+    const idx  = parseInt(inp.dataset.idx, 10);
+    const raw  = (inp.value || '').trim();
+    if (raw === '') return;
+    // Ambiguous text is caught by mtInputsAmbiguous() and refuses the save on
+    // its own; don't double-report the same field here.
+    const mt = (typeof parseMT === 'function') ? parseMT(raw) : parseFloat(raw.replace(/,/g, ''));
+    if (mt === null || !(mt > 0)) return;
+
+    const etaInput = document.querySelector(`.sales-eta-inp[data-prod="${prod}"][data-idx="${idx}"]`);
+    const pibInput = document.querySelector(`.ops-pib-inp[data-prod="${prod}"][data-idx="${idx}"]`);
+    const probe = {
+      etaJKT:  etaInput ? etaInput.value.trim() : '',
+      pibDate: pibInput ? pibInput.value.trim() : '',
+    };
+    if (!lotHasUtilDate(probe)) out.push({ prod, idx, etaInput });
+  });
+  return out;
+}
+
+/** Flag the offending ETA fields red and focus the first one. */
+function flagMissingUtilDates(missing) {
+  (missing || []).forEach(m => {
+    if (!m.etaInput) return;
+    m.etaInput.style.borderColor = 'var(--red2)';
+    m.etaInput.title = 'ETA JKT (atau PIB Date) wajib diisi — tanpa tanggal, MT lot ini hilang dari semua filter periode.';
+  });
+  const first = (missing || []).find(m => m.etaInput);
+  if (first) first.etaInput.focus();
 }
 
 /* ── Collect all shipment data from the form → write back to co.shipments ── */
@@ -896,6 +977,13 @@ function collectShipmentData(co) {
   });
   co.utilizationMT  = totalUtil;
   co.availableQuota = Math.max(0, (co.obtained || 0) - totalUtil);
+}
+
+/* Node (tests) only — harmless in the browser, where this file is a classic
+   script and the declarations above are already globals. Mirrors the export
+   guard at the bottom of 02-period-filter.js. */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { lotHasUtilDate };
 }
 
 /* ── Build per-product Re-Apply Target table ── */
