@@ -1,10 +1,9 @@
 {
  "_meta": {
-  "source": "master 00 IQ Dash - Quota Data 120526 (dashboard master data) (8).xlsx",
-  "generated": "2026-07-29",
+  "source": "master 00 IQ Dash - Quota Data 120526 (dashboard master data) (2).xlsx",
+  "generated": "2026-08-03",
   "view": "effective (obtained incl. revisions)",
-  "generator": "tools/build_quota_ledger.py",
-  "note": "adds the three products first used in master (8): CRC ALLOY 7225.50.90, WELDED STAINLESS STEEL PIPE 7306.40.90, FABRICATED STEEL PAINTED FRAME 7326.90.99. Two net-zero swaps moved onto them — GIS Revision #1 (-400 SHEET PILE -> +325 WELDED +75 FABRICATED) and MJU Revision #3 (-200 HRPO ALLOY -> +200 CRC ALLOY) — so totals are unchanged from the 27-Jul build (34,240 / 22,547 / 11,693) and 7225.30.90 drops out, now unused. NEITHER swap has its PERTEK Perubahan terbit date yet: both are gated in pendingRevisions.json, so the dashboard shows the original PERTEK (GIS SHEET PILE 400, MJU HRPO ALLOY 200) until the date is entered in-app."
+  "generator": "tools/build_quota_ledger.js"
  },
  "products": {
   "7225.40.90": "BORDES ALLOY",
@@ -61,12 +60,8 @@
   },
   "MIN": {
    "7225.40.90": {
-    "obtained": 247,
+    "obtained": 600,
     "util": 247
-   },
-   "7225.92.90": {
-    "obtained": 353.3,
-    "util": 0
    }
   },
   "JKT": {
@@ -109,6 +104,10 @@
    "7306.30.99": {
     "obtained": 500,
     "util": 500
+   },
+   "7225.99.90": {
+    "obtained": 600,
+    "util": 0
    }
   },
   "GAS": {

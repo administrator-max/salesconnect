@@ -42,12 +42,38 @@ $hsName2 = ['7225.92.90' => 'GI ALLOY'];
 iq_apply_ledger($co2, $le2, $hsName2);
 ok($co2['utilizationByProd']['GI ALLOY'] >= 300, 'util_mt=0 does not zero util');
 
-/* ── A lot's utilMT ADDS on top of the ledger baseline, capped at obtained ── */
+/* ── Ledger util and lot util RECONCILE (max), never sum ────────────────────
+ * Both state the same product total: the ledger carries the master's
+ * `Utilization (MT)` at regen time, a lot re-states part of it with per-lot
+ * detail. Summing them double-counts the overlap. This used to assert
+ * 200 + (100+50) = 350; it was wrong, and the min(obtained) cap hid it
+ * everywhere util happened to equal obtained.
+ *
+ * Trade-off worth knowing: because lots are usually only a PARTIAL
+ * itemization (production has HKG 250 lot vs 1,000 ledger, JKT 100 vs 400),
+ * a newly-entered lot only lifts utilization once the lot TOTAL passes the
+ * ledger baseline. Regenerate the ledger after a master update and that
+ * baseline moves with it. */
 $co3 = ['code' => 'Y', 'shipments' => ['WEAR PLATE' => [['utilMT' => 100], ['utilMT' => 50]]]];
 $le3 = ['7208.51.00' => ['obtained' => 1000, 'util' => 200]];
 iq_apply_ledger($co3, $le3, ['7208.51.00' => 'WEAR PLATE']);
-ok(abs($co3['utilizationByProd']['WEAR PLATE'] - 350) < 0.01, 'util = ledgerUtil(200) + lots(100+50) = 350');
-ok(abs($co3['availableByProd']['WEAR PLATE'] - 650) < 0.01, 'available = obtained(1000) - util(350) = 650');
+ok(abs($co3['utilizationByProd']['WEAR PLATE'] - 200) < 0.01, 'lots(150) below ledger(200) -> util stays 200, not 350');
+ok(abs($co3['availableByProd']['WEAR PLATE'] - 800) < 0.01, 'available = obtained(1000) - util(200) = 800');
+
+// lots ABOVE the ledger baseline still raise utilization (what the old `+` was for)
+$co3b = ['code' => 'Y2', 'shipments' => ['WEAR PLATE' => [['utilMT' => 300], ['utilMT' => 90]]]];
+iq_apply_ledger($co3b, $le3, ['7208.51.00' => 'WEAR PLATE']);
+ok(abs($co3b['utilizationByProd']['WEAR PLATE'] - 390) < 0.01, 'lots(390) above ledger(200) -> util = 390');
+
+/* Regression — the IKM shape that exposed the bug in production (2026-08-03):
+ * the first company to utilize PARTIALLY. obtained 4,150 / ledger util 2,300 /
+ * one 2,000 MT lot. The old `+` gave 4,300 capped to 4,150, so the dashboard
+ * showed 0 available against a master saying 1,850. */
+$coIKM = ['code' => 'IKM', 'shipments' => ['GI ALLOY' => [['utilMT' => 2000]]]];
+$leIKM = ['7225.92.90' => ['obtained' => 4150, 'util' => 2300]];
+iq_apply_ledger($coIKM, $leIKM, ['7225.92.90' => 'GI ALLOY']);
+ok(abs($coIKM['utilizationByProd']['GI ALLOY'] - 2300) < 0.01, 'IKM: util = 2300 (master), not 4150');
+ok(abs($coIKM['availableByProd']['GI ALLOY'] - 1850) < 0.01, 'IKM: available = 1850 (master), not 0');
 
 /* ── company not in ledger contributes 0 (section-1 loop responsibility,
  * exercised end-to-end below via iq_build_payload; this checks the
@@ -147,11 +173,19 @@ $totalAvail = $sum($payload['spi'], 'availableQuota');
  * current master via tools/build_quota_ledger.py. It had been frozen at the
  * 2026-07-01 hand-built snapshot (33,730 / 18,346 / 15,384) for four weeks
  * while the master moved to 34,240 / 22,547 / 11,693.
- * Obtained carries .3 from MIN's 353.30 revision (the old file rounded to 353);
- * the master's own Total cell prints 34,240. */
-ok(abs($totalObt - 34240.3) < 0.01,  "parity (all companies as SPI rows): total obtained 34240.3 (got $totalObt)");
-ok(abs($totalUtil - 22547) < 0.01,   "parity (all companies as SPI rows): total utilized 22547 (got $totalUtil)");
-ok(abs($totalAvail - 11693.3) < 0.01, "parity (all companies as SPI rows): total available 11693.3 (got $totalAvail)");
+ * Updated again 2026-08-03, rebuilt from the 3-Aug master (via the Node port
+ * tools/build_quota_ledger.js — this machine has no Python/openpyxl). Two
+ * changes, both traced to master edits, not to the generator:
+ *   + GKL  GL ALLOY  Obtained #2 = 600 (Submit MOT 3-Aug-26, SPI still TBA)
+ *   ~ MIN  collapsed back to BORDES ALLOY 600 — the 247/353.3 split is gone
+ *     from the master. The split IS CorpSec-confirmed in `revision_changes`,
+ *     but its SPI Perubahan is still TBA, so master and gate agree it is not
+ *     effective yet. That also retires the stray .3, so obtained is a round
+ *     34,840 for the first time. If CorpSec says the split stands, restore
+ *     backups/quotaLedger_before_regen_2026-08-03.json and revert these three. */
+ok(abs($totalObt - 34840) < 0.01,   "parity (all companies as SPI rows): total obtained 34840 (got $totalObt)");
+ok(abs($totalUtil - 22547) < 0.01,  "parity (all companies as SPI rows): total utilized 22547 (got $totalUtil)");
+ok(abs($totalAvail - 12293) < 0.01, "parity (all companies as SPI rows): total available 12293 (got $totalAvail)");
 
 /* ── invariant 4: company code not present in the ledger contributes 0 ── */
 $t0 = ['companies' => [['code' => 'ZZZ-NOT-IN-LEDGER', 'full_name' => 'Nobody', 'grp' => '', 'section' => 'SPI']]] + $emptyTabs;
