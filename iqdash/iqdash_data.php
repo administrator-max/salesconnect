@@ -596,11 +596,14 @@ function iq_apply_pending_revision(array &$maps, array $revDef, string $releaseD
  * utilization the user records via shipment lots on `$co['shipments']`
  * (Task 4 shape: product name => list of lots, each carrying `utilMT`):
  *
- *   effective util = min(obtained, ledgerUtil + Sum(lot.utilMT))
+ *   effective util = min(obtained, max(ledgerUtil, Sum(lot.utilMT)))
  *
- * capped at obtained (you can't utilize more than you were granted; the cap
- * also prevents a lot that merely re-itemizes the master snapshot from
- * double-counting). Then applies the pending-revision gate (if `$revDef` is
+ * capped at obtained (you can't utilize more than you were granted). The two
+ * inputs are RECONCILED, not summed: both state the same product total, so a
+ * lot that merely re-itemizes the master snapshot must not be added on top of
+ * it — see the inline note at the max() for why the old `+` under-reported
+ * available quota on partially-utilized products. Then applies the
+ * pending-revision gate (if `$revDef` is
  * given), sums to get the company total, rounds to 3 decimals, and MUTATES
  * `$co` in place: obtained, utilizationMT, availableQuota, utilizationByProd,
  * availableByProd, _ledgerObtained, _ledgerObtainedByProd, products.
@@ -633,7 +636,20 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
         foreach (($ships[$name] ?? []) as $l) {
             $lotU += iq_num($l['utilMT'] ?? 0);
         }
-        $u = min($o, $ledgerU + $lotU);
+        // Both numbers claim to be the SAME total, not two halves of one, so
+        // they reconcile with max() — never by adding. The ledger's util is
+        // the master's `Utilization (MT)` row at regen time; a lot re-states
+        // part of that same figure with per-lot detail. Adding them
+        // double-counts, and the min() cap only hides it while ledgerUtil ==
+        // obtained. IKM was the first company to utilize PARTIALLY (obtained
+        // 4,150 / util 2,300 / lot 2,000): 2,300 + 2,000 capped to 4,150, so
+        // the dashboard read 100% utilized and 0 available against a master
+        // saying 1,850 available. max() keeps the intent the '+' was reaching
+        // for — a lot recorded in-app AFTER a regen still raises utilization
+        // above the frozen ledger baseline — without counting the overlap
+        // twice. Verified over every company in the ledger: only IKM moves,
+        // and the new total lands exactly on the master's 22,547 MT.
+        $u = min($o, max($ledgerU, $lotU));
         $obtByProd[$name] = $o;
         $utilByProd[$name] = $u;
         $availByProd[$name] = max(0, $o - $u);
