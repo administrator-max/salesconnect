@@ -68,10 +68,25 @@ periode. Jadi mengubahnya konsisten dan tidak menggeser angka mana pun.
 Diverifikasi sesudahnya: KPI tidak bergerak sama sekali (All Time 34.840 /
 22.547 / 12.293; H1 19.710 / 17.300 / 11.693).
 
+Menyusul, atas persetujuan pemilik data, kalimat statusnya ikut dibetulkan:
+
+| Field | Sebelum | Sesudah |
+|---|---|---|
+| `revNote` | "PERTEK TERBIT 01/07/2026 — **SPI belum terbit**" | "PERTEK TERBIT 01/07/2026 — **SPI TERBIT 16/07/2026**" |
+
+Tanggal 16/07/2026 tidak diketik begitu saja: skrip memverifikasi lebih dulu
+bahwa **ketiga** sumber sepakat (`revStatus`, `spiRef`, dan `spi_date` cycle
+Obtained #1) dan menolak menulis bila salah satu berbeda.
+
+Kondisi akhir AADC, seluruhnya konsisten:
+```
+cycle Submit #1   PERTEK 01/07/2026
+cycle Obtained #1 SPI    16/07/2026
+revSubmitDate     01/07/2026
+statusUpdate      "01/07/26 PERTEK TERBIT"
+revNote           "PERTEK TERBIT 01/07/2026 — SPI TERBIT 16/07/2026"
+revStatus/spiRef  "SPI TERBIT 16/07/2026"
+```
+
 ## Sisa
-- **`revNote` masih berbunyi "SPI belum terbit"**, padahal `revStatus` dan
-  `spiRef` sama-sama menulis "SPI TERBIT 16/07/2026" dan cycle Obtained #1
-  memang ber-SPI 16/07/2026. Bagian itu **sengaja tidak diubah** — permintaannya
-  menyamakan tanggal, dan mengubah kalimat status adalah keputusan redaksional
-  milik tim, bukan koreksi mekanis.
-- Di file master, sel `1-Jul-16` sebaiknya dibetulkan jadi `1-Jul-26`.
+Di file master, sel `1-Jul-16` sebaiknya dibetulkan jadi `1-Jul-26`.
