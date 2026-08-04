@@ -157,9 +157,16 @@ function updateOverviewKPIs() {
   const kpiUtilUnitEl = document.getElementById('kpiUtilUnit');
   const kpiUtilFillEl = document.getElementById('kpiUtilFill');
   const kpiUtilTagEl  = document.getElementById('kpiUtilTag');
-  if (kpiUtilCoEl)   kpiUtilCoEl.textContent   = utilCoCount > 0 ? utilCoCount : '—';
-  if (kpiUtilMTEl)   kpiUtilMTEl.textContent   = totalUtilizedMT > 0 ? fmtMt(totalUtilizedMT) + ' MT total utilized' : '— MT';
-  if (kpiUtilUnitEl) kpiUtilUnitEl.textContent = `compan${utilCoCount!==1?'ies':'y'} with shipment`;
+  /* MT is the headline, company count is the subtitle — same shape as the
+     Submitted and Obtained cards beside it, and as the PDF Summary. This card
+     used to print the COMPANY COUNT in the big slot (24) with the tonnage
+     demoted to small text, so the number that reads as "Total Utilized" at a
+     glance was not a tonnage at all. (Element ids still say CoCount/MT from
+     that layout; the ids are the DOM handles, not the meaning.) */
+  if (kpiUtilCoEl)   kpiUtilCoEl.textContent   = totalUtilizedMT > 0 ? fmtMt(totalUtilizedMT) : '—';
+  if (kpiUtilUnitEl) kpiUtilUnitEl.textContent = utilCoCount > 0
+    ? `MT · ${utilCoCount} compan${utilCoCount !== 1 ? 'ies' : 'y'} with shipment` : 'MT';
+  if (kpiUtilMTEl)   kpiUtilMTEl.textContent   = '';
   if (kpiUtilFillEl && totalObtainedMT > 0) kpiUtilFillEl.style.width = Math.min(100, totalUtilizedMT / totalObtainedMT * 100).toFixed(1) + '%';
   if (kpiUtilTagEl)  kpiUtilTagEl.textContent  = totalObtainedMT > 0 ? `${(totalUtilizedMT/totalObtainedMT*100).toFixed(1)}% of obtained allocated` : 'Of obtained quota allocated';
 
@@ -189,23 +196,22 @@ function updateOverviewKPIs() {
   // card in DOM order (Submit[0], Obtained[1], Utilized[2], Realized[3],
   // AvqQuota[4], ReApply[5]). The bug was hidden by the hardcoded "4"
   // in the Realized card; once that became "—" the empty state surfaced.
+  // MT headline, company count as subtitle — same reason as the Utilized card.
   const kpiRealCoEl = document.getElementById('kpiRealCoCount');
   if (kpiRealCoEl) {
-    kpiRealCoEl.textContent = realizedCount > 0 ? realizedCount : '—';
+    kpiRealCoEl.textContent = totalRealizedMT > 0 ? totalRealizedMT.toLocaleString(MT_LOCALE) : '—';
     const realCard = kpiRealCoEl.closest('.kpi');
     if (realCard) {
       const u = realCard.querySelector('.kpi-unit');
-      if (u) u.textContent = `Companies with utilization${PERIOD.active ? ' in period' : ''}`;
+      if (u) u.textContent = realizedCount > 0
+        ? `MT · ${realizedCount} compan${realizedCount !== 1 ? 'ies' : 'y'} realized${PERIOD.active ? ' in period' : ''}`
+        : 'MT';
       const tspan = realCard.querySelector('.kpi-tag span');
       if (tspan) tspan.textContent = arrivedCodes;
     }
   }
   const kpiRealMTEl = document.getElementById('kpiRealMT');
-  if (kpiRealMTEl) {
-    kpiRealMTEl.textContent = totalRealizedMT > 0
-      ? totalRealizedMT.toLocaleString(MT_LOCALE) + ' MT total realized'
-      : '— MT';
-  }
+  if (kpiRealMTEl) kpiRealMTEl.textContent = '';
   const kpiRealFillEl = document.getElementById('kpiRealFill');
   if (kpiRealFillEl) {
     kpiRealFillEl.style.width = totalObtainedMT > 0
