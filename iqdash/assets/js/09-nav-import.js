@@ -23,13 +23,13 @@ function hdAnswer(q) {
   if (code) {
     const co = getSPI(code), ra = getRA(code);
     if (co) {
-      let t = `<strong>${code}</strong> — Group ${co.group}<br>Products: ${co.products.join(', ')}<br>Obtained: ${co.obtained.toLocaleString(MT_LOCALE)} MT<br>Status: ${co.revType==='none'?'✅ Completed':co.revType==='active'?'🔄 Revision Active':'✓ Rev. Complete'}`;
+      let t = `<strong>${code}</strong> — Group ${co.group}<br>Products: ${co.products.join(', ')}<br>Obtained: ${fmtMt(co.obtained)} MT<br>Status: ${co.revType==='none'?'✅ Completed':co.revType==='active'?'🔄 Revision Active':'✓ Rev. Complete'}`;
       if (co.revType!=='none') t += `<br>Revision: ${co.revNote}`;
       if (ra) t += `<br>Realization: <strong>${(ra.realPct*100).toFixed(0)}%</strong> — ${isEligible(ra)?'✓ Eligible for re-apply':'✗ Not yet eligible'}`;
       return t;
     }
     const pend = PENDING.find(d=>d.code===code);
-    if (pend) return `<strong>${code}</strong> — New Submission<br>${pend.mt.toLocaleString(MT_LOCALE)} MT · ${pend.status}`;
+    if (pend) return `<strong>${code}</strong> — New Submission<br>${fmtMt(pend.mt)} MT · ${pend.status}`;
   }
   if (ql.includes('eligible')||ql.includes('re-apply')) {
     const el=RA.filter(isEligible), nel=RA.filter(r=>!isEligible(r));
@@ -52,14 +52,14 @@ function hdAnswer(q) {
   if (ql.includes('pending')) return `<strong>${PENDING.length} pending MoI:</strong><br>${PENDING.map(d=>`${d.code}: ${d.status}`).join('<br>')}`;
   if (ql.includes('realization')||ql.includes('top')) {
     const top=[...RA].sort((a,b)=>b.realPct-a.realPct).slice(0,5);
-    return `<strong>Top realization:</strong><br>${top.map(r=>`${r.code}: ${(r.realPct*100).toFixed(0)}% (${r.berat.toLocaleString(MT_LOCALE)} MT)`).join('<br>')}`;
+    return `<strong>Top realization:</strong><br>${top.map(r=>`${r.code}: ${(r.realPct*100).toFixed(0)}% (${fmtMt(r.berat)} MT)`).join('<br>')}`;
   }
   if (ql.includes('total')||ql.includes('summary')) {
     const spiT = (typeof canonicalObtained === 'function')
       ? SPI.reduce((s,d)=>s+canonicalObtained(d),0)
       : SPI.reduce((s,d)=>s+d.obtained,0);
     const pendT = PENDING.reduce((s,d)=>s+d.mt,0);
-    return `<strong>Summary:</strong><br>Obtained: ${spiT.toLocaleString(MT_LOCALE)} MT · ${SPI.length} co.<br>Pending: ${pendT.toLocaleString(MT_LOCALE)} MT · ${PENDING.length} co.<br>Re-Apply Eligible: ${SPI.length} co. · ${spiT.toLocaleString(MT_LOCALE)} MT quota<br>Re-Apply Submitted (Stage 2): ${RA.filter(isReapplySubmitted).length} co.<br>Realized (cargo arrived): ${new Set(RA.filter(r=>r.cargoArrived).map(r=>r.code)).size} co.<br><br>Eligibility rule: Realization ≥ 60% AND cargo arrived at JKT`;
+    return `<strong>Summary:</strong><br>Obtained: ${fmtMt(spiT)} MT · ${SPI.length} co.<br>Pending: ${fmtMt(pendT)} MT · ${PENDING.length} co.<br>Re-Apply Eligible: ${SPI.length} co. · ${fmtMt(spiT)} MT quota<br>Re-Apply Submitted (Stage 2): ${RA.filter(isReapplySubmitted).length} co.<br>Realized (cargo arrived): ${new Set(RA.filter(r=>r.cargoArrived).map(r=>r.code)).size} co.<br><br>Eligibility rule: Realization ≥ 60% AND cargo arrived at JKT`;
   }
   return `Try: company name (e.g. "BTS"), "who is eligible", "active revisions", "pending companies", "top realization", or "total summary".`;
 }

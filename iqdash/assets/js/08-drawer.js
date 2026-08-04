@@ -190,7 +190,7 @@ function openDrawer(code) {
     utilInfo = `<div class="d-sec">Import Status, Utilization &amp; Realization</div><div class="dl">
       <div class="dl-r"><div class="dl-k">Product</div><div class="dl-v">${ra.product}</div></div>
       <div class="dl-r"><div class="dl-k">Obtained Quota</div><div class="dl-v t-mono">${fmtMt(ra.obtained)} MT</div></div>
-      <div class="dl-r"><div class="dl-k">Import Volume</div><div class="dl-v t-mono" style="color:var(--txt2)">${ra.berat.toLocaleString(MT_LOCALE)} MT <span style="font-size:10px;color:var(--txt3)">(allocated/sold)</span></div></div>
+      <div class="dl-r"><div class="dl-k">Import Volume</div><div class="dl-v t-mono" style="color:var(--txt2)">${fmtMt(ra.berat)} MT <span style="font-size:10px;color:var(--txt3)">(allocated/sold)</span></div></div>
       <div class="dl-r"><div class="dl-k">Utilization %</div><div class="dl-v">${drDispUtil!=null?`<strong style='color:var(--blue)'>${(drDispUtil*100).toFixed(1)}%</strong> <span style='font-size:10px;color:var(--txt3)'>(cargo in shipment — moves to Realization upon JKT arrival)</span>`:'<span style="font-size:11px;color:var(--txt3);font-style:italic">— Cargo arrived, see Realization %</span>'}</div></div>
       <div class="dl-r"><div class="dl-k">Realization %</div><div class="dl-v">${drDispReal!=null?`<strong style='color:${realColor(drDispReal)}'>${(drDispReal*100).toFixed(1)}%</strong> <span style='font-size:10px;color:var(--txt3)'>(arrived at JKT &amp; Beacukai ÷ obtained)</span>`:'<span style="font-size:11px;color:var(--txt3);font-style:italic">— Cargo not yet at JKT</span>'}</div></div>
       <div class="dl-r"><div class="dl-k">ETA / Arrival</div><div class="dl-v">${ra.cargoArrived
@@ -298,7 +298,7 @@ function openDrawer(code) {
         lotRealRows += `<tr>
           <td style="padding:4px 8px;font-size:11px">${product}</td>
           <td style="padding:4px 8px;font-size:11px;text-align:center">${l.lotNo != null ? l.lotNo : '-'}</td>
-          <td style="padding:4px 8px;font-size:11px;text-align:right;font-family:'DM Mono',monospace;font-weight:700">${rm.toLocaleString(MT_LOCALE)}</td>
+          <td style="padding:4px 8px;font-size:11px;text-align:right;font-family:'DM Mono',monospace;font-weight:700">${fmtMt(rm)}</td>
           <td style="padding:4px 8px;font-size:11px;text-align:center">${l.pibDate || '—'}</td>
           <td style="padding:4px 8px;font-size:10.5px;text-align:center">${arrived ? '<span style="color:var(--green);font-weight:700">✓ Tiba</span>' : '<span style="color:var(--orange)">🚢 In-ship</span>'}</td>
         </tr>`;
@@ -319,7 +319,7 @@ function openDrawer(code) {
         <tbody>${lotRealRows}</tbody>
         <tfoot><tr style="background:var(--teal-bg)">
           <td colspan="2" style="padding:5px 8px;font-size:11px;font-weight:700">Total Realized</td>
-          <td style="padding:5px 8px;font-size:11px;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--teal)">${lotRealTotal.toLocaleString(MT_LOCALE)}</td>
+          <td style="padding:5px 8px;font-size:11px;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--teal)">${fmtMt(lotRealTotal)}</td>
           <td colspan="2"></td>
         </tr></tfoot>
       </table>
@@ -501,7 +501,7 @@ async function openRealizationDetail(code) {
             lotRows += `<tr>
               <td style="padding:6px 10px;font-size:12px">${esc(product)}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:center">${esc(l.lotNo != null ? l.lotNo : '-')}</td>
-              <td style="padding:6px 10px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;font-weight:700">${rm.toLocaleString(MT_LOCALE)}</td>
+              <td style="padding:6px 10px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;font-weight:700">${fmtMt(rm)}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:center">${esc(l.pibDate || '—')}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:center">${esc(vessel)}</td>
               <td style="padding:6px 10px;font-size:11px;text-align:center">${arrived ? '<span style="color:var(--green);font-weight:700">✓ Tiba JKT</span>' : '<span style="color:var(--orange)">🚢 In-shipment</span>'}</td>
@@ -529,7 +529,7 @@ async function openRealizationDetail(code) {
               <tbody>${lotRows}</tbody>
               <tfoot><tr style="background:var(--teal-bg)">
                 <td colspan="2" style="padding:8px 10px;font-size:12px;font-weight:700">Total Realized</td>
-                <td style="padding:8px 10px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--teal)">${lotTotal.toLocaleString(MT_LOCALE)}</td>
+                <td style="padding:8px 10px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--teal)">${fmtMt(lotTotal)}</td>
                 <td colspan="3"></td>
               </tr></tfoot>
             </table>

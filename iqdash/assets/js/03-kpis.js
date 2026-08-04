@@ -199,7 +199,7 @@ function updateOverviewKPIs() {
   // MT headline, company count as subtitle — same reason as the Utilized card.
   const kpiRealCoEl = document.getElementById('kpiRealCoCount');
   if (kpiRealCoEl) {
-    kpiRealCoEl.textContent = totalRealizedMT > 0 ? totalRealizedMT.toLocaleString(MT_LOCALE) : '—';
+    kpiRealCoEl.textContent = totalRealizedMT > 0 ? fmtMt(totalRealizedMT) : '—';
     const realCard = kpiRealCoEl.closest('.kpi');
     if (realCard) {
       const u = realCard.querySelector('.kpi-unit');
@@ -399,8 +399,8 @@ function refreshRealizedDrill() {
     `Period: ${periodLabel} · ${rows.length} compan${rows.length!==1?'ies':'y'} · cargo arrived at JKT`;
 
   document.getElementById('realDrillSummary').innerHTML = [
-    ['Realized (MT)',  totalRealized.toLocaleString(MT_LOCALE)+' MT', 'var(--green)',   'var(--green-bg)',  'var(--green-bd)'],
-    ['Obtained (MT)',  totalObtained.toLocaleString(MT_LOCALE)+' MT', 'var(--teal)',    'var(--teal-bg)',   'var(--teal-bd)'],
+    ['Realized (MT)',  fmtMt(totalRealized)+' MT', 'var(--green)',   'var(--green-bg)',  'var(--green-bd)'],
+    ['Obtained (MT)',  fmtMt(totalObtained)+' MT', 'var(--teal)',    'var(--teal-bg)',   'var(--teal-bd)'],
     ['Companies',      rows.length,                          'var(--blue)',    'var(--blue-bg)',   'var(--blue-bd)'],
     ['Avg Real. %',    avgReal+'%',                          'var(--green)',   'var(--green-bg)',  'var(--green-bd)'],
   ].map(([lbl,val,col,bg,bd]) => `
@@ -425,8 +425,8 @@ function refreshRealizedDrill() {
       <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${r.code}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--txt)">${r.product||'—'}</td>
       <td style="padding:8px 10px;text-align:center;font-weight:600;color:var(--green);font-family:'DM Mono',monospace;font-size:11px">${fmtDate(arrDate)}</td>
-      <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${(r.obtained||0).toLocaleString(MT_LOCALE)}</td>
-      <td style="padding:8px 10px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">${(r.berat||0).toLocaleString(MT_LOCALE)}</td>
+      <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt((r.obtained||0))}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">${fmtMt((r.berat||0))}</td>
       <td style="padding:8px 10px;text-align:center;font-weight:700;color:${pctColor}">${pct}</td>
       <td style="padding:8px 14px;font-size:11px;color:${eligColor}">${r.catatan||eligible}</td>
     </tr>`;
@@ -771,7 +771,7 @@ function refreshReapplyDrill() {
   document.getElementById('raDrillSummary').innerHTML = [
     ['🔵 Submitted',   subCount,                               '#5b21b6', '#f5f3ff', '#c4b5fd'],
     ['✅ Eligible',    eligCount,                              'var(--green)', 'var(--green-bg)', 'var(--green-bd)'],
-    ['New Quota Req.', totalNew ? totalNew.toLocaleString(MT_LOCALE)+' MT' : '—', '#5b21b6', '#f5f3ff', '#c4b5fd'],
+    ['New Quota Req.', totalNew ? fmtMt(totalNew)+' MT' : '—', '#5b21b6', '#f5f3ff', '#c4b5fd'],
     ['Total in Pool',  rows.length,                            'var(--blue)', 'var(--blue-bg)', 'var(--blue-bd)'],
   ].map(([lbl,val,col,bg,bd]) => `
     <div style="text-align:center;padding:6px 14px;background:${bg};border-radius:6px;border:1px solid ${bd}">
@@ -794,13 +794,13 @@ function refreshReapplyDrill() {
       ? `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;background:#f5f3ff;color:#5b21b6;border:1px solid #c4b5fd">🔵 Submitted</span>`
       : `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">✅ Eligible</span>`;
     const submitDate = sub && r.reapplySubmitDate ? fmtDate(pDate(r.reapplySubmitDate)) : '—';
-    const newQuota   = sub && r.reapplyNewTotal   ? r.reapplyNewTotal.toLocaleString(MT_LOCALE)  : '—';
+    const newQuota   = sub && r.reapplyNewTotal   ? fmtMt(r.reapplyNewTotal)  : '—';
     const rowBg      = sub ? 'background:#faf5ff' : '';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer;${rowBg}" onclick="closeReapplyDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
       <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${r.code}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--txt)">${r.product||'—'}</td>
-      <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${(r.obtained||0).toLocaleString(MT_LOCALE)}</td>
-      <td style="padding:8px 10px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">${(r.berat||0).toLocaleString(MT_LOCALE)}</td>
+      <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt((r.obtained||0))}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">${fmtMt((r.berat||0))}</td>
       <td style="padding:8px 10px;text-align:center;font-weight:700;color:${pctCol}">${pct}</td>
       <td style="padding:8px 10px;text-align:center">${statusBadge}</td>
       <td style="padding:8px 10px;text-align:center;font-family:'DM Mono',monospace;font-size:11px;color:var(--txt3)">${submitDate}</td>

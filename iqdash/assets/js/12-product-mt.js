@@ -139,7 +139,7 @@ function buildProductMTTables(co) {
           <tfoot>
             <tr class="pmt-total-row">
               <td>Total Submitted</td>
-              <td class="pmt-total-val" id="submitMTTotal">${totalSubmit.toLocaleString(MT_LOCALE)} MT</td>
+              <td class="pmt-total-val" id="submitMTTotal">${fmtMt(totalSubmit)} MT</td>
             </tr>
           </tfoot>
         </table>
@@ -154,7 +154,7 @@ function buildProductMTTables(co) {
       obtWrap.innerHTML = '<div class="pmt-note">No products found for this company.</div>';
     } else {
       let rows = allProds.map(p => {
-        const sv = typeof subProds[p] === 'number' ? subProds[p].toLocaleString(MT_LOCALE) + ' MT' : '—';
+        const sv = typeof subProds[p] === 'number' ? fmtMt(subProds[p]) + ' MT' : '—';
         const ov = typeof obtProds[p] === 'number' ? obtProds[p].toLocaleString(MT_LOCALE) : '';
         const hs = prodHS(p);
         return `<tr>
@@ -195,7 +195,7 @@ function buildProductMTTables(co) {
           <tfoot>
             <tr class="pmt-total-row">
               <td colspan="2">Total Obtained</td>
-              <td class="pmt-total-val" id="obtainedMTTotal">${totalObtained.toLocaleString(MT_LOCALE)} MT</td>
+              <td class="pmt-total-val" id="obtainedMTTotal">${fmtMt(totalObtained)} MT</td>
             </tr>
           </tfoot>
         </table>
@@ -349,7 +349,7 @@ function removeProductRow(btn) {
     if (!isNaN(n)) st += n;
   });
   const subTotEl = g('submitMTTotal');
-  if (subTotEl) subTotEl.textContent = st.toLocaleString(MT_LOCALE) + ' MT';
+  if (subTotEl) subTotEl.textContent = fmtMt(st) + ' MT';
   updateObtainedTotal();
   livePreview();
 }
@@ -472,7 +472,7 @@ function applyProductRenames(co) {
     co.revSubmitDate = today;
     co.revStatus     = 'Menunggu PERTEK Perubahan — ' + origProd + ' → ' + newProd;
     co.revNote       = 'Product change: ' + origProd + ' → ' + newProd +
-                       (origMT > 0 ? ' (' + origMT.toLocaleString(MT_LOCALE) + ' MT)' : '');
+                       (origMT > 0 ? ' (' + fmtMt(origMT) + ' MT)' : '');
     co.revFrom = co.revFrom || [];
     co.revTo   = co.revTo   || [];
     co.revMT   = co.revMT   || 0;
@@ -528,7 +528,11 @@ function fmtThousandInline(el) {
   const parts = raw.replace(/,/g, '').split('.');
   const intPart = parts[0] || '';
   const decPart = parts.length > 1 ? parts[1].slice(0, 2) : null;
-  // Format integer part with thousand separators
+  // Format integer part with thousand separators.
+  // NOT fmtMt(): this is the text the user is typing. fmtMt pads to 3 decimals,
+  // which would make "2,200" become "2,200.000" and then line below appends the
+  // real decimals on top of it — "2,200.000.56". Display formatting has no place
+  // in an input formatter.
   const intFormatted = intPart ? Number(intPart).toLocaleString(MT_LOCALE) : '';
   el.value = decPart !== null ? intFormatted + '.' + decPart : intFormatted;
   // Update submit total live
@@ -538,7 +542,7 @@ function fmtThousandInline(el) {
     if (!isNaN(n)) st += n;
   });
   const stEl = g('submitMTTotal');
-  if (stEl) stEl.textContent = st.toLocaleString(MT_LOCALE) + ' MT';
+  if (stEl) stEl.textContent = fmtMt(st) + ' MT';
 }
 
 function updateObtainedTotal() {
@@ -548,7 +552,7 @@ function updateObtainedTotal() {
     if (!isNaN(n)) tot += n;
   });
   const el = g('obtainedMTTotal');
-  if (el) el.textContent = tot.toLocaleString(MT_LOCALE) + ' MT';
+  if (el) el.textContent = fmtMt(tot) + ' MT';
 }
 
 /* Read all per-product MT inputs → { PRODUCT: mt, ... } and total */
