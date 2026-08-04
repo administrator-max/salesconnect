@@ -176,7 +176,19 @@ function getFirstPertekDateForCo(co) {
 }
 
 /** Get earliest utilization date for a product from shipment lots */
-function getFirstUtilDate(co, prod) {
+/**
+ * First utilization date for a product.
+ *
+ * `since` (optional) — ignore utilization BEFORE this date. Pass the PERTEK
+ * that granted the quota being measured: usage predating a grant cannot be
+ * usage OF that grant. Without it, pairing a later PERTEK with the all-time
+ * first utilization yields a NEGATIVE lead time, which then slips under the
+ * 14-day standard and is reported as healthy — H1 2026 showed BBB at −70 days,
+ * SJH at −72, both flagged "normal" while their new quota sat untouched.
+ * Omitted = previous behaviour (earliest ever), which is what the O/U chart
+ * and Sales Priority want since they measure from the FIRST grant.
+ */
+function getFirstUtilDate(co, prod, since) {
   const lots = (co.shipments || {})[prod] || [];
   let earliest = null;
   lots.forEach(lot => {
@@ -190,14 +202,16 @@ function getFirstUtilDate(co, prod) {
       // etaJKT may be "07 Mar 26" — try parsing
       d = parseETA(lot.etaJKT);
     }
+    if (d && since && d < since) return;
     if (d && (!earliest || d < earliest)) earliest = d;
   });
-  // Fallback: use RA data
+  // Fallback: use RA data — subject to the same `since` rule, otherwise the
+  // fallback would reintroduce the pre-grant date the loop above just excluded.
   if (!earliest) {
     const ra = getRA(co.code);
     if (ra && ra.arrivalDate) {
       const d = pDate(ra.arrivalDate);
-      if (d) earliest = d;
+      if (d && !(since && d < since)) earliest = d;
     }
   }
   return earliest;

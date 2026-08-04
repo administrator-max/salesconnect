@@ -744,7 +744,9 @@ function exportExecutivePDF() {
             : getFirstPertekDateForCo(co);
           const shipments   = co.shipments || {};
           const utilMT      = totalUtilForProd(shipments, prod);
-          const firstUtilDate = getFirstUtilDate(co, prod);
+          // Only utilization on/after THIS grant's PERTEK counts — earlier
+          // usage belongs to an earlier grant and would give a negative lead.
+          const firstUtilDate = getFirstUtilDate(co, prod, pertekDate);
           let leadDays = null, leadStatus = 'no-pertek';
           if (pertekDate) {
             if (firstUtilDate) {

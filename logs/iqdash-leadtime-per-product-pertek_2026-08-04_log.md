@@ -56,6 +56,38 @@ persis dengan Obtained H1 dashboard, dan kini sama persis pula per company.
 
 6 suite JS, 0 gagal.
 
+## Susulan — lead time negatif
+
+Pengecekan lanjutan menemukan cacat yang dibawa perubahan di atas. Lima baris
+tidak muncul di tabel OVERDUE karena masuk kategori **NORMAL** — tapi masuk
+situ dengan **lead time NEGATIF**:
+
+| Baris | PERTEK | Utilisasi pertama | Lead |
+|---|---|---|---|
+| BBB / GL ALLOY 300 | 17 Jun 26 | 8 Apr 26 | **−70 hari** |
+| EMS / GI ALLOY 500 | 10 Mei 26 | 29 Mar 26 | **−42 hari** |
+| LCP / GL ALLOY 200 | 17 Jun 26 | 12 Mei 26 | **−36 hari** |
+| SGD / GI ALLOY 500 | 29 Jun 26 | 23 Apr 26 | **−67 hari** |
+| SJH / GL ALLOY 90 | 12 Jun 26 | 1 Apr 26 | **−72 hari** |
+
+Kuota tidak mungkin terpakai **sebelum** PERTEK-nya terbit. Sebabnya: PERTEK
+kini diambil dari cycle in-period (pemberian yang lebih baru), sedangkan
+`getFirstUtilDate()` tetap mengembalikan utilisasi paling awal SEPANJANG WAKTU
+— yaitu pemakaian kuota lama. Angka negatif itu lalu lolos di bawah standar 14
+hari dan dilaporkan **sehat**, padahal kuota barunya justru belum tersentuh
+sama sekali. Lebih menyesatkan daripada sekadar hilang.
+
+**Perbaikan:** `getFirstUtilDate(co, prod, since)` — parameter `since` opsional
+membuang utilisasi sebelum tanggal itu; PDF mengopernya `pertekDate`. Fallback
+RA tunduk pada aturan yang sama, kalau tidak ia akan memasukkan kembali tanggal
+pra-PERTEK yang baru saja dibuang. Tanpa `since`, perilakunya persis seperti
+sebelumnya — chart O/U dan Sales Priority memang mengukur dari pemberian
+PERTAMA, jadi keduanya tidak berubah.
+
+Sesudahnya: **24 baris, seluruhnya OVERDUE, 0 lead negatif**, 18 company /
+19.710 MT. Kelima baris itu kini benar berstatus overdue — kuota H1 mereka
+memang belum dipakai.
+
 ## Pelajaran — dan namanya sudah diganti
 Dua kali berturut-turut `getPertekDateForCo()` dipakai sebagai "tanggal PERTEK
 company" tanpa memeriksa isinya. Fungsi itu memang hanya untuk cycle PERTAMA —
