@@ -43,43 +43,17 @@ function updateOverviewKPIs() {
      long as the obtained MT itself is set. Period filter (when active)
      uses the obtained cycle's PERTEK Terbit date.
   ────────────────────────────────────────────────────────────────────────── */
+  /* Delegated, not re-implemented. This block used to carry its OWN copy of
+     the obtained rules — dedup, _fromRevReq, terbit gate, period anchor —
+     under a comment claiming it mirrored canonicalObtainedFiltered(). It
+     drifted anyway: it kept the SPI-first anchor and called
+     _isObtainedTerbit() without allCycles, so on 2026-08-04 the June KPI read
+     890 MT against a true 10,040. A copy that must be kept in step by hand is
+     the same failure mode as the ledger/cycles split this whole change set
+     removed, so there is now exactly one implementation of each rule. */
   let totalObtainedMT = 0, obtCoSet = new Set();
   allCompanies.forEach(co => {
-    // Quota-ledger single source (2026-07-01): server-derived obtained wins.
-    // (Period filter can't slice the ledger snapshot → full obtained at All Time.)
-    if (co._ledgerObtained != null && !PERIOD.active) {
-      const lo = Number(co._ledgerObtained) || 0;
-      if (lo > 0) { totalObtainedMT += lo; obtCoSet.add(co.code); }
-      return;
-    }
-    const allCycles = co.cycles || [];
-    const seen = new Set();
-    let coObt = 0;
-    allCycles.forEach(c => {
-      if (!/^obtained\s*#\d/i.test(c.type)) return;
-      if (c._fromRevReq) return; // re-allocation via revision request ≠ new MT
-      const key = c.type.toLowerCase().trim();
-      if (seen.has(key)) return;
-      seen.add(key);
-      const mt = typeof c.mt === 'number' ? c.mt : Number(c.mt) || 0;
-      if (mt <= 0) return;
-      // rule #2/#5: only count obtained that is actually terbit (PERTEK/SPI issued),
-      // consistent with canonicalObtained. Excludes not-yet-terbit re-applies.
-      if (typeof _isObtainedTerbit === 'function' && !_isObtainedTerbit(c)) return;
-      if (PERIOD.active) {
-        // Anchor the period test on SPI Terbit (this Obtained cycle's OWN
-        // release_date) — the correct, reliably-populated field for "obtained".
-        // Fall back to PERTEK Terbit only when the SPI date is missing. Mirrors
-        // canonicalObtainedFiltered so the two Obtained paths stay in sync
-        // (CLAUDE.md rule). The old PERTEK-only anchor read 0 for June because
-        // the paired Submit's release_date is a mis-entered PERTEK number.
-        let anchor = pDate(c.releaseDate) || pDate(c.spiDate);
-        if (!anchor) anchor = getPertekTerbitForObtained(c, allCycles);
-        if (!anchor && c.pertekDate) anchor = pDate(c.pertekDate);
-        if (!inPd(anchor)) return;
-      }
-      coObt += mt;
-    });
+    const coObt = PERIOD.active ? canonicalObtainedFiltered(co) : canonicalObtained(co);
     if (coObt > 0) {
       totalObtainedMT += coObt;
       obtCoSet.add(co.code);

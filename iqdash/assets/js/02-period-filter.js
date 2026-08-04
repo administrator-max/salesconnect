@@ -192,21 +192,31 @@ function scopedUtilByProd(co) {
   const utilAll = co.utilizationByProd || {};
   const lotsByCanon = {}, etaByCanon = {};
   Object.keys(co.shipments || {}).forEach(p => {
-    const c = canonicalProduct(p);
+    const c = _canonProd(p);
     (lotsByCanon[c] = lotsByCanon[c] || []).push(...(co.shipments[p] || []));
   });
   Object.keys(co.etaByProd || {}).forEach(p => {
-    const c = canonicalProduct(p), v = String(co.etaByProd[p] || '').trim();
+    const c = _canonProd(p), v = String(co.etaByProd[p] || '').trim();
     if (v && !etaByCanon[c]) etaByCanon[c] = v;
   });
 
-  Object.keys(utilAll).forEach(prod => {
-    const total = Number(utilAll[prod]) || 0;
+  /* Walk the UNION of stats products and lot products, keyed canonically but
+     reported under the stats spelling where one exists (that is the key
+     scopedAvailByProd() looks up). A product can legitimately appear only as
+     lots — a lot saved before its stats row exists — and iterating
+     utilizationByProd alone would drop it. */
+  const keyFor = new Map();
+  Object.keys(utilAll).forEach(p => { const c = _canonProd(p); if (!keyFor.has(c)) keyFor.set(c, p); });
+  Object.keys(lotsByCanon).forEach(c => { if (!keyFor.has(c)) keyFor.set(c, c); });
+
+  keyFor.forEach((prod, c) => {
+    const lots = lotsByCanon[c] || [];
+    const lotTotal = lots.reduce((s, l) => s + Math.max(0, Number(l.utilMT) || 0), 0);
+    const total = Number(utilAll[prod]) || lotTotal;
     if (total <= 0) return;
-    const c = canonicalProduct(prod);
     const own = pDate(etaByCanon[c]) || _parseEtaLoose(etaByCanon[c]);
     if (own) { if (inPd(own)) out[prod] = total; return; }
-    const dated = (lotsByCanon[c] || []).filter(l => (Number(l.utilMT) || 0) > 0 && lotUtilDate(l));
+    const dated = lots.filter(l => (Number(l.utilMT) || 0) > 0 && lotUtilDate(l));
     if (!dated.length) return;
     let sum = 0;
     dated.forEach(l => { if (inPd(lotUtilDate(l))) sum += Number(l.utilMT) || 0; });
@@ -233,6 +243,14 @@ function raDate(v) {
   return pDate(s);
 }
 
+/* canonicalProduct() lives in 01-data.js. In the browser both files are plain
+   scripts sharing one global scope, but this module is also require()d on its
+   own by the Node tests — so reach for it defensively rather than assuming it
+   is loaded, the same way this file already guards getPertekTerbitForObtained.
+   Identity fallback = "no alias table", which is exactly right for a caller
+   that has none. */
+const _canonProd = p => (typeof canonicalProduct === 'function') ? canonicalProduct(p) : p;
+
 /* ── Utilization pooling ───────────────────────────────────────────────
    Utilization lives on shipment LOTS and is sliced by lot date, but the KPI
    used to pool companies with filteredSPI(), which gates on CYCLE dates. A
@@ -240,19 +258,22 @@ function raDate(v) {
    next then falls out of BOTH: in the first its lot is out of range, in the
    second the company is. IKM's 2,000 MT disappeared from every quarter that
    way — permit Q2 (Submit 30/04, PERTEK 30/06), cargo mid-September (Q3).
-   Pool by lot date as well as cycle date. */
+   Pool by utilization date as well as cycle date.
+
+   The test IS scopedUtilByProd() — "does this company have any utilization in
+   the window" — not a second, narrower re-implementation of it. This used to
+   scan shipment lots only, which was right while lots were the sole date
+   source; once utilization dates moved to `etaByProd`
+   (company_product_stats.eta_jkt) on 2026-08-04 it missed every company whose
+   date lives there and silently dropped them from the Utilized KPI (BDG
+   350 MT and KARA 100 MT vanished from June exactly that way). Asking the same
+   function the KPI sums keeps pool and total in agreement by construction. */
 function companiesWithLotsInPeriod() {
   if (!PERIOD.active) return [];
   const all = []
     .concat(typeof SPI     !== 'undefined' && SPI     ? SPI     : [])
     .concat(typeof PENDING !== 'undefined' && PENDING ? PENDING : []);
-  return all.filter(co => {
-    const ships = (co && co.shipments) || {};
-    return Object.keys(ships).some(p => (ships[p] || []).some(l => {
-      const mt = Number(l && l.utilMT) || 0;
-      return mt > 0 && inPd(lotUtilDate(l));
-    }));
-  });
+  return all.filter(co => Object.values(scopedUtilByProd(co)).some(v => (Number(v) || 0) > 0));
 }
 
 /* cycle-scoped companies ∪ companies holding a lot dated in the period. */
@@ -282,7 +303,7 @@ function scopedUtilTotal(co) {
 function scopedObtainedByProd(co) {
   const out = {};
   if (!co) return out;
-  const add = (p, v) => { const c = canonicalProduct(p); out[c] = (out[c] || 0) + (Number(v) || 0); };
+  const add = (p, v) => { const c = _canonProd(p); out[c] = (out[c] || 0) + (Number(v) || 0); };
   if (!PERIOD.active) {
     const u = co.utilizationByProd || {}, a = co.availableByProd || {};
     new Set([...Object.keys(u), ...Object.keys(a)]).forEach(p => add(p, (Number(u[p]) || 0) + (Number(a[p]) || 0)));
@@ -320,7 +341,7 @@ function scopedAvailByProd(co) {
   const so = scopedObtainedByProd(co);
   const out = {};
   new Set([...Object.keys(util_all), ...Object.keys(avail_all)]).forEach(p => {
-    const obtained = Number(so[canonicalProduct(p)]) || 0;
+    const obtained = Number(so[_canonProd(p)]) || 0;
     out[p] = Math.max(0, obtained - (Number(su[p]) || 0));
   });
   return out;
