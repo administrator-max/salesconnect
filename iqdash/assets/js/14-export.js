@@ -60,12 +60,18 @@ function exportExecutivePDF() {
     return sum + (obtained - utilMT);
   }, 0);
 
-  // Utilization total — same source as Overview KPI and Available Quota page
-  const utilTotal   = filteredSPI().reduce((s, co) => {
-    const ubp = co.utilizationByProd || {};
-    return s + Object.values(ubp).reduce((t,v) => t + (typeof v==='number' ? v : 0), 0);
-  }, 0);
-  const utilCoCount = filteredSPI().filter(co => (co.utilizationMT||0) > 0).length;
+  /* Utilization total — delegated to the same helpers the Overview KPI uses.
+     This used to sum `co.utilizationByProd` directly, which is the ALL-TIME
+     per-product figure: the period only ever filtered WHICH COMPANIES were
+     counted, never how much of their utilization fell inside the window. For
+     Jan–Jun 2026 that printed 18,447 MT against a true 17,300. Pool via
+     utilizationPool() as well, so a company that utilised in-period but whose
+     cycles sit outside it is not dropped (see that function's docblock). */
+  const utilPoolPdf = PERIOD.active
+    ? utilizationPool([...filteredSPI(), ...filteredPending()])
+    : [...SPI, ...PENDING];
+  const utilTotal   = utilPoolPdf.reduce((s, co) => s + scopedUtilTotal(co), 0);
+  const utilCoCount = utilPoolPdf.filter(co => scopedUtilTotal(co) > 0).length;
   const utilRate    = s2_mt > 0 ? (utilTotal/s2_mt*100).toFixed(1) : '—';
 
   // Top 5 Products by obtained MT (PERTEK Terbit filter)
@@ -717,6 +723,13 @@ function exportExecutivePDF() {
       const ltRecords = [];
       filteredSPI().forEach(co => {
         const pertekDate = getPertekDateForCo(co);
+        /* The company pool (filteredSPI) admits a company when ANY of its
+           cycles touches the period — correct for the tables, wrong here. This
+           alert is ABOUT the PERTEK date, so a row whose PERTEK falls outside
+           the window does not belong in it: filtering Jan–Jun 2026 was still
+           listing 2025 PERTEKs, because the company got in on some other 2026
+           cycle. Gate on the date the section is measuring. */
+        if (PERIOD.active && !inPd(pertekDate)) return;
         const obtByProd  = getObtainedByProd(co);
         Object.entries(obtByProd).forEach(([prod, obtMT]) => {
           if (!obtMT || obtMT <= 0) return;
