@@ -147,5 +147,50 @@ if (count($bdgStats) === 1) {
        'available recomputed against the row\'s own obtained basis: 650 - 350 = 300');
 }
 
+/* ── etaByProd: the per-product utilization DATE write path ──────────────
+   `company_product_stats.eta_jkt` mirrors the master's "Utilization (date)"
+   row and is what the period filter slices utilization by. It shipped in the
+   payload as `etaByProd` from day one but nothing ever wrote it. These cases
+   pin the two properties that matter: it matches CANONICALLY (so a canonical
+   product name finds a legacy alias row), and it is DATE-ONLY — writing a
+   date must never move a utilization or available figure, because the
+   alternative route (a lot carrying the date) would double every figure that
+   came from the master rather than from lots. */
+echo "\n-- etaByProd (tanggal utilisasi per produk) --\n";
+
+$gs2 = new AliasStubSheets();
+$gs2->seedTable('product_aliases', ['alias', 'canonical', 'created_at', 'source_program'], [
+    ['alias' => 'GL BORON', 'canonical' => 'GL ALLOY'],
+]);
+$gs2->seedTable('companies',
+    ['code','grp','section','submit1','obtained','utilization_mt','available_quota','rev_type','rev_note','rev_submit_date','rev_status','rev_mt','remarks','spi_ref','status_update','pertek_no','spi_no','updated_by','updated_date','created_at','updated_at','full_name','source_program'],
+    [['code' => 'GNG', 'obtained' => '600', 'utilization_mt' => '400', 'available_quota' => '200', 'updated_at' => '2026-01-01T00:00:00.000Z']]);
+$gs2->seedTable('company_product_stats',
+    ['id','company_code','product','utilization_mt','available_mt','realization_mt','eta_jkt','arrived','source_program'],
+    [['id' => '7', 'company_code' => 'GNG', 'product' => 'GL BORON', 'utilization_mt' => '400', 'available_mt' => '200', 'eta_jkt' => '']]);
+$gs2->seedTable('company_shipments',
+    ['id','company_code','product','lot_no','util_mt','eta_jkt','note','real_mt','pib_date','cargo_arrived','created_at','updated_at','source_program'], []);
+
+$res2 = iq_patch_company($gs2, 'SID', 'GNG', [
+    'etaByProd'    => ['GL ALLOY' => '28/04/2026'],   // canonical name vs legacy 'GL BORON' row
+    '_ifUpdatedAt' => null,
+]);
+ok(!isset($res2['error']), 'patch etaByProd berhasil' . (isset($res2['error']) ? " (error: {$res2['error']})" : ''));
+
+$gngStats = array_values(array_filter($gs2->tables['company_product_stats']['rows'],
+    fn($s) => (string) $s['company_code'] === 'GNG'));
+ok(count($gngStats) === 1, 'tetap SATU baris stats — etaByProd tidak pernah membuat baris baru (dapat ' . count($gngStats) . ')');
+if (count($gngStats) === 1) {
+    ok((string) $gngStats[0]['eta_jkt'] === '28/04/2026', 'eta_jkt terisi lewat pencocokan kanonik GL ALLOY -> baris GL BORON');
+    ok(abs(iq_num($gngStats[0]['utilization_mt']) - 400.0) < 0.0001, 'utilization_mt TIDAK bergerak (400) — tulis tanggal saja');
+    ok(abs(iq_num($gngStats[0]['available_mt']) - 200.0) < 0.0001, 'available_mt TIDAK bergerak (200)');
+}
+
+// produk tanpa baris stats: dilewati, bukan bikin baris baru
+$res3 = iq_patch_company($gs2, 'SID', 'GNG', ['etaByProd' => ['SEAMLESS PIPE' => '01/06/2026'], '_ifUpdatedAt' => null]);
+ok(!isset($res3['error']), 'patch etaByProd produk tak dikenal tidak error');
+ok(count(array_filter($gs2->tables['company_product_stats']['rows'], fn($s) => (string) $s['company_code'] === 'GNG')) === 1,
+   'produk tanpa baris stats dilewati — endpoint memberi tanggal pada utilisasi yang ADA, tidak mengarang barisnya');
+
 echo (empty($GLOBALS['fail']) ? "\nSEMUA LULUS\n" : "\nADA YANG GAGAL\n");
 exit(empty($GLOBALS['fail']) ? 0 : 1);

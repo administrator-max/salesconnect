@@ -68,6 +68,24 @@ async function loadRealizationSummary() {
 }
 const hasRealizationData = code => !!(REALIZATION_SUMMARY && REALIZATION_SUMMARY[code]);
 
+/* REALIZATIONS — every deduped PIB line (volume + pib_date + company_code).
+   The Total Realized KPI is defined on this, not on ra_records: the report
+   spec reads realized volume from the PIB data. Left EMPTY on failure so
+   03-kpis.js can fall back to the old ra_records path rather than show zero.
+   ~160 KB, fetched once at boot in parallel with /api/data. */
+let REALIZATIONS = [];
+async function loadRealizations() {
+  try {
+    const res = await fetch('api/realizations');
+    if (!res.ok) return;
+    const data = await res.json();
+    REALIZATIONS = Array.isArray(data && data.realizations) ? data.realizations : [];
+    window.REALIZATIONS = REALIZATIONS;
+  } catch (err) {
+    console.warn('loadRealizations failed:', err);
+  }
+}
+
 async function loadData() {
   try {
     const res  = await fetch('api/data');
@@ -397,7 +415,7 @@ const isEligible = r => r && r.realPct >= 0.6 && r.cargoArrived === true && !isR
    This eliminates the GKL/BHG/etc. double-counting bug (was inflating
    canonical obtained by ~12,350 MT vs XLSX truth).
    ═══════════════════════════════════════════════════════════════════ */
-function _isObtainedTerbit(c) {
+function _isObtainedTerbit(c, allCycles) {
   if (!c) return false;
   // Obtained #1 → trust mt > 0 (no extra date gate). Matches XLSX.
   if (/^obtained\s*#?1\b/i.test(c.type || '')) return true;
@@ -409,7 +427,16 @@ function _isObtainedTerbit(c) {
   // release_date is TBA — accept if spi_date or pertek_date is filled
   const sd = String(c.spiDate || '').trim();
   const pd = String(c.pertekDate || '').trim();
-  return (sd && !/^TBA$/i.test(sd)) || (pd && !/^TBA$/i.test(pd));
+  if ((sd && !/^TBA$/i.test(sd)) || (pd && !/^TBA$/i.test(pd))) return true;
+  /* Still nothing on the row itself — fall back to the PERTEK Terbit date of
+     the paired Submit cycle. The master grants quota on PERTEK, so a cycle
+     whose PERTEK Perubahan has been issued IS obtained even while its SPI is
+     still TBA (GKL Obtained #2 = 600 MT: PERTEK Perubahan 31-Jul-26, SPI TBA;
+     the master counts it, and before this the dashboard did not). */
+  if (Array.isArray(allCycles) && typeof getPertekTerbitForObtained === 'function') {
+    return !!getPertekTerbitForObtained(c, allCycles);
+  }
+  return false;
 }
 
 /* snapZero — display helper to suppress tiny negative MT values caused by
@@ -448,10 +475,26 @@ function fmtMt(v) {
    ═══════════════════════════════════════════════════════════════════ */
 function canonicalObtained(co) {
   if (!co) return 0;
-  // Quota-ledger single source (2026-07-01): when the server supplies a
-  // ledger-derived obtained, use it verbatim so every obtained readout
-  // (KPI, charts, AVQ, tables) matches the authoritative master.
-  if (co._ledgerObtained != null) return Number(co._ledgerObtained) || 0;
+  /* ONE SOURCE (2026-08-04). This used to short-circuit to the server's
+     ledger figure:
+
+         if (co._ledgerObtained != null) return Number(co._ledgerObtained);
+
+     …while canonicalObtainedFiltered() below always computed from cycles.
+     Two sources, maintained separately: the All-Time view read the ledger (a
+     frozen snapshot of the master, with no dates) and the moment a period
+     filter was switched on the number silently changed data source. That is
+     why the team's input never showed up, and why a filtered total never
+     reconciled with the same period computed by hand from the master.
+
+     Cycles are now the single source — they carry the dates a period filter
+     needs, and they are what the team actually edits, so an edit moves the
+     KPI immediately with no ledger regeneration. Safe to switch only because
+     the two agree exactly: after the cycle repairs of 2026-08-03/04 and the
+     PERTEK fallback in _isObtainedTerbit(), cycles-derived obtained equals
+     the ledger for all 41 companies (34,840 MT = master). test_ledger.php
+     pins that equality so the two can never drift apart again unnoticed.
+     `_ledgerObtained` still ships in the payload as a cross-check. */
   const allCycles = co.cycles || [];
   const seen      = new Set();
   let   total     = 0;
@@ -463,7 +506,7 @@ function canonicalObtained(co) {
     if (seen.has(key)) return;                         // dedup cycleType
     seen.add(key);
     if (c._fromRevReq) return;                         // rule #4: revision-request artifact ≠ new obtained
-    if (!_isObtainedTerbit(c)) return;                // SKIP TBA / not-yet-terbit
+    if (!_isObtainedTerbit(c, allCycles)) return;                // SKIP TBA / not-yet-terbit
     total += mt;
   });
   return total;
@@ -483,7 +526,7 @@ function canonicalObtainedFiltered(co) {
     if (seen.has(key)) return;
     seen.add(key);
     if (c._fromRevReq) return;          // rule #4: revision-request artifact ≠ new obtained
-    if (!_isObtainedTerbit(c)) return; // also gate by terbit status
+    if (!_isObtainedTerbit(c, allCycles)) return; // also gate by terbit status
     if (PERIOD.active) {
       // "Obtained" = quota granted = SPI Terbit. Anchor the period test on the
       // Obtained cycle's OWN release_date (its SPI Terbit date), which is the
@@ -496,11 +539,23 @@ function canonicalObtainedFiltered(co) {
       // dedicated spi_date field. (release_date is frequently a mis-entered SPI
       // *number* like "04.PI-05.26.0450.1", but the real date is in spi_date —
       // e.g. BBB 26/06, KJK, SJH. Reading spi_date recovers those in-period.)
-      let anchor = pDate(c.releaseDate) || pDate(c.spiDate);
-      if (!anchor && typeof getPertekTerbitForObtained === 'function') {
-        anchor = getPertekTerbitForObtained(c, allCycles);
-      }
+      /* PERIOD ANCHOR = PERTEK Terbit, per the data owners' report spec
+         (2026-08-04): "untuk obtain, mengambil dari kolom Release, di PERTEK
+         atau PERTEK Perubahan". In the master that date sits on the SUBMIT
+         row (its Release column reads PERTEK / PERTEK Perubahan); the
+         Obtained row's own Release column is the SPI. So the paired Submit's
+         PERTEK date comes FIRST, with SPI kept only as a fallback for rows
+         that have no readable PERTEK.
+
+         This restores the original 2026-07-08 rule. It was inverted to
+         SPI-first because "PERTEK Terbit is often a mis-entered PERTEK NUMBER
+         string, so it parsed to null and silently dropped real in-period
+         obtaineds" — those 20 cycles were repaired on 2026-08-03, so the
+         reason for the inversion is gone. */
+      let anchor = (typeof getPertekTerbitForObtained === 'function')
+        ? getPertekTerbitForObtained(c, allCycles) : null;
       if (!anchor && c.pertekDate) anchor = pDate(c.pertekDate);
+      if (!anchor) anchor = pDate(c.releaseDate) || pDate(c.spiDate);
       if (!inPd(anchor)) return;
     }
     total += mt;

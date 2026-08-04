@@ -272,8 +272,13 @@ function buildAvailableQuota() {
   const rows = [];
   filteredSPI().forEach(co => {
     // CRITICAL: use canonicalObtained — not raw co.obtained (may include in-process cycles)
-    const obtained = (typeof canonicalObtained === 'function' ? canonicalObtained(co) : null)
-                     || (typeof co.obtained === 'number' ? co.obtained : 0);
+    // Period-consistent: available = obtain − utilized with BOTH sides sliced
+    // to the same window (report spec 2026-08-04). Using all-time obtained
+    // against period utilization overstated availability inside a filter.
+    const obtained = (PERIOD.active && typeof canonicalObtainedFiltered === 'function')
+      ? canonicalObtainedFiltered(co)
+      : ((typeof canonicalObtained === 'function' ? canonicalObtained(co) : null)
+         || (typeof co.obtained === 'number' ? co.obtained : 0));
     if (obtained <= 0) return;
     const totalUtil = scopedUtilTotal(co);   // period-aware (rule #3): util sliced by lot date
     // SOURCE OF TRUTH (board-revised 12-May-2026): always recompute

@@ -765,6 +765,45 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
             }
         }
 
+        /* ── per-product utilization DATE (company_product_stats.eta_jkt) ──
+         * The master keeps utilization as a PAIR of rows per company:
+         * `Utilization (MT)` and `Utilization (date)`. `company_product_stats`
+         * has mirrored that shape since the port — utilization_mt + eta_jkt —
+         * and the payload already ships the date as `etaByProd`. Nothing ever
+         * WROTE it, though: every site that creates a stats row hardcodes
+         * `'eta_jkt' => ''`, so the column has always been empty and the
+         * period filter had no per-product date to slice utilization by.
+         *
+         * Deliberately DATE-ONLY. The obvious alternative — carry the date on
+         * a shipment lot — routes through the lot recompute above, whose
+         * `baseline + lotSum` would DOUBLE the utilization of every product
+         * whose figure came from the master rather than from lots (baseline
+         * still holds the full master figure while oldLotSums is 0). That is
+         * the same additive trap as the ledger+lot bug fixed on 2026-08-03.
+         * Writing only eta_jkt cannot move a single MT.
+         *
+         * Body shape mirrors the payload's own: { product => 'DD/MM/YYYY' }.
+         * Matching is CANONICAL (iq_find_product_row_idx) so `GL ALLOY` finds
+         * a legacy `GL BORON` row instead of silently missing. A product with
+         * no stats row is skipped — this endpoint dates existing utilization,
+         * it never invents a utilization row. */
+        if (is_array($body['etaByProd'] ?? null) && count($body['etaByProd'])) {
+            if (array_key_exists('company_product_stats', $changed)) {
+                $statsEta = $changed['company_product_stats'];
+            } else {
+                $etaTbl = $gs->table($sid, 'company_product_stats');
+                $tabHeaders['company_product_stats'] = $etaTbl['headers'];
+                $statsEta = $etaTbl['rows'];
+            }
+            $aliasMapEta = iq_alias_map($gs, $sid);
+            foreach ($body['etaByProd'] as $product => $date) {
+                $exIdx = iq_find_product_row_idx($statsEta, $code, (string) $product, $aliasMapEta);
+                if ($exIdx === null) continue;
+                $statsEta[$exIdx]['eta_jkt'] = iq_js_or($date, '');
+            }
+            $changed['company_product_stats'] = $statsEta;
+        }
+
         // ── reapply targets upsert ──
         if (iq_is_list($body['reapplyTargets'] ?? null)) {
             $rtTbl = $gs->table($sid, 'company_reapply_targets');

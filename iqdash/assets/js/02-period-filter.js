@@ -165,14 +165,52 @@ function lotUtilDate(lot) {
 function scopedUtilByProd(co) {
   if (!co) return {};
   if (!PERIOD.active) return co.utilizationByProd || {};
-  const out = {}; const ships = co.shipments || {};
-  Object.keys(ships).forEach(prod => {
+
+  /* Two date sources, in priority order:
+
+       1. `etaByProd` — company_product_stats.eta_jkt, the per-product mirror
+          of the master's "Utilization (date)" row. THE definition of when
+          quota was used, per the data owners' report spec, so it wins.
+       2. shipment LOTS — per-lot PIB/ETA date, used only for products the
+          master gives no utilization date for. Finer grain, and the only way
+          one product can span several periods.
+
+     Lots must NOT outrank etaByProd: a lot's ETA JKT is when cargo is
+     expected to ARRIVE, which is a different event from the utilization date
+     and routinely lands months later (HKG utilised 8 Jul, ETA 15 Sep; IKM
+     24 Jul vs September; BDG 30 Jun vs 31 Aug). Reading the lot first put
+     those tonnages in the wrong month.
+
+     Before 2026-08-04 ONLY lots were read, so every product whose utilization
+     came from the master — nearly all of them — contributed 0 to any period
+     and the filtered view silently under-reported. Iterating
+     `utilizationByProd` (not `shipments`) also keeps the output keyed the way
+     scopedAvailByProd() reads it. Matching is canonical throughout:
+     utilizationByProd carries ledger names (`GI ALLOY`) while
+     shipments/etaByProd keep the stats spelling (`GI BORON`). */
+  const out = {};
+  const utilAll = co.utilizationByProd || {};
+  const lotsByCanon = {}, etaByCanon = {};
+  Object.keys(co.shipments || {}).forEach(p => {
+    const c = canonicalProduct(p);
+    (lotsByCanon[c] = lotsByCanon[c] || []).push(...(co.shipments[p] || []));
+  });
+  Object.keys(co.etaByProd || {}).forEach(p => {
+    const c = canonicalProduct(p), v = String(co.etaByProd[p] || '').trim();
+    if (v && !etaByCanon[c]) etaByCanon[c] = v;
+  });
+
+  Object.keys(utilAll).forEach(prod => {
+    const total = Number(utilAll[prod]) || 0;
+    if (total <= 0) return;
+    const c = canonicalProduct(prod);
+    const own = pDate(etaByCanon[c]) || _parseEtaLoose(etaByCanon[c]);
+    if (own) { if (inPd(own)) out[prod] = total; return; }
+    const dated = (lotsByCanon[c] || []).filter(l => (Number(l.utilMT) || 0) > 0 && lotUtilDate(l));
+    if (!dated.length) return;
     let sum = 0;
-    (ships[prod] || []).forEach(l => {
-      const mt = Number(l.utilMT) || 0; if (mt <= 0) return;
-      if (inPd(lotUtilDate(l))) sum += mt;
-    });
-    if (sum > 0) out[prod] = (out[prod] || 0) + sum;
+    dated.forEach(l => { if (inPd(lotUtilDate(l))) sum += Number(l.utilMT) || 0; });
+    if (sum > 0) out[prod] = sum;
   });
   return out;
 }
@@ -236,13 +274,53 @@ function scopedUtilTotal(co) {
    available = OBTAINED (all-time per-product = stats util+avail) − period util.
    So the AVQ card identity obtained = utilized + available still holds when a
    period is active. All Time → the server stats (co.availableByProd) verbatim. */
+/* Per-product OBTAINED sliced to the active period, keyed canonically.
+   Same cycle rules as canonicalObtainedFiltered() (dedup by type, skip
+   mt<=0 / _fromRevReq / not-yet-terbit, anchor on PERTEK Terbit), but summing
+   each cycle's per-product map instead of its total. All Time → stats
+   util+avail, which is the master's own per-product obtained. */
+function scopedObtainedByProd(co) {
+  const out = {};
+  if (!co) return out;
+  const add = (p, v) => { const c = canonicalProduct(p); out[c] = (out[c] || 0) + (Number(v) || 0); };
+  if (!PERIOD.active) {
+    const u = co.utilizationByProd || {}, a = co.availableByProd || {};
+    new Set([...Object.keys(u), ...Object.keys(a)]).forEach(p => add(p, (Number(u[p]) || 0) + (Number(a[p]) || 0)));
+    return out;
+  }
+  const allCycles = co.cycles || [];
+  const seen = new Set();
+  allCycles.forEach(c => {
+    if (!/^obtained #/i.test(c.type)) return;
+    if ((Number(c.mt) || 0) <= 0) return;
+    const k = String(c.type).toLowerCase().trim();
+    if (seen.has(k)) return;
+    seen.add(k);
+    if (c._fromRevReq) return;
+    if (!_isObtainedTerbit(c, allCycles)) return;
+    let anchor = (typeof getPertekTerbitForObtained === 'function') ? getPertekTerbitForObtained(c, allCycles) : null;
+    if (!anchor && c.pertekDate) anchor = pDate(c.pertekDate);
+    if (!anchor) anchor = pDate(c.releaseDate) || pDate(c.spiDate);
+    if (!inPd(anchor)) return;
+    Object.entries(c.products || {}).forEach(([p, v]) => add(p, v));
+  });
+  return out;
+}
+
 function scopedAvailByProd(co) {
   if (!co) return {};
   if (!PERIOD.active) return co.availableByProd || {};
+  /* available = OBTAINED − UTILIZED, both sliced to the SAME period — the
+     report definition. This used to subtract period utilization from ALL-TIME
+     obtained, a hybrid that overstated available whenever a period was
+     active (quota granted outside the window still counted as available
+     inside it). */
   const util_all = co.utilizationByProd || {}, avail_all = co.availableByProd || {};
-  const su = scopedUtilByProd(co); const out = {};
+  const su = scopedUtilByProd(co);
+  const so = scopedObtainedByProd(co);
+  const out = {};
   new Set([...Object.keys(util_all), ...Object.keys(avail_all)]).forEach(p => {
-    const obtained = (Number(util_all[p]) || 0) + (Number(avail_all[p]) || 0);
+    const obtained = Number(so[canonicalProduct(p)]) || 0;
     out[p] = Math.max(0, obtained - (Number(su[p]) || 0));
   });
   return out;
@@ -586,6 +664,6 @@ if (typeof module !== 'undefined' && module.exports) {
     PERIOD, PRESETS, pDate, raDate, inPd, lotUtilDate,
     pfParseInputDate, pfFormatInputDate,
     companiesWithLotsInPeriod, utilizationPool,
-    scopedUtilByProd, scopedUtilTotal, scopedAvailByProd,
+    scopedUtilByProd, scopedUtilTotal, scopedAvailByProd, scopedObtainedByProd,
   };
 }

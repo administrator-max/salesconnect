@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await Promise.all([
     loadData(),
     (typeof loadRealizationSummary === 'function' ? loadRealizationSummary() : Promise.resolve()),
+    // PIB lines — the Total Realized KPI reads these (see 03-kpis.js KPI 3).
+    (typeof loadRealizations === 'function' ? loadRealizations() : Promise.resolve()),
   ]);
 
   // ── Migrate any pending local edits from a previous session ────────

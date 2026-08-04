@@ -86,20 +86,37 @@ function updateOverviewKPIs() {
     }
   });
 
-  /* ── KPI 3: Total Realized (company count) ──────────────────────────── */
-  // Filter by arrivalDate (YYYY-MM-DD) — etaJKT is human-readable text, not parseable
-  const arrivedRa = RA.filter(r => {
-    if (!r.cargoArrived) return false;
-    if (!PERIOD.active) return true;
-    const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
-    return inPd(ad);
-  });
-  // COUNT COMPANIES, NOT ROWS — the card is labelled "Companies with
-  // utilization" and a company that cleared customs in two waves now owns two
-  // ra_records rows.
-  const realizedCount   = new Set(arrivedRa.map(r => r.code)).size;
-  const totalRealizedMT = arrivedRa.reduce((s, r) => s + r.berat, 0);
-  const arrivedCodes    = [...new Set(arrivedRa.map(r => r.code))].join(', ') || '—';
+  /* ── KPI 3: Total Realized ───────────────────────────────────────────
+     Source is the PIB line data (`realizations` tab: volume + pib_date), per
+     the data owners' report spec (2026-08-04): "untuk realized, mengambil
+     dari sheet REALISASI IMPORT PERIODE SPI 2026, di kolom Volume".
+
+     It used to read `ra_records.berat` filtered by arrival date — a
+     hand-maintained one-row-per-company summary that happens to total the
+     same 15.438,208 MT today, but is a different artefact that can (and did)
+     drift, and whose arrival date is not the PIB date the report is defined
+     on. REALIZATIONS carries all 204 deduped PIB lines; every pib_date parses
+     (144 ISO + 60 D/M/YYYY, none ambiguous). Falls back to the old RA path
+     only if the realizations fetch failed, so a dead endpoint degrades to the
+     previous behaviour instead of showing zero. */
+  let realizedCount, totalRealizedMT, arrivedCodes;
+  if (Array.isArray(window.REALIZATIONS) && REALIZATIONS.length) {
+    const rows = REALIZATIONS.filter(r => !PERIOD.active || inPd(pDate(r.pib_date)));
+    const codes = new Set(rows.map(r => String(r.company_code || '').toUpperCase()).filter(Boolean));
+    realizedCount   = codes.size;
+    totalRealizedMT = rows.reduce((s, r) => s + (parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0), 0);
+    arrivedCodes    = [...codes].join(', ') || '—';
+  } else {
+    const arrivedRa = RA.filter(r => {
+      if (!r.cargoArrived) return false;
+      if (!PERIOD.active) return true;
+      const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
+      return inPd(ad);
+    });
+    realizedCount   = new Set(arrivedRa.map(r => r.code)).size;
+    totalRealizedMT = arrivedRa.reduce((s, r) => s + r.berat, 0);
+    arrivedCodes    = [...new Set(arrivedRa.map(r => r.code))].join(', ') || '—';
+  }
 
   /* ── KPI 4: Re-Apply Eligible / Submitted ───────────────────────────── */
   // Scope re-apply pool to companies whose SPI cycles match the active period
