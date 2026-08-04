@@ -202,14 +202,20 @@ function buildAvqPageKPIs() {
   // Submit/Obtained/Revision-Request activity in range), showing its balance.
   // NOTE: this intentionally diverges from Overview KPI2 (quota *issued* in the
   // period) — the AVQ page answers "balance of companies active this period".
+  /* All three figures are CUMULATIVE, matching the Overview card and the PDF
+     (see cumulativeAvailable()'s docblock — a balance is a stock, not activity
+     inside a window). The period narrows WHICH companies appear, which is
+     exactly the question this page asks: "balance of companies active this
+     period". Previously it mixed all-time obtained with PERIOD utilisation, so
+     obtained − utilised did not equal the available it printed, and none of
+     the three agreed with the Overview card (H1 2026: page 16,540, chart
+     13,630, card 11,693). */
   let totalObt = 0, totalUtil = 0, totalAvq = 0, coSet = new Set();
   [...filteredSPI(), ...filteredPending()].forEach(co => {
-    const coObt = (typeof canonicalObtained === 'function')
-      ? canonicalObtained(co) : canonicalObtainedFiltered(co);
+    const coObt = canonicalObtained(co);
     if (coObt <= 0) return;
-    const util  = scopedUtilTotal(co);   // period-aware (rule #3): util sliced by lot date
-    const avail = PERIOD.active ? Math.max(0, coObt - util)
-                                : (co.availableQuota != null ? co.availableQuota : Math.max(0, coObt - util));
+    const util  = Number(co.utilizationMT) || 0;
+    const avail = cumulativeAvailable(co);
     totalObt  += coObt;
     totalUtil += util;
     totalAvq  += avail;

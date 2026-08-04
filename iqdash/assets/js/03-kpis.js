@@ -163,16 +163,14 @@ function updateOverviewKPIs() {
   if (kpiUtilFillEl && totalObtainedMT > 0) kpiUtilFillEl.style.width = Math.min(100, totalUtilizedMT / totalObtainedMT * 100).toFixed(1) + '%';
   if (kpiUtilTagEl)  kpiUtilTagEl.textContent  = totalObtainedMT > 0 ? `${(totalUtilizedMT/totalObtainedMT*100).toFixed(1)}% of obtained allocated` : 'Of obtained quota allocated';
 
-  /* ── Available Quota KPI = Obtained − Utilized ────────────────────────
-     Straight subtraction of the two cards above, per the report spec. It used
-     to be written by buildAvailableQuota() as the sum of per-company figures
-     EACH clamped at 0 — a different number under a period filter, because a
-     company that utilised quota this month which was granted in an earlier one
-     produces a negative that the clamp swallows (June showed 8,850 against a
-     true 5,874; July 1,160 against 0). Computed here so the card is one
-     arithmetic step from the numbers beside it, and so it renders in the same
-     first pass as the other four instead of waiting for the deferred charts. */
-  const totalAvailableMT = Math.max(0, totalObtainedMT - totalUtilizedMT);
+  /* ── Available Quota KPI = CUMULATIVE saldo ───────────────────────────
+     Not obtained-minus-utilised within the window. Available is a balance, and
+     the master reports it as "saldo kumulatif" — see cumulativeAvailable()'s
+     docblock. A period filter narrows WHICH companies are counted, never how
+     much of their balance "belongs to" the window. Same helper the PDF Summary
+     uses, so the two surfaces cannot drift apart again. */
+  const avqPool = PERIOD.active ? [...filteredSPI(), ...filteredPending()] : allCompanies;
+  const totalAvailableMT = cumulativeAvailableTotal(avqPool);
   const avqValEl  = document.getElementById('kpiAvqVal');
   const avqUnitEl = document.getElementById('kpiAvqUnit');
   const avqTagEl  = document.getElementById('kpiAvqTag');

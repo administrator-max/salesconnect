@@ -512,6 +512,36 @@ function canonicalObtained(co) {
   return total;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   CUMULATIVE AVAILABLE — the quota a company still holds, a STOCK.
+
+   Deliberately NOT period-sliced, unlike Submitted / Obtained / Utilized.
+   The master's own H1 report says it outright: "Submitted / Obtained /
+   Utilized = aktivitas periode … Available = saldo kumulatif". Asking "how
+   much was available during June" is a category error — a balance exists at a
+   point in time, it is not an activity that happens inside a window.
+
+   Slicing it produced numbers nobody could reconcile: obtained-in-period minus
+   utilised-in-period read 2,560 MT for H1 2026 against the master's 11,693,
+   because a company that used quota in the window which was granted before it
+   showed as a negative balance clamped to zero.
+
+   One definition, used by BOTH the Overview KPI card (03-kpis.js) and the
+   PDF Summary (14-export.js) — the two had drifted apart, which is what
+   surfaced this in the first place.
+   ═══════════════════════════════════════════════════════════════════ */
+function cumulativeAvailable(co) {
+  if (!co) return 0;
+  const obtained = canonicalObtained(co);            // all-time, single source
+  const utilised = Number(co.utilizationMT) || 0;    // all-time
+  return Math.max(0, obtained - utilised);
+}
+
+/** Cumulative available summed over a list of companies. */
+function cumulativeAvailableTotal(companies) {
+  return (companies || []).reduce((s, co) => s + cumulativeAvailable(co), 0);
+}
+
 /* ── canonicalObtainedFiltered: period-aware version of canonicalObtained ── */
 function canonicalObtainedFiltered(co) {
   if (!co) return 0;

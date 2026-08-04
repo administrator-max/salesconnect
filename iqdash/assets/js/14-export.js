@@ -50,15 +50,16 @@ function exportExecutivePDF() {
   const appRate     = s1_mt > 0 ? (s2_mt/s1_mt*100).toFixed(1) : '—';
   const periodLabel = PERIOD.active ? PERIOD.label : 'All Time';
 
-  // Available Quota KPI — Canonical Obtained − Utilization
-  // Uses canonicalObtained (same as KPI2) not raw co.obtained
-  const availQuotaTotal = filteredSPI().reduce((sum, co) => {
-    const obtained = canonicalObtainedFiltered(co) || (typeof co.obtained === 'number' ? co.obtained : 0);
-    if (obtained <= 0) return sum;
-    if (co.availableQuota != null) return sum + co.availableQuota;
-    const utilMT = co.utilizationMT != null ? co.utilizationMT : 0;
-    return sum + (obtained - utilMT);
-  }, 0);
+  /* Available Quota — CUMULATIVE saldo, via the same helper the Overview KPI
+     card uses. The old inline version mixed sources (period-filtered obtained,
+     then `co.availableQuota` as a short-circuit, then all-time utilisation as
+     a fallback) and only happened to land on the master's figure; the Overview
+     card meanwhile had been switched to a period subtraction, so the two
+     surfaces printed different numbers under the same name. */
+  const avqPoolPdf = PERIOD.active
+    ? [...filteredSPI(), ...filteredPending()]
+    : [...SPI, ...PENDING];
+  const availQuotaTotal = cumulativeAvailableTotal(avqPoolPdf);
 
   /* Utilization total — delegated to the same helpers the Overview KPI uses.
      This used to sum `co.utilizationByProd` directly, which is the ALL-TIME

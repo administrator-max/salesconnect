@@ -271,26 +271,20 @@ function buildAvailableQuota() {
   // get ONE ROW PER PRODUCT so that product-filter pills show correct per-product MT.
   const rows = [];
   filteredSPI().forEach(co => {
-    // CRITICAL: use canonicalObtained — not raw co.obtained (may include in-process cycles)
-    // Period-consistent: available = obtain − utilized with BOTH sides sliced
-    // to the same window (report spec 2026-08-04). Using all-time obtained
-    // against period utilization overstated availability inside a filter.
-    const obtained = (PERIOD.active && typeof canonicalObtainedFiltered === 'function')
-      ? canonicalObtainedFiltered(co)
-      : ((typeof canonicalObtained === 'function' ? canonicalObtained(co) : null)
-         || (typeof co.obtained === 'number' ? co.obtained : 0));
+    /* This breakdown is "remaining capacity by product" — a BALANCE, so every
+       figure is CUMULATIVE, matching the Overview card, the AVQ page cards and
+       the PDF (see cumulativeAvailable()'s docblock). The active period decides
+       WHICH companies appear, not how much of their balance is attributed to
+       the window. Slicing obtained/utilisation per period here made the chart
+       total (13,630 for H1 2026) disagree with both the card above it (11,693)
+       and the page KPIs (16,540). */
+    const obtained = canonicalObtained(co) || (typeof co.obtained === 'number' ? co.obtained : 0);
     if (obtained <= 0) return;
-    const totalUtil = scopedUtilTotal(co);   // period-aware (rule #3): util sliced by lot date
-    // SOURCE OF TRUTH (board-revised 12-May-2026): always recompute
-    // availableQuota fresh from (canonicalObtained - utilizationMT).
-    // The DB-cached `companies.available_quota` was set from a previous
-    // run where canonicalObtained still included in-progress Obtained #2
-    // cycles (TBA) — it's now stale. Recomputing here makes the KPI
-    // match the XLSX master (Total Available = 7,090 MT).
-    const totalAvq  = Math.max(0, obtained - totalUtil);
+    const totalUtil = Number(co.utilizationMT) || 0;
+    const totalAvq  = cumulativeAvailable(co);
 
-    const aProd = scopedAvailByProd(co);     // period-aware (rule #3)
-    const uProd = scopedUtilByProd(co);
+    const aProd = co.availableByProd   || {};
+    const uProd = co.utilizationByProd || {};
 
     // Build cycle-level obtained-per-product map (used for display only).
     // Use the deduped helper — legacy DB has duplicate Obtained #N rows
