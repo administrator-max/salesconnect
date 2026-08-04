@@ -723,17 +723,25 @@ function exportExecutivePDF() {
       // Build lead time data for PDF
       const ltRecords = [];
       filteredSPI().forEach(co => {
-        const pertekDate = getPertekDateForCo(co);
-        /* The company pool (filteredSPI) admits a company when ANY of its
-           cycles touches the period — correct for the tables, wrong here. This
-           alert is ABOUT the PERTEK date, so a row whose PERTEK falls outside
-           the window does not belong in it: filtering Jan–Jun 2026 was still
-           listing 2025 PERTEKs, because the company got in on some other 2026
-           cycle. Gate on the date the section is measuring. */
-        if (PERIOD.active && !inPd(pertekDate)) return;
-        const obtByProd  = getObtainedByProd(co);
+        /* Rows are per PRODUCT, so the PERTEK date must come from the cycle
+           that granted THAT product — not one date for the whole company.
+           scopedObtainedDetailByProd() returns both, already sliced to the
+           period, so no extra date gate is needed here.
+
+           Two earlier attempts were wrong: the original listed 2025 PERTEKs
+           under a 2026 filter (no gate at all), and the first fix gated on
+           getPertekDateForCo(), which reads only Submit #1 / Revision #1 — that
+           dropped every company whose in-period quota came from Submit #2 or
+           #3, losing 11 of 18 companies from H1 2026. */
+        const detail = PERIOD.active ? scopedObtainedDetailByProd(co) : null;
+        const obtByProd = detail
+          ? Object.fromEntries(Object.entries(detail).map(([p, v]) => [p, v.mt]))
+          : getObtainedByProd(co);
         Object.entries(obtByProd).forEach(([prod, obtMT]) => {
           if (!obtMT || obtMT <= 0) return;
+          const pertekDate = detail
+            ? ((detail[prod] && detail[prod].pertek) || null)
+            : getPertekDateForCo(co);
           const shipments   = co.shipments || {};
           const utilMT      = totalUtilForProd(shipments, prod);
           const firstUtilDate = getFirstUtilDate(co, prod);

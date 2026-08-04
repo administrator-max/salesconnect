@@ -303,12 +303,36 @@ function scopedUtilTotal(co) {
 function scopedObtainedByProd(co) {
   const out = {};
   if (!co) return out;
-  const add = (p, v) => { const c = _canonProd(p); out[c] = (out[c] || 0) + (Number(v) || 0); };
   if (!PERIOD.active) {
     const u = co.utilizationByProd || {}, a = co.availableByProd || {};
-    new Set([...Object.keys(u), ...Object.keys(a)]).forEach(p => add(p, (Number(u[p]) || 0) + (Number(a[p]) || 0)));
+    new Set([...Object.keys(u), ...Object.keys(a)]).forEach(p => {
+      const c = _canonProd(p);
+      out[c] = (out[c] || 0) + (Number(u[p]) || 0) + (Number(a[p]) || 0);
+    });
     return out;
   }
+  const detail = scopedObtainedDetailByProd(co);
+  Object.keys(detail).forEach(p => { out[p] = detail[p].mt; });
+  return out;
+}
+
+/* Same slice as scopedObtainedByProd(), but keeping the PERTEK date that
+   GRANTED each product — `{ product: { mt, pertek } }`.
+
+   The Lead Time Alert needs that pairing. It used to take ONE date per company
+   from getPertekDateForCo(), which only reads Submit #1 / Revision #1 — so a
+   company whose in-period quota came from Submit #2 or #3 was stamped with its
+   2025 first PERTEK and dropped from the period entirely (11 of 18 companies
+   vanished from H1 2026 that way: EMS, KJK, BBB, HKG, CGK, LCP, GNG, BHG, HDP,
+   JKT, SJH). A company can hold several PERTEKs; the alert is per PRODUCT, so
+   the date has to come from the cycle that granted that product.
+
+   Where two in-period cycles grant the same product, the LATER PERTEK wins —
+   the alert measures elapsed time since quota was granted, so the most recent
+   grant is the one whose clock is still meaningful. */
+function scopedObtainedDetailByProd(co) {
+  const out = {};
+  if (!co) return out;
   const allCycles = co.cycles || [];
   const seen = new Set();
   allCycles.forEach(c => {
@@ -318,12 +342,19 @@ function scopedObtainedByProd(co) {
     if (seen.has(k)) return;
     seen.add(k);
     if (c._fromRevReq) return;
-    if (!_isObtainedTerbit(c, allCycles)) return;
+    if (typeof _isObtainedTerbit === 'function' && !_isObtainedTerbit(c, allCycles)) return;
     let anchor = (typeof getPertekTerbitForObtained === 'function') ? getPertekTerbitForObtained(c, allCycles) : null;
     if (!anchor && c.pertekDate) anchor = pDate(c.pertekDate);
     if (!anchor) anchor = pDate(c.releaseDate) || pDate(c.spiDate);
-    if (!inPd(anchor)) return;
-    Object.entries(c.products || {}).forEach(([p, v]) => add(p, v));
+    if (PERIOD.active && !inPd(anchor)) return;
+    Object.entries(c.products || {}).forEach(([p, v]) => {
+      const mt = Number(v) || 0;
+      if (mt <= 0) return;
+      const key = _canonProd(p);
+      const e = out[key] || (out[key] = { mt: 0, pertek: null });
+      e.mt += mt;
+      if (anchor && (!e.pertek || anchor > e.pertek)) e.pertek = anchor;
+    });
   });
   return out;
 }
@@ -686,5 +717,6 @@ if (typeof module !== 'undefined' && module.exports) {
     pfParseInputDate, pfFormatInputDate,
     companiesWithLotsInPeriod, utilizationPool,
     scopedUtilByProd, scopedUtilTotal, scopedAvailByProd, scopedObtainedByProd,
+    scopedObtainedDetailByProd,
   };
 }
