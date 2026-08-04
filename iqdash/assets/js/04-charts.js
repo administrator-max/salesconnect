@@ -3,7 +3,7 @@
    Also: revisionStatus, statusBadge, N helper
 ═══════════════════════════════════════ */
 
-const N = n => n != null ? fmtMt(Number(n)) : '—';
+const N = n => n != null ? Number(n).toLocaleString(MT_LOCALE) : '—';
 const chips = prods => prods.map(p => `<span class="chip" style="background:${pc(p).light};color:${pc(p).text}">${p}</span>`).join('');
 
 /* ── REVISION STATUS LOGIC ─────────────────────────────────────
@@ -160,7 +160,7 @@ function buildPipelineHover(idx) {
     h.innerHTML = `<div class="ph-title">🔵 Re-Apply Eligible — ${eligible.length} companies<br><span style="font-weight:400;font-size:10px;color:var(--txt3)">Realization ≥ 60% &amp; cargo arrived</span></div>` +
       eligible.map(r => {
         const stage = isReapplySubmitted(r) ? ' 🔵' : ' ✅';
-        return `<div class="ph-row"><span class="ph-code">${r.code}${stage}</span><span class="ph-mt">${(r.realPct*100).toFixed(0)}% · ${fmtMt(r.obtained)} MT</span></div>`;
+        return `<div class="ph-row"><span class="ph-code">${r.code}${stage}</span><span class="ph-mt">${(r.realPct*100).toFixed(0)}% · ${r.obtained.toLocaleString(MT_LOCALE)} MT</span></div>`;
       }).join('');
   } else {
     h.innerHTML = `<div class="ph-title">⏳ Pertek Pending — ${filteredPending().length} companies</div>` +
@@ -760,7 +760,7 @@ function buildFlowKPIStrip() {
   const steps = [
     { num:'①', label:'Obtained Quota', val: fmtMt(totalObtained), unit:'MT', note:`${fRa.length} companies`, color:'var(--navy)', bg:'#eef2ff', border:'#c7d2fe' },
     { num:'②', label:'Utilized (In Shipment)', val: totalUtilized > 0 ? fmtMt(totalUtilized) : '—', unit: totalUtilized > 0 ? 'MT allocated' : 'pending', note: `${inShip.length} in transit`, color:'var(--blue)', bg:'var(--blue-bg)', border:'var(--blue-bd)' },
-    { num:'③', label:'Realized', val: totalRealized > 0 ? fmtMt(totalRealized) : '—', unit: totalRealized > 0 ? 'MT arrived JKT' : 'none yet', note: `${arrived.length} co. arrived`, color:'var(--green)', bg:'var(--green-bg)', border:'var(--green-bd)' },
+    { num:'③', label:'Realized', val: totalRealized > 0 ? totalRealized.toLocaleString(MT_LOCALE) : '—', unit: totalRealized > 0 ? 'MT arrived JKT' : 'none yet', note: `${arrived.length} co. arrived`, color:'var(--green)', bg:'var(--green-bg)', border:'var(--green-bd)' },
     { num:'④', label:'Realization %', val: realPct.toFixed(1) + '%', unit: realPct >= 60 ? '≥ 60% threshold' : '< 60% threshold', note: `${eligCount} eligible co.`, color: realPct >= 60 ? 'var(--green)' : realPct >= 40 ? 'var(--amber)' : 'var(--red2)', bg: realPct >= 60 ? 'var(--green-bg)' : realPct >= 40 ? 'var(--amber-bg)' : 'var(--red-bg)', border: realPct >= 60 ? 'var(--green-bd)' : realPct >= 40 ? 'var(--amber-bd)' : 'var(--red-bd)' },
     { num:'⑤', label:'Remaining Quota', val: fmtMt(totalRemaining), unit:'MT unallocated', note:'Obtained − Utilized', color:'var(--teal)', bg:'var(--teal-bg)', border:'var(--teal-bd)' },
     { num:'⑥', label:'Target Re-Apply', val: totalTarget > 0 ? fmtMt(totalTarget) : '—', unit: totalTarget > 0 ? 'MT next cycle' : 'TBA', note:`${eligCount} eligible to apply`, color:'var(--amber)', bg:'var(--amber-bg)', border:'var(--amber-bd)' },
@@ -882,7 +882,7 @@ function buildUtilChart() {
               </div>
               <span style="font-size:10.5px;font-weight:700;color:${pBarCol};white-space:nowrap">${statusTxt}</span>
             </div>
-            ${obt > 0 ? `<div style="font-size:9.5px;color:var(--txt3);margin-top:2px">${arrived ? `${fmtMt(real)} MT arrived` : `${fmtMt(util)} MT allocated`} · ${fmtMt(obt)} MT obtained</div>` : ''}
+            ${obt > 0 ? `<div style="font-size:9.5px;color:var(--txt3);margin-top:2px">${arrived ? `${real.toLocaleString(MT_LOCALE)} MT arrived` : `${util.toLocaleString(MT_LOCALE)} MT allocated`} · ${obt.toLocaleString(MT_LOCALE)} MT obtained</div>` : ''}
           </div>
         </div>`;
     }).join('');
@@ -907,7 +907,7 @@ function buildUtilChart() {
           </div>
           <span style="font-size:11px;font-weight:700;color:${barFill};font-family:'DM Mono',monospace;min-width:44px;text-align:right">${overallPct.toFixed(1)}%</span>
         </div>
-        <div style="font-size:9.5px;color:var(--txt3);margin-top:3px">${fmtMt(d.berat)} MT ${d.cargoArrived ? 'arrived' : 'allocated'} · ${fmtMt((d.obtained||0))} MT obtained · ETA: ${d.etaJKT||'—'}</div>
+        <div style="font-size:9.5px;color:var(--txt3);margin-top:3px">${d.berat.toLocaleString(MT_LOCALE)} MT ${d.cargoArrived ? 'arrived' : 'allocated'} · ${(d.obtained||0).toLocaleString(MT_LOCALE)} MT obtained · ETA: ${d.etaJKT||'—'}</div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:8px">
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--txt3);margin-bottom:6px">Products Breakdown</div>
@@ -963,7 +963,7 @@ function buildUtilChart() {
                 const real = rbp[p] != null ? rbp[p] : (arrived && obt > 0 ? Math.round(d.berat*(obt/(d.obtained||1))*100)/100 : 0);
                 const util = ubp[p] != null ? ubp[p] : 0;
                 const pct  = obt > 0 ? (arrived ? (real/obt*100) : (util/obt*100)) : (d.realPct*100);
-                lines.push(` ${p}: ${pct.toFixed(1)}% ${arrived ? 'realized' : 'utilized'} (${arrived ? fmtMt(real) : fmtMt(util)} MT)`);
+                lines.push(` ${p}: ${pct.toFixed(1)}% ${arrived ? 'realized' : 'utilized'} (${arrived ? real.toLocaleString(MT_LOCALE) : util.toLocaleString(MT_LOCALE)} MT)`);
               });
               return lines;
             },

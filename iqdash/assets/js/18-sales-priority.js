@@ -488,7 +488,7 @@ function renderSPTable() {
           <span style="font-size:11.5px;font-weight:600">${r.prod}</span>
         </span>
       </td>
-      <td style="padding:9px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:11.5px">${fmtMt(r.obtMT)}</td>
+      <td style="padding:9px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:11.5px">${r.obtMT.toLocaleString(MT_LOCALE)}</td>
       <td style="padding:9px 10px;min-width:100px">${utilBar}</td>
       <td style="padding:9px 10px;text-align:center">${ldCell}</td>
       <td style="padding:9px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:11.5px;font-weight:700;color:${r.isOverdue ? '#dc2626' : 'var(--teal)'}">${Math.round(r.remainMT).toLocaleString(MT_LOCALE)} MT</td>

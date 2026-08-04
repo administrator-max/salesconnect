@@ -538,7 +538,7 @@ function buildOUChart() {
       <td>${prodSummary}</td>
       <td class="t-r t-mono" style="font-weight:700">${Nmt(coObtained)}</td>
       <td class="t-r t-mono" style="color:var(--blue);font-weight:700">${coUtilized > 0 ? Nmt(coUtilized) : '<span style="color:var(--txt3)">—</span>'}</td>
-      <td class="t-r t-mono" style="color:${coRealMT > 0 ? 'var(--green)' : 'var(--txt3)'};font-weight:700">${coRealMT > 0 ? fmtMt(coRealMT) : '—'}</td>
+      <td class="t-r t-mono" style="color:${coRealMT > 0 ? 'var(--green)' : 'var(--txt3)'};font-weight:700">${coRealMT > 0 ? coRealMT.toLocaleString(MT_LOCALE) : '—'}</td>
       <td>${realPctCell}</td>
       <td>${etaHTML}</td>
       <td>${shipBadge}</td>
@@ -567,7 +567,7 @@ function buildOUChart() {
           : `<span style="font-size:10px;color:var(--txt3)">—</span>`;
 
         const subRealCell = prodRealMT > 0
-          ? `<span style="font-size:11.5px;font-weight:600;color:var(--green)">${fmtMt(prodRealMT)}</span>`
+          ? `<span style="font-size:11.5px;font-weight:600;color:var(--green)">${prodRealMT.toLocaleString(MT_LOCALE)}</span>`
           : `<span style="font-size:10px;color:var(--txt3);font-style:italic">—</span>`;
 
         html += `<tr style="cursor:pointer;${rowBg}" onclick="openDrawer('${code}')">
@@ -882,7 +882,7 @@ function renderLtDrillTable() {
       <td style="padding:10px 14px;${leftBd};cursor:pointer"><span style="font-weight:700;font-size:13px;color:var(--blue)">${r.code}</span></td>
       <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--teal)">${fmtMt(r.obtained)} MT</td>
       <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--blue)">${r.utilMT > 0 ? fmtMt(r.utilMT) + ' MT' : '<span style="color:var(--txt3)">—</span>'}</td>
-      <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--green)">${r.realMT > 0 ? fmtMt(r.realMT) + ' MT' : '<span style="color:var(--txt3)">—</span>'}</td>
+      <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--green)">${r.realMT > 0 ? r.realMT.toLocaleString(MT_LOCALE) + ' MT' : '<span style="color:var(--txt3)">—</span>'}</td>
       <td style="padding:10px 10px;min-width:120px">${realBar}</td>
       <td style="padding:10px 10px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;color:var(--txt2)">${leadStr}</td>
       <td style="padding:10px 14px;text-align:center">${badge}</td>

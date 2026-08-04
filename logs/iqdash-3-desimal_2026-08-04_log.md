@@ -93,3 +93,37 @@ kosong dan TBA tidak berubah jadi `0.000`.
 - 14 berkas lolos `node --check`
 - **6 suite JS + 15 suite PHP — 0 FAIL** (dihitung dari baris `FAIL`, bukan
   exit code; harness `ok()` selalu keluar 0)
+
+---
+
+## DIBATALKAN hari yang sama — tim minta hanya Realized
+
+Tim meninjau hasilnya dan memutuskan **hanya Realized** yang berdesimal 3;
+sisanya kembali seperti semula. Seluruh perubahan kode di atas di-`git revert`
+(commit revert menyusul di bawah). Berkas log ini **sengaja dipertahankan**
+sebagai catatan riwayat.
+
+**Keadaan sesudah pembatalan = persis seperti sebelum perubahan ini:**
+
+- `fmtMt()` kembali membulatkan **ke atas** ke ton bulat via `ceilMt()`
+- `ceilMt()` terpakai lagi (tidak jadi mati)
+- `_fmtMT()` kembali 2 desimal tanpa nol di belakang
+- 137 titik kembali memanggil `.toLocaleString(MT_LOCALE)` langsung — termasuk
+  jalur realisasi, yang memang **sengaja dikecualikan** dari pembulatan sejak
+  awal, sehingga Realized tetap menampilkan desimalnya apa adanya
+  (`15,438.208`) tanpa perlu perubahan apa pun
+
+**Konsekuensi yang ikut hilang (dan itu memang diinginkan):** peringatan soal
+angka layar yang tak bisa disalin ke kolom input **tidak berlaku lagi** —
+tampilan MT kembali bulat, jadi salin-tempel aman seperti dulu. Usulan
+mempersempit `mtAmbiguous()` otomatis gugur; tidak ada yang perlu dikerjakan.
+
+**Catatan untuk pembaca nanti:** kalau suatu saat 3 desimal diminta lagi,
+commit `3f3ebc5` memuat sapuan lengkapnya beserta ke-20 titik yang harus
+dikecualikan — terutama `fmtThousandInline()` (`12-product-mt.js`), yang
+memformat teks **sambil diketik** dan akan menghasilkan `2,200.000.56` bila
+ikut tersapu.
+
+Verifikasi sesudah pembatalan: 14 berkas lolos `node --check`; 6 suite JS + 15
+suite PHP, 0 FAIL; live memuat `fmtMt(18570)` → `18,570` dan Realized tetap
+`15,438.208`.

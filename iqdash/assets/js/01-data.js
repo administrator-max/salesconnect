@@ -280,13 +280,12 @@ function todayStd() {
   return `${dd}-${mon}-${yy}`;
 }
 
-/* ── _fmtMT: dipakai tabel utama (07-tables-main). Dulu 2 desimal tanpa nol
-   di belakang, sehingga satu kolom bisa memuat "800", "1.5", dan "1,234.56"
-   sekaligus. Sejak 2026-08-04 seragam 3 desimal seperti fmtMt — hanya
-   penanganan null yang berbeda ('0', bukan angka). ── */
+/* ── _fmtMT: format float MT values with up to 2 decimal places, no trailing zeros ── */
 function _fmtMT(val) {
   if (val == null || isNaN(val)) return '0';
-  return fmtMt(Number(val));
+  const n = Number(val);
+  const dec = n % 1 === 0 ? '' : ('.' + n.toFixed(2).split('.')[1].replace(/0+$/, ''));
+  return Math.floor(n).toLocaleString(MT_LOCALE) + dec;
 }
 
 /* ── PRODUCT COLORS — final source of truth for chart/badge colors.
@@ -448,32 +447,20 @@ function snapZero(v) {
   return (v > -1 && v < 0) ? 0 : v;
 }
 
-/* ceilMt — round UP an MT value to a whole ton (business rule 21-May-2026).
-   NO LONGER USED BY fmtMt: on 2026-08-04 the data owners asked for three
-   decimals across the board, which supersedes the rounding rule. Kept because
-   the rule may come back, and because deleting it would erase why MT ever
-   displayed as whole tons. Nothing calls it today. */
+/* ceilMt — display helper: round UP any MT value to integer (per business
+   rule 21-May-2026). Apply to obtained/util/avail/submit displays — NOT to
+   realization (realMT, totalRealizedMT, realPct etc), per user preference.
+   Negative values handled gracefully: snapZero first, then ceil. */
 function ceilMt(v) {
   if (typeof v !== 'number' || isNaN(v)) return v;
   const snapped = snapZero(v);
   return Math.ceil(snapped);
 }
-/* fmtMt — the single MT display formatter: cards, tables, totals, charts.
-   THREE DECIMALS, always (request of 2026-08-04 — previously only realization
-   showed decimals while everything else was rounded up to a whole ton, so the
-   same tonnage read differently depending on which card you looked at).
-   snapZero still runs first, so a −0.49 rounding artefact shows as 0.000
-   rather than a negative.
-
-   Display only — no parser accepts what this prints back verbatim. parseMT()
-   deliberately REFUSES text with 3+ decimal digits (see mtAmbiguous in
-   00-num.js): without a thousands comma, "983.188" is either 983.188 or the
-   Indonesian spelling of 983188, and guessing wrong is exactly how IKM lost
-   1,998 MT. So a figure copied from a card may need its third decimal dropped
-   before it will save. */
+/* fmtMt — shorthand: ceilMt → toLocaleString. Use everywhere MT is shown
+   (cards, tables, totals, charts) for util/avail/obtained/submit. */
 function fmtMt(v) {
-  if (typeof v !== 'number' || isNaN(v)) return v;
-  return snapZero(v).toLocaleString(MT_LOCALE, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const c = ceilMt(v);
+  return typeof c === 'number' ? c.toLocaleString(MT_LOCALE) : c;
 }
 
 /* ════════════════════════════════════════════════════════════════════

@@ -205,7 +205,7 @@ function renderUtilTable() {
       : `<div style="display:flex;align-items:center;gap:5px">${dot}<span style="font-size:11.5px;font-weight:${isMulti?'600':'400'}">${r.product}</span></div>`;
 
     // Obtained
-    const obtCell = `<span class="t-mono" style="font-size:11.5px;font-weight:700;color:${isSub?'var(--txt2)':'var(--txt)'}">${fmtMt((r.obtained||0))}</span>`;
+    const obtCell = `<span class="t-mono" style="font-size:11.5px;font-weight:700;color:${isSub?'var(--txt2)':'var(--txt)'}">${(r.obtained||0).toLocaleString(MT_LOCALE)}</span>`;
 
     // Utilization
     const utilMT  = r.utilMT || 0;
@@ -214,7 +214,7 @@ function renderUtilTable() {
     const utilCell = isWait
       ? `<span style="font-size:10px;color:var(--txt3);font-style:italic">—</span>`
       : utilMT > 0
-        ? `<div><span class="t-mono" style="font-size:11.5px;font-weight:700;color:var(--blue)">${fmtMt(utilMT)}</span>
+        ? `<div><span class="t-mono" style="font-size:11.5px;font-weight:700;color:var(--blue)">${utilMT.toLocaleString(MT_LOCALE)}</span>
              <div style="font-size:9.5px;color:${uClr};margin-top:1px">${(utilPct*100).toFixed(1)}%</div></div>`
         : `<span style="font-size:10px;color:var(--txt3)">—</span>`;
 
@@ -224,7 +224,7 @@ function renderUtilTable() {
     const realMTCell = isWait
       ? `<span style="font-size:10px;color:var(--txt3);font-style:italic">—</span>`
       : arrived
-        ? `<span class="t-mono" style="font-size:11.5px;font-weight:700;color:${realColor(realPct)}">${fmtMt(realMT)}</span>`
+        ? `<span class="t-mono" style="font-size:11.5px;font-weight:700;color:${realColor(realPct)}">${realMT.toLocaleString(MT_LOCALE)}</span>`
         : `<span style="font-size:10px;color:var(--txt3);font-style:italic">—</span>`;
 
     // Realization %
@@ -325,16 +325,16 @@ function renderUtilTable() {
     shown.forEach(c => {
       const multi = c.rows.length > 1;
       const utilDisp = (c.phase !== 'WAITING' && c.util > 0)
-        ? `<span class="t-mono" style="font-weight:700;color:var(--blue)">${fmtMt(c.util)}</span>` : grey;
+        ? `<span class="t-mono" style="font-weight:700;color:var(--blue)">${c.util.toLocaleString(MT_LOCALE)}</span>` : grey;
       const realDisp = c.phase === 'ARRIVED'
-        ? `<span class="t-mono" style="font-weight:700;color:var(--green)">${fmtMt(c.real)}</span>`
+        ? `<span class="t-mono" style="font-weight:700;color:var(--green)">${c.real.toLocaleString(MT_LOCALE)}</span>`
         : (c.phase === 'INSHIP' ? `<span style="font-size:10px;color:var(--txt3);font-style:italic">pending</span>` : grey);
       const reBadge = c.isReapply ? ` <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:#f5f3ff;color:#5b21b6;border:1px solid #c4b5fd">Re-apply</span>` : '';
       tbody.innerHTML += `<tr style="cursor:pointer;border-top:1px solid var(--border)" onclick="toggleUtilCo('${c.code}')">
         <td style="padding:8px 10px"><span style="display:inline-flex;align-items:center;gap:5px"><span class="t-code">${c.code}</span>${multi ? `<span style="font-size:9px;color:var(--txt3)">${c.rows.length}p ▸</span>` : ''}</span></td>
         <td style="padding:8px 10px;font-size:11.5px;color:var(--txt2)">${c.rows.map(r => r.product).join(', ')}</td>
         <td style="padding:8px 10px">${phaseBadge(c.phase)}${reBadge}</td>
-        <td class="t-r" style="padding:8px 10px"><span class="t-mono" style="font-weight:700">${fmtMt(c.obtained)}</span></td>
+        <td class="t-r" style="padding:8px 10px"><span class="t-mono" style="font-weight:700">${c.obtained.toLocaleString(MT_LOCALE)}</span></td>
         <td class="t-r" style="padding:8px 10px">${utilDisp}</td>
         <td class="t-r" style="padding:8px 10px">${realDisp}</td>
         <td class="t-c" style="padding:8px 10px"><span onclick="openDrawer('${c.code}');event.stopPropagation()" style="font-size:10px;font-weight:600;color:var(--blue);cursor:pointer">detail ↗</span></td>
@@ -345,9 +345,9 @@ function renderUtilTable() {
           <td style="padding:5px 10px"></td>
           <td style="padding:5px 10px 5px 20px;font-size:11px;color:var(--txt2)">↳ ${r.product}</td>
           <td style="padding:5px 10px">${phaseBadge(sp)}</td>
-          <td class="t-r" style="padding:5px 10px;font-size:11px">${fmtMt((r.obtained || 0))}</td>
-          <td class="t-r" style="padding:5px 10px;font-size:11px">${r.utilMT > 0 ? fmtMt(r.utilMT) : '—'}</td>
-          <td class="t-r" style="padding:5px 10px;font-size:11px">${(r.cargoArrived && r.realMT > 0) ? fmtMt(r.realMT) : '—'}</td>
+          <td class="t-r" style="padding:5px 10px;font-size:11px">${(r.obtained || 0).toLocaleString(MT_LOCALE)}</td>
+          <td class="t-r" style="padding:5px 10px;font-size:11px">${r.utilMT > 0 ? r.utilMT.toLocaleString(MT_LOCALE) : '—'}</td>
+          <td class="t-r" style="padding:5px 10px;font-size:11px">${(r.cargoArrived && r.realMT > 0) ? r.realMT.toLocaleString(MT_LOCALE) : '—'}</td>
           <td></td>
         </tr>`;
       });
@@ -449,7 +449,7 @@ function renderRATable() {
     const realPctCalc = d.obtained > 0 ? realMT / d.obtained : d.realPct;
     const realMTCell = (d.cargoArrived || hasRBPParent)
       ? `<div>
-           <span style='font-size:12px;font-weight:700;color:${realColor(realPctCalc)}'>${fmtMt(realMT)}</span>
+           <span style='font-size:12px;font-weight:700;color:${realColor(realPctCalc)}'>${realMT.toLocaleString(MT_LOCALE)}</span>
            ${hasRBPParent && Object.keys(rbpParent).some(p => rbpParent[p] > 0 && !(abpParent[p]))
              ? `<div style='font-size:9px;color:var(--txt3);font-style:italic;margin-top:1px'>Partial · some products pending</div>`
              : ''}
@@ -466,7 +466,7 @@ function renderRATable() {
     // Remaining Balance = obtained − total realization (exact figures)
     const remaining = Math.max(0, d.obtained - realMT);
     const remCell   = remaining > 0
-      ? `<span style='font-size:12px;font-weight:700;color:var(--teal)'>${fmtMt(remaining)}</span>`
+      ? `<span style='font-size:12px;font-weight:700;color:var(--teal)'>${remaining.toLocaleString(MT_LOCALE)}</span>`
       : `<span style='font-size:10px;font-weight:700;color:var(--green)'>✓ Fully Realized</span>`;
 
     // Re-Apply Status badge
@@ -509,7 +509,7 @@ function renderRATable() {
       <td class='t-r'>${remCell}</td>
       <td>${raStatus}</td>
       <td>${subDate}</td>
-      <td class='t-r t-mono' style='color:var(--amber2);font-weight:700'>${d.target?fmtMt(d.target)+' MT':'<span style="color:var(--txt3);font-weight:400">TBA</span>'}</td>
+      <td class='t-r t-mono' style='color:var(--amber2);font-weight:700'>${d.target?d.target.toLocaleString(MT_LOCALE)+' MT':'<span style="color:var(--txt3);font-weight:400">TBA</span>'}</td>
     </tr>`;
 
     // ── ↳ Sub-rows: one per product for ALL companies ──────────────────
@@ -539,7 +539,7 @@ function renderRATable() {
         ? `<span style='font-size:10px;color:var(--txt3)'>—</span>`
         : (prodUtilMT > 0
             ? `<div>
-                 <span style='font-size:11.5px;font-weight:600;color:var(--blue)'>${fmtMt(prodUtilMT)}</span>
+                 <span style='font-size:11.5px;font-weight:600;color:var(--blue)'>${prodUtilMT.toLocaleString(MT_LOCALE)}</span>
                  <div style='font-size:9px;color:var(--txt3);margin-top:1px'>${prodObt>0?(prodUtilMT/prodObt*100).toFixed(1)+'%':''}</div>
                </div>`
             : `<span style='font-size:10px;color:var(--txt3)'>—</span>`);
@@ -547,12 +547,12 @@ function renderRATable() {
       // Realization cell — exact figure if arrived; util MT if still in shipment
       const subRealMTCell = prodArrived
         ? `<div>
-             <span style='font-size:11.5px;font-weight:600;color:${realColor(prodRealPct)}'>${fmtMt(prodRealMT)}</span>
+             <span style='font-size:11.5px;font-weight:600;color:${realColor(prodRealPct)}'>${prodRealMT.toLocaleString(MT_LOCALE)}</span>
              <span style='font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:#dcfce7;color:var(--green);border:1px solid #bbf7d0;margin-left:4px'>✓ Arrived</span>
            </div>`
         : (prodUtilMT > 0
             ? `<div>
-                 <span style='font-size:11.5px;font-weight:600;color:var(--blue)'>${fmtMt(prodUtilMT)}</span>
+                 <span style='font-size:11.5px;font-weight:600;color:var(--blue)'>${prodUtilMT.toLocaleString(MT_LOCALE)}</span>
                  <div style='font-size:9px;color:var(--txt3);font-style:italic;margin-top:1px'>Util · Real pending</div>
                </div>`
             : `<span style='font-size:10px;color:var(--txt3);font-style:italic'>Pending arrival</span>`);
@@ -572,7 +572,7 @@ function renderRATable() {
       // Remaining = obtained − realization; "—" if product not yet arrived
       const subRemCell = prodArrived
         ? (prodRem > 0
-            ? `<span style='font-size:11.5px;font-weight:600;color:var(--teal)'>${fmtMt(prodRem)}</span>`
+            ? `<span style='font-size:11.5px;font-weight:600;color:var(--teal)'>${prodRem.toLocaleString(MT_LOCALE)}</span>`
             : `<span style='font-size:10px;font-weight:700;color:var(--green)'>✓ Full</span>`)
         : `<span style='font-size:10px;color:var(--txt3)'>—</span>`;
 
@@ -586,7 +586,7 @@ function renderRATable() {
             <span style='font-size:11.5px;color:var(--txt2);font-weight:500'>${prod}</span>
           </span>
           <div style='font-size:9.5px;color:var(--txt3);margin-top:1px;padding-left:12px'>
-            Obtained: <strong style='color:var(--txt2)'>${fmtMt(prodObt)}</strong> MT
+            Obtained: <strong style='color:var(--txt2)'>${prodObt.toLocaleString(MT_LOCALE)}</strong> MT
           </div>
         </td>
         <td style='padding:3px 8px'><span style='font-size:10px;color:var(--txt3)'>↑ same</span></td>
@@ -619,8 +619,8 @@ function buildCmpList() {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
         <span style="font-size:12px;font-weight:700">${co.code} <span style="font-size:9px;color:var(--txt3);font-weight:400">${co.group}</span></span>
         <div style="display:flex;gap:6px;font-size:10.5px;font-family:'DM Mono',monospace">
-          <span style="color:var(--navy2)">S:${fmtMt(submit1)}</span>
-          <span style="color:var(--teal);font-weight:700">O:${fmtMt(obtained)}</span>
+          <span style="color:var(--navy2)">S:${submit1.toLocaleString(MT_LOCALE)}</span>
+          <span style="color:var(--teal);font-weight:700">O:${obtained.toLocaleString(MT_LOCALE)}</span>
           ${ra ? `<span style="color:var(--green);font-weight:700">${(ra.realPct*100).toFixed(0)}%</span>` : ''}
         </div>
       </div>
@@ -649,7 +649,7 @@ function buildPendingTable() {
       <td><div class="t-code">${d.code}</div></td>
       <td style="font-size:11.5px;font-weight:600">${d.group}</td>
       <td>${chips(d.products)}</td>
-      <td class="t-r t-mono">${fmtMt(d.mt)}</td>
+      <td class="t-r t-mono">${d.mt.toLocaleString(MT_LOCALE)}</td>
       <td><span class="badge b-pending">${d.status}</span></td>
       <td style="font-size:11px;color:var(--txt3)">${d.date}</td>
     </tr>`;
