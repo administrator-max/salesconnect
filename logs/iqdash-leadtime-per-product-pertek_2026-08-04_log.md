@@ -56,9 +56,23 @@ persis dengan Obtained H1 dashboard, dan kini sama persis pula per company.
 
 6 suite JS, 0 gagal.
 
-## Pelajaran
-Dua kali berturut-turut saya memakai `getPertekDateForCo()` sebagai "tanggal
-PERTEK company" tanpa memeriksa isinya. Fungsi itu memang hanya untuk cycle
-PERTAMA — cocok untuk chart O/U yang mengukur satu titik awal, tapi salah untuk
-apa pun yang per produk atau per periode. Layak diberi nama yang lebih jujur
-(`getFirstPertekDateForCo`) supaya tidak dipakai keliru lagi.
+## Pelajaran — dan namanya sudah diganti
+Dua kali berturut-turut `getPertekDateForCo()` dipakai sebagai "tanggal PERTEK
+company" tanpa memeriksa isinya. Fungsi itu memang hanya untuk cycle PERTAMA —
+cocok untuk chart O/U yang mengukur satu titik awal, tapi salah untuk apa pun
+yang per produk atau per periode.
+
+**Diganti nama jadi `getFirstPertekDateForCo()`** (5 kemunculan di 3 file:
+`17-ou-chart.js` definisi + pemakaian, `14-export.js` pemakaian, dan dua
+komentar). Docblock-nya ditulis ulang agar menyebut sendiri jebakannya dan
+menunjuk ke `scopedObtainedDetailByProd()` untuk kebutuhan per-produk /
+per-periode.
+
+Nama lama sengaja masih disebut **di dalam docblock** sebagai catatan sejarah,
+supaya pembaca yang menemukannya di log lama tahu ini fungsi yang sama.
+
+Verifikasi sesudah rename: `getPertekDateForCo` sudah `undefined` di runtime,
+`getFirstPertekDateForCo` berfungsi (BTS → 2026-02-24), keempat pemakainya
+(`buildOUChart`, `buildOUChartOverview`, `updateOUOverviewKPIs`,
+`buildLeadTimeAnalytics`) jalan tanpa error, dan Lead Time tetap 18 company /
+19.710 MT.

@@ -320,7 +320,7 @@ function scopedObtainedByProd(co) {
    GRANTED each product — `{ product: { mt, pertek } }`.
 
    The Lead Time Alert needs that pairing. It used to take ONE date per company
-   from getPertekDateForCo(), which only reads Submit #1 / Revision #1 — so a
+   from getFirstPertekDateForCo(), which only reads Submit #1 / Revision #1 — so a
    company whose in-period quota came from Submit #2 or #3 was stamped with its
    2025 first PERTEK and dropped from the period entirely (11 of 18 companies
    vanished from H1 2026 that way: EMS, KJK, BBB, HKG, CGK, LCP, GNG, BHG, HDP,

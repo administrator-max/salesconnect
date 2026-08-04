@@ -730,7 +730,7 @@ function exportExecutivePDF() {
 
            Two earlier attempts were wrong: the original listed 2025 PERTEKs
            under a 2026 filter (no gate at all), and the first fix gated on
-           getPertekDateForCo(), which reads only Submit #1 / Revision #1 — that
+           getFirstPertekDateForCo(), which reads only Submit #1 / Revision #1 — that
            dropped every company whose in-period quota came from Submit #2 or
            #3, losing 11 of 18 companies from H1 2026. */
         const detail = PERIOD.active ? scopedObtainedDetailByProd(co) : null;
@@ -741,7 +741,7 @@ function exportExecutivePDF() {
           if (!obtMT || obtMT <= 0) return;
           const pertekDate = detail
             ? ((detail[prod] && detail[prod].pertek) || null)
-            : getPertekDateForCo(co);
+            : getFirstPertekDateForCo(co);
           const shipments   = co.shipments || {};
           const utilMT      = totalUtilForProd(shipments, prod);
           const firstUtilDate = getFirstUtilDate(co, prod);

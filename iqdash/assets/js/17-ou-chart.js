@@ -78,7 +78,7 @@ function buildOUData() {
   const records = [];
 
   filteredSPI().forEach(co => {
-    const pertekDate = getPertekDateForCo(co);
+    const pertekDate = getFirstPertekDateForCo(co);
     const obtByProd  = getObtainedByProd(co);
     const _su = scopedUtilByProd(co);   // period-aware (rule #3): util sliced by lot date
     const _sa = scopedAvailByProd(co);
@@ -140,8 +140,23 @@ function buildOUData() {
   return records;
 }
 
-/** Get PERTEK date for a company from its cycles */
-function getPertekDateForCo(co) {
+/**
+ * The company's FIRST PERTEK Terbit date — Submit #1 / Revision #1, falling
+ * back to any Submit cycle that carries a release date.
+ *
+ * Named for what it returns, not what it looks like it returns. It was called
+ * getPertekDateForCo(), which reads as "the company's PERTEK date"; a company
+ * routinely holds SEVERAL (Submit #2, #3, PERTEK Perubahan…), and treating this
+ * one as "the" date broke the Lead Time Alert twice on 2026-08-04 — once
+ * listing 2025 PERTEKs under a 2026 filter, once dropping 11 of 18 companies
+ * whose in-period quota came from Submit #2 or #3.
+ *
+ * Use this ONLY where a single origin point is genuinely wanted (the O/U chart
+ * measures elapsed time from the first grant). Anything per-product or
+ * per-period wants scopedObtainedDetailByProd(), which pairs each product with
+ * the PERTEK of the cycle that actually granted it.
+ */
+function getFirstPertekDateForCo(co) {
   const cycles = co.cycles || [];
   // Find the first Submit cycle that has a releaseDate (PERTEK Terbit)
   for (const c of cycles) {
