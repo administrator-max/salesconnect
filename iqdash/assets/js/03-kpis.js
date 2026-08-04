@@ -480,9 +480,10 @@ function openAvqDrill()  { _avqHsFilter=''; _avqHsSearch=''; const m=document.ge
 function closeAvqDrill() { const m=document.getElementById('avqDrillModal'); if(m) m.style.display='none'; }
 
 function refreshAvqDrill() {
-  // Build ALL rows (unfiltered) — single source of truth
+  // Build ALL rows (unfiltered) — single source of truth.
+  // kpiPool() = SPI + PENDING, matching the Available Quota card itself.
   const allRows = [];
-  filteredSPI().forEach(co => {
+  kpiPool().forEach(co => {
     // Recompute via canonicalObtained — co.obtained is overwritten by it
     // in loadData() but be defensive in case helpers ran in odd order.
     const obtained = (typeof canonicalObtained === 'function' ? canonicalObtained(co) : null)
@@ -650,9 +651,9 @@ function refreshUtilDrill() {
   const utilColor  = u => u >= 0.8 ? 'var(--green)' : u >= 0.5 ? 'var(--blue)' : 'var(--amber)';
   const periodLabel = PERIOD.active ? PERIOD.label : 'All Time';
 
-  // Build per-product rows from SPI — same source as Available Quota and flow KPI strip
+  // Per-product rows over kpiPool() — SPI + PENDING, same set the card counts.
   const rows = [];
-  filteredSPI().forEach(co => {
+  kpiPool().forEach(co => {
     const obtained = typeof co.obtained === 'number' ? co.obtained : 0;
     if (obtained <= 0) return;
     const ubp = scopedUtilByProd(co);    // period-aware (rule #3)
@@ -1338,10 +1339,9 @@ function refreshObtainedDrill() {
      with hover tooltip showing the cycle breakdown.
   ──────────────────────────────────────────────────────────────────── */
 
-  // Period filter: keep companies whose ANY cycle date falls in period
-  const pool = (PERIOD.active && typeof companyInPeriod === 'function')
-    ? SPI.filter(co => companyInPeriod(co.cycles || []))
-    : SPI;
+  // SPI + PENDING, period-filtered — the same set the card itself counts.
+  // Read SPI alone and this modal silently omits whatever sits in PENDING.
+  const pool = kpiPool();
 
   // ── Build per-(company, product) rows ───────────────────────────────
   const rows = [];

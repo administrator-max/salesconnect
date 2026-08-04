@@ -193,6 +193,9 @@ body { font-family:'DM Sans','Calibri','Segoe UI',sans-serif; background:var(--b
 .b-ineligible{background:#fff7ed; color:#9a3412; border:1px solid #fed7aa}                         .b-ineligible::before{background:#fb923c}
 .b-reapply  { background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd }                       .b-reapply::before{ background:#8b5cf6; animation:pulse 1.6s infinite }
 .b-pertek   { background:var(--violet-bg);color:var(--violet);border:1px solid var(--violet-bd) } .b-pertek::before{ background:var(--violet) }
+/* Belum dikonfigurasi — netral & tanpa denyut: bukan keadaan yang menunggu
+   tindakan, hanya baris master yang belum pernah dipakai. */
+.b-none     { background:var(--bg2);      color:var(--txt3);  border:1px dashed var(--border) }  .b-none::before   { background:var(--txt3) }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
 
 /* ── TOOLTIP ── */

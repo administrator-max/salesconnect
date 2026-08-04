@@ -693,6 +693,32 @@ function getObtainedByProdAgg(co) {
     const v = (Number(util[p]) || 0) + (Number(avail[p]) || 0);
     if (v > 0) result[p] = v;
   });
+
+  /* Fallback — freshly granted quota that has no company_product_stats row yet.
+     Those stats are fed from the master's Utilization + Available rows, so a
+     company whose PERTEK was just issued and whose quota is untouched has
+     NEITHER: util is empty because nothing is used, available is empty because
+     the master hasn't been refreshed. The loop above then yields {} while
+     canonicalObtained() — which reads the CYCLES — correctly reports the grant.
+
+     Every per-product surface is built on this function, so that company's
+     quota vanishes from all of them while the KPI cards (cycle-based) still
+     count it. SNSD, 120 MT, PERTEK 04-Aug-2026: the Obtained drill listed the
+     company with an empty Obtained column and a total 120 MT below its own card.
+
+     Only fires when the stats produced NOTHING. A company with stats keeps them
+     authoritative — the master encodes post-revision NET per product there, and
+     cycles do not. getCycleBreakdown() applies the same gates as
+     canonicalObtained() (dedupe per cycle type, mt > 0, PERTEK/SPI terbit), so
+     the fallback cannot admit quota the headline figure excludes. */
+  if (!Object.keys(result).length && typeof getCycleBreakdown === 'function') {
+    getCycleBreakdown(co, 'obtained').forEach(cy => {
+      Object.entries(cy.products || {}).forEach(([p, mt]) => {
+        const v = Number(mt) || 0;
+        if (v > 0) result[p] = (result[p] || 0) + v;
+      });
+    });
+  }
   return result;
 }
 

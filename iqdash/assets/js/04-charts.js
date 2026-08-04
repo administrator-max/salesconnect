@@ -70,7 +70,26 @@ function revisionStatus(d) {
   return spiPerubahanIssued ? 'completed' : 'revpending';
 }
 
+/* isUnconfigured — a company that exists in the master list but has never been
+   touched: no cycles, no PERTEK/SPI reference, nothing submitted or obtained.
+   Nothing has been applied for on its behalf at all.
+
+   These used to fall through to statusBadge()'s "✅ SPI Issued" default, which
+   claims the strongest possible state — an SPI has been issued — for companies
+   with no submission whatsoever. The default was written when every row in the
+   table had data, so "none of the revision branches matched" could only mean a
+   plain issued SPI. Empty rows break that assumption.
+   Reported by the team 2026-08-04: APA, KITA, LILO, PP, SORE, SUJU, UANG. */
+function isUnconfigured(d) {
+  if (!d) return false;
+  if ((d.cycles || []).length) return false;
+  if (d.spiRef || d.revStatus || d.pertekNo || d.spiNo) return false;
+  if (Number(d.obtained) > 0 || Number(d.submit1) > 0) return false;
+  return true;
+}
+
 function statusBadge(d) {
+  if (isUnconfigured(d)) return '<span class="badge b-none">Belum Dikonfigurasi</span>';
   const rs = revisionStatus(d);
   if (rs === 'reapply')    return '<span class="badge b-reapply">📨 Re-Apply Submit #2</span>';
   if (rs === 'active')     return '<span class="badge b-rev">🔄 Under Revision</span>';

@@ -467,7 +467,7 @@ function buildRevDetailTable() {
       const tr = document.createElement('tr'); tr.className = rowClass;
       tr.innerHTML = `
         <td style="color:var(--txt3);font-size:13px;cursor:pointer;padding:8px 10px" onclick="openDrawer('${co.code}')">↗</td>
-        <td><div class="t-code" onclick="openDrawer('${co.code}')">${co.code}</div><div class="t-sub">${co.group}</div></td>
+        <td><div class="t-code" onclick="openDrawer('${co.code}')">${co.code}</div><div class="t-sub">${co.group || '—'}</div></td>
         <td style="padding:6px 10px"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:${typeBg};color:${typeColor};border:1px solid ${typeBd};white-space:nowrap">${typeLbl}</span></td>
         <td class="t-r" style="vertical-align:top">
           ${(() => {
@@ -556,7 +556,7 @@ function renderSPI() {
       const tr = document.createElement('tr'); tr.className = 'tr-pending';
       tr.innerHTML = `
         <td><div class="t-code" onclick="openDrawerPending('${d.code}')">${d.code}</div></td>
-        <td style="font-size:11.5px;font-weight:600">${d.group}</td>
+        <td style="font-size:11.5px;font-weight:600">${d.group || '<span style="color:var(--txt3);font-weight:400">—</span>'}</td>
         <td>${chips(d.products)}</td>
         <td class="t-r t-mono">${fmtMt(d.mt||0)}</td>
         <td class="t-r" style="color:var(--txt3);font-size:11px">—</td>
@@ -603,7 +603,7 @@ function renderSPI() {
       tr.style.opacity = '0.9';
       tr.innerHTML = `
         <td><div class="t-code" onclick="openDrawerPending('${d.code}')">${d.code}</div></td>
-        <td style="font-size:11.5px;font-weight:600">${d.group}</td>
+        <td style="font-size:11.5px;font-weight:600">${d.group || '<span style="color:var(--txt3);font-weight:400">—</span>'}</td>
         <td>${chips(d.products)}</td>
         <td class="t-r t-mono">${fmtMt(d.mt||0)}</td>
         <td class="t-r t-mono" style="color:${obtMT>0?'var(--teal)':'var(--txt3)'};font-weight:${obtMT>0?'700':'400'}">${obtMT>0?fmtMt(obtMT):'—'}</td>
@@ -654,7 +654,7 @@ function renderSPI() {
     const _obt = _cycObt > 0 ? _cycObt : (Number(d.obtained) || 0);
     tr.innerHTML = `
       <td><div class="t-code" onclick="openDrawer('${d.code}')">${d.code}${salesRevBadge}</div></td>
-      <td style="font-size:11.5px;font-weight:600">${d.group}</td>
+      <td style="font-size:11.5px;font-weight:600">${d.group || '<span style="color:var(--txt3);font-weight:400">—</span>'}</td>
       <td>${chips(d.products)}</td>
       <td class="t-r t-mono">${fmtMt(_s1)}</td>
       <td class="t-r t-mono" style="color:var(--teal)">${fmtMt(_obt)}</td>

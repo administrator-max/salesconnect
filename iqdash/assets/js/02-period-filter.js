@@ -475,6 +475,26 @@ function filteredPending() {
   return PENDING.filter(d => companyInPeriod(d.cycles || []));
 }
 
+/* kpiPool — the companies a KPI card counts: SPI + PENDING, period-filtered
+   when a period is active. Identical to the `allCompanies` set 03-kpis.js
+   builds for every headline figure.
+
+   EVERY DRILL-DOWN MUST ITERATE THIS, never SPI alone. A drill opens FROM a
+   card and exists to explain that card's number; if it iterates a smaller set
+   it silently contradicts the figure the user just clicked.
+
+   That is exactly what happened: SNSD lives in PENDING (Obtained #1 = 120 MT,
+   PERTEK 04-Aug-2026). The Obtained and Available cards counted it — 34,840 →
+   34,960 and 12,293 → 12,413 — but Obtained/Utilized/Available drills all read
+   `SPI`, so the company was absent and their totals sat exactly 120 MT below
+   the card that opened them. Submit drill was already correct because it
+   iterates SPI and PENDING explicitly. */
+function kpiPool() {
+  return PERIOD.active
+    ? [...filteredSPI(), ...filteredPending()]
+    : [...SPI, ...PENDING];
+}
+
 /**
  * Get cycles from a company that individually match the active period.
  * Used for per-cycle KPI calculations.
