@@ -48,14 +48,30 @@ untuk seluruh 34 company.
 - Per company: **0 selisih**.
 - Total sepanjang waktu tidak berubah.
 
+## Catatan teks ikut diseragamkan
+Atas permintaan pemilik data, tiga field tingkat-company yang masih menyebut
+tanggal lama ikut dikoreksi. Penggantiannya **mekanis** — hanya string
+tanggalnya, kata-katanya tidak disentuh:
+
+| Field | Sebelum | Sesudah |
+|---|---|---|
+| `revNote` | "PERTEK TERBIT **14/04/2026** — SPI belum terbit" | "PERTEK TERBIT **01/07/2026** — SPI belum terbit" |
+| `statusUpdate` | "**14/04/26** PERTEK TERBIT" | "**01/07/26** PERTEK TERBIT" |
+| `revSubmitDate` | 14/04/2026 | **01/07/2026** |
+
+`revSubmitDate` diperiksa dulu sebelum disentuh: ia BUKAN sekadar teks, tapi
+memang menyimpan tanggal PERTEK di tingkat company — Revision Management
+menulisnya dari `_pertekDateFinal` (`13-rev-mgmt.js:1097`) — dan hanya dibaca
+untuk tampilan (tabel SPI, drawer, form edit, ekspor), tidak untuk filter
+periode. Jadi mengubahnya konsisten dan tidak menggeser angka mana pun.
+
+Diverifikasi sesudahnya: KPI tidak bergerak sama sekali (All Time 34.840 /
+22.547 / 12.293; H1 19.710 / 17.300 / 11.693).
+
 ## Sisa
-Dua catatan teks pada AADC **masih menyebut 14/04/2026** dan kini bertentangan
-dengan tanggal cycle-nya:
-- `revNote` = *"PERTEK TERBIT 14/04/2026 — SPI belum terbit"*
-- `statusUpdate` = *"14/04/26 PERTEK TERBIT"*
-
-Sengaja **tidak** diubah — keduanya teks naratif milik tim, bukan field
-perhitungan, dan tidak memengaruhi angka mana pun. Sebaiknya tetap dirapikan
-agar tidak menyesatkan pembaca drawer.
-
-Di file master, sel `1-Jul-16` sebaiknya dibetulkan jadi `1-Jul-26`.
+- **`revNote` masih berbunyi "SPI belum terbit"**, padahal `revStatus` dan
+  `spiRef` sama-sama menulis "SPI TERBIT 16/07/2026" dan cycle Obtained #1
+  memang ber-SPI 16/07/2026. Bagian itu **sengaja tidak diubah** — permintaannya
+  menyamakan tanggal, dan mengubah kalimat status adalah keputusan redaksional
+  milik tim, bukan koreksi mekanis.
+- Di file master, sel `1-Jul-16` sebaiknya dibetulkan jadi `1-Jul-26`.
