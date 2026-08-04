@@ -376,20 +376,15 @@ function buildAvailableQuota() {
   // Sort A→Z by company code, then by product name
   rows.sort((a, b) => a.code.localeCompare(b.code) || a.product.localeCompare(b.product));
 
-  // KPI totals — sum avq across all product-rows; company count uses unique codes
-  const totalAvq = rows.reduce((s, r) => s + r.avq, 0);
-  const totalObt = rows.reduce((s, r) => s + r.obtained, 0);
-  const uniqueCos = new Set(rows.filter(r => r.avq > 0).map(r => r.code)).size;
-  const kpiVal  = document.getElementById('kpiAvqVal');
-  const kpiUnit = document.getElementById('kpiAvqUnit');
-  const kpiTag  = document.getElementById('kpiAvqTag');
-  const kpiFill = document.getElementById('kpiAvqFill');
-  if (kpiVal)  kpiVal.textContent  = rows.length > 0 ? fmtMt(totalAvq) : '—';
-  if (kpiUnit) kpiUnit.textContent = `MT · ${uniqueCos} compan${uniqueCos!==1?'ies':'y'} with PERTEK Terbit`;
-  if (kpiTag)  kpiTag.textContent  = rows.length > 0
-    ? `${totalObt > 0 ? (totalAvq/totalObt*100).toFixed(1) : '—'}% remaining of obtained`
-    : 'No SPI data available';
-  if (kpiFill && totalObt > 0) kpiFill.style.width = Math.max(0, Math.min(100, totalAvq/totalObt*100)).toFixed(1) + '%';
+  /* The Available Quota KPI CARD is no longer written here — updateOverviewKPIs()
+     owns it, as `Obtained − Utilized` off the very totals its own two cards
+     show (report spec, 2026-08-04). This function used to sum the per-company
+     rows below, each already clamped at 0, which is a DIFFERENT number once a
+     period is active: a company that used quota this month which was granted
+     last month contributes a negative that the clamp swallows (June read 8,850
+     against an aggregate 5,874). The rows below still drive the CHART, where
+     per-company clamping is right — a single company can never show negative
+     availability. */
 
   // Render bar chart
   const el = document.getElementById('avqChart');

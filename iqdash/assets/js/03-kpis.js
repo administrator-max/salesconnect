@@ -162,6 +162,30 @@ function updateOverviewKPIs() {
   if (kpiUtilUnitEl) kpiUtilUnitEl.textContent = `compan${utilCoCount!==1?'ies':'y'} with shipment`;
   if (kpiUtilFillEl && totalObtainedMT > 0) kpiUtilFillEl.style.width = Math.min(100, totalUtilizedMT / totalObtainedMT * 100).toFixed(1) + '%';
   if (kpiUtilTagEl)  kpiUtilTagEl.textContent  = totalObtainedMT > 0 ? `${(totalUtilizedMT/totalObtainedMT*100).toFixed(1)}% of obtained allocated` : 'Of obtained quota allocated';
+
+  /* ── Available Quota KPI = Obtained − Utilized ────────────────────────
+     Straight subtraction of the two cards above, per the report spec. It used
+     to be written by buildAvailableQuota() as the sum of per-company figures
+     EACH clamped at 0 — a different number under a period filter, because a
+     company that utilised quota this month which was granted in an earlier one
+     produces a negative that the clamp swallows (June showed 8,850 against a
+     true 5,874; July 1,160 against 0). Computed here so the card is one
+     arithmetic step from the numbers beside it, and so it renders in the same
+     first pass as the other four instead of waiting for the deferred charts. */
+  const totalAvailableMT = Math.max(0, totalObtainedMT - totalUtilizedMT);
+  const avqValEl  = document.getElementById('kpiAvqVal');
+  const avqUnitEl = document.getElementById('kpiAvqUnit');
+  const avqTagEl  = document.getElementById('kpiAvqTag');
+  const avqFillEl = document.getElementById('kpiAvqFill');
+  if (avqValEl)  avqValEl.textContent  = totalObtainedMT > 0 ? fmtMt(totalAvailableMT) : '—';
+  if (avqUnitEl) avqUnitEl.textContent = `MT · ${obtCoSet.size} compan${obtCoSet.size !== 1 ? 'ies' : 'y'} with PERTEK Terbit`;
+  if (avqTagEl) {
+    const pct = totalObtainedMT > 0 ? (totalAvailableMT / totalObtainedMT * 100).toFixed(1) + '% remaining of obtained' : 'Obtained − Utilized';
+    const span = avqTagEl.querySelector('span');
+    if (span) span.textContent = pct; else avqTagEl.textContent = pct;
+  }
+  if (avqFillEl) avqFillEl.style.width = totalObtainedMT > 0
+    ? Math.max(0, Math.min(100, totalAvailableMT / totalObtainedMT * 100)).toFixed(1) + '%' : '0%';
   // Total Realized KPI (addressed by ID — index-independent).
   // NOTE: previous code used kpis[2] which is actually the Utilized
   // card in DOM order (Submit[0], Obtained[1], Utilized[2], Realized[3],

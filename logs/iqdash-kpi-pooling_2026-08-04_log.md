@@ -49,20 +49,40 @@ oleh tes Node.
 
 Uji: **PHP 352 assertion, 0 gagal · 6 suite JS, 0 gagal.**
 
-## Sisa — satu pertanyaan definisi: Available saat difilter
-Kartu Available memakai penjumlahan **per-company yang dijepit di 0**,
-sedangkan spesifikasi menyebut *"available = obtain − utilized"* (agregat):
+## Available saat difilter — diputuskan: AGREGAT
+Kartu Available semula memakai penjumlahan **per-company yang dijepit di 0**
+(dihitung di `buildAvailableQuota()`), sedangkan spesifikasi menyebut
+*"available = obtain − utilized"*. Keduanya berbeda begitu filter aktif, karena
+company yang MEMAKAI kuota di periode ini padahal kuotanya TERBIT di periode
+sebelumnya menghasilkan angka negatif yang tertelan penjepitan — mis. IKM
+memakai 2.300 MT di Juli dari kuota terbit Juni.
 
-| Periode | Agregat obtain−utilized | Per-company dijepit (tampil sekarang) |
-|---|---|---|
-| Juni | 5.874 | **8.850** |
-| Juli | 0 | **1.160** |
+Pemilik data memilih **agregat, sesuai spesifikasi**. Kartu Available kini
+dihitung di `updateOverviewKPIs()` sebagai `max(0, totalObtained −
+totalUtilized)` — pengurangan langsung dari dua kartu di sebelahnya.
+`buildAvailableQuota()` berhenti menulis kartu itu dan kembali hanya mengurus
+CHART, tempat penjepitan per-company memang benar (satu company tak boleh
+tampil available negatif).
 
-Selisihnya berasal dari company yang MEMAKAI kuota di periode itu padahal
-kuotanya TERBIT di periode sebelumnya — misalnya IKM memakai 2.300 MT di Juli
-dari kuota yang terbit Juni. Per-company itu angka negatif, dijepit jadi 0.
+Efek samping yang bagus: kartu Available ikut render di pass pertama bersama
+empat kartu lain, tidak lagi menunggu chart yang ditunda.
 
-Keduanya bisa dibenarkan: agregat mengikuti rumus apa adanya, sedangkan
-penjepitan mencegah "available negatif" untuk sebuah company. Di All Time
-keduanya identik (12.293) karena tak ada company yang util-nya melebihi
-obtained sepanjang waktu. **Belum diubah — menunggu keputusan pemilik data.**
+| Periode | Sebelum | Sesudah | Master |
+|---|---|---|---|
+| Juni | 8.850 | **5.874** | 5.874 |
+| Juli | 1.160 | **0** | 0 |
+| All Time | 12.293 | 12.293 | 12.293 |
+
+## Hasil akhir — kartu KPI live vs master
+
+| | All Time | April | Juni | Juli |
+|---|---|---|---|---|
+| Submitted | 277.545 ✓ | 27.800 ✓ | 14.920 ✓ | 5.600 ✓ |
+| Obtained | 34.840 ✓ | 620 ¹ | 10.040 ✓ | 1.160 ✓ |
+| Utilized | 22.547 ✓ | 3.120 ✓ | 4.166 ✓ | 3.700 ✓ |
+| Realized | 15.438,208 ✓ | 4.454,829 ✓ | 2.275,372 ✓ | 0 ✓ |
+| Available | 12.293 ✓ | 0 ✓ | 5.874 ✓ | 0 ✓ |
+
+¹ Master menghitung 470 karena sel PERTEK AADC di master berisi `1-Jul-16`
+(seharusnya 14 Apr 2026). Dashboard yang benar; **file master yang perlu
+diperbaiki** — lihat `iqdash-pertek-dates-confirmed_2026-08-04_log.md`.
