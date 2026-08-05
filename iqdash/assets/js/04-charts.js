@@ -764,7 +764,9 @@ function buildFlowKPIStrip() {
      company whose cargo landed in-window but whose PERTEK did not), and
      realized 11.395,405 vs 15.438,208 (it summed ra_records.berat instead of
      the PIB lines the report spec names). Team report 2026-08-05. */
-  const totalObtained  = reportObtainedTotal().mt;
+  const _obtained      = reportObtainedTotal();
+  const totalObtained  = _obtained.mt;
+  const obtainedCoN    = _obtained.companies;
   const totalUtilized  = reportUtilizedTotal().mt;
   const _realized      = reportRealizedTotal();
   const totalRealized  = _realized.mt;
@@ -783,11 +785,20 @@ function buildFlowKPIStrip() {
   const eligCount = arrived.filter(r => r.realPct >= 0.6).length;
 
   const steps = [
-    { num:'①', label:'Obtained Quota', val: fmtMt(totalObtained), unit:'MT', note:`${fRa.length} companies`, color:'var(--navy)', bg:'#eef2ff', border:'#c7d2fe' },
+    /* Jumlah company harus datang dari angka yang SAMA dengan MT-nya. Dulu
+       memakai fRa.length (baris RA), jadi 19.710 MT yang sama tertulis
+       "18 companies" di Overview tapi "20 companies" di sini. */
+    { num:'①', label:'Obtained Quota', val: fmtMt(totalObtained), unit:'MT', note:`${obtainedCoN} companies`, color:'var(--navy)', bg:'#eef2ff', border:'#c7d2fe' },
     { num:'②', label:'Utilized (In Shipment)', val: totalUtilized > 0 ? fmtMt(totalUtilized) : '—', unit: totalUtilized > 0 ? 'MT allocated' : 'pending', note: `${inShip.length} in transit`, color:'var(--blue)', bg:'var(--blue-bg)', border:'var(--blue-bd)' },
     { num:'③', label:'Realized', val: totalRealized > 0 ? totalRealized.toLocaleString(MT_LOCALE) : '—', unit: totalRealized > 0 ? 'MT arrived JKT' : 'none yet', note: `${realizedCoN} co. arrived`, color:'var(--green)', bg:'var(--green-bg)', border:'var(--green-bd)' },
     { num:'④', label:'Realization %', val: realPct.toFixed(1) + '%', unit: realPct >= 60 ? '≥ 60% threshold' : '< 60% threshold', note: `${eligCount} eligible co.`, color: realPct >= 60 ? 'var(--green)' : realPct >= 40 ? 'var(--amber)' : 'var(--red2)', bg: realPct >= 60 ? 'var(--green-bg)' : realPct >= 40 ? 'var(--amber-bg)' : 'var(--red-bg)', border: realPct >= 60 ? 'var(--green-bd)' : realPct >= 40 ? 'var(--amber-bd)' : 'var(--red-bd)' },
-    { num:'⑤', label:'Remaining Quota', val: fmtMt(totalRemaining), unit:'MT unallocated', note:'Obtained − Utilized', color:'var(--teal)', bg:'var(--teal-bg)', border:'var(--teal-bd)' },
+    /* Subjudulnya BUKAN "Obtained − Utilized" lagi. Itu benar secara definisi
+       (cumulativeAvailable memang obtained − utilized sepanjang waktu), tapi
+       pembaca yang mengurangkan kedua kartu di sebelahnya akan dapat
+       19.710 − 17.300 = 2.410, bukan 11.693 — label yang mengundang salah
+       hitung. Ini saldo kumulatif, sama dengan kartu Available di dua halaman
+       lain. */
+    { num:'⑤', label:'Remaining Quota', val: fmtMt(totalRemaining), unit:'MT unallocated', note:'Saldo kumulatif', color:'var(--teal)', bg:'var(--teal-bg)', border:'var(--teal-bd)' },
     { num:'⑥', label:'Target Re-Apply', val: totalTarget > 0 ? fmtMt(totalTarget) : '—', unit: totalTarget > 0 ? 'MT next cycle' : 'TBA', note:`${eligCount} eligible to apply`, color:'var(--amber)', bg:'var(--amber-bg)', border:'var(--amber-bd)' },
   ];
 

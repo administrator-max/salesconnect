@@ -151,7 +151,30 @@ Indonesia. Dibuktikan pula `fmtNum(15438.208)` = `15,438.208` sementara
 bekerja, bukan sekadar kebetulan karena browser penguji ber-locale en-US
 (justru itu sebabnya bug ini tak pernah terlihat dari sini).
 
+## Susulan 2 — dua label yang masih menyesatkan
+
+Ditemukan saat memeriksa tampilan sesudah semua perbaikan di atas. Angkanya
+sudah benar; **labelnya** yang belum.
+
+**① Obtained Quota — jumlah company.** Strip U&R memakai `fRa.length` (jumlah
+baris RA), bukan jumlah company dari angka yang sedang ditampilkan. Akibatnya
+19.710 MT yang sama tertulis **"18 companies"** di Overview tapi
+**"20 companies"** di U&R. Kini memakai `reportObtainedTotal().companies`,
+sehingga MT dan jumlah company selalu berasal dari sumber yang sama.
+
+**⑤ Remaining Quota — subjudul "Obtained − Utilized".** Secara definisi itu
+benar (`cumulativeAvailable` memang obtained − utilized sepanjang waktu), tapi
+pembaca yang mengurangkan dua kartu di sebelahnya akan mendapat
+19.710 − 17.300 = **2.410**, bukan 11.693. Label yang mengundang salah hitung.
+Diganti **"Saldo kumulatif"**.
+
 ## Sisa / risiko
 
 Elemen gauge yang sudah tak ada di HTML membuat `buildGauge()` dan sebagian
 `updateOverviewStats()` menjadi kode mati. Tidak dihapus di sini.
+
+Kartu **Available Quota** di Overview bersubjudul "18 companies with PERTEK
+Terbit" sementara halaman Available Quota menulis "Companies w/ Quota: 11".
+Keduanya benar dan mengukur hal berbeda (18 = punya PERTEK di periode; 11 =
+masih punya sisa saldo), tapi berpotensi dibaca sebagai selisih. Belum diubah —
+menunggu tim memutuskan penamaan yang mereka inginkan.
