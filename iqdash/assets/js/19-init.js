@@ -210,23 +210,25 @@ function buildAvqPageKPIs() {
      obtained − utilised did not equal the available it printed, and none of
      the three agreed with the Overview card (H1 2026: page 16,540, chart
      13,630, card 11,693). */
-  let totalObt = 0, totalUtil = 0, totalAvq = 0, coSet = new Set();
-  [...filteredSPI(), ...filteredPending()].forEach(co => {
-    const coObt = canonicalObtained(co);
-    if (coObt <= 0) return;
-    const util  = Number(co.utilizationMT) || 0;
-    const avail = cumulativeAvailable(co);
-    totalObt  += coObt;
-    totalUtil += util;
-    totalAvq  += avail;
-    if (avail > 0) coSet.add(co.code);
-  });
+  /* SUPERSEDES the reasoning above. The note kept obtained and utilised
+     ALL-TIME here (canonicalObtained, co.utilizationMT) while the company list
+     was period-filtered, on the argument that this page answers "balance of
+     companies active this period". In practice that printed 30.140 / 18.447
+     under the H1 2026 filter against the Overview card's 19.710 / 17.300 —
+     three pages, one label, three numbers. The data owners' instruction
+     (2026-08-05) is that the figures must agree on every page under every
+     period, so this page now calls the same report totals as the rest.
+     Available stays cumulative, as confirmed 2026-08-04. */
+  const _avq  = reportAvailableTotal();
+  const totalObt  = reportObtainedTotal().mt;
+  const totalUtil = reportUtilizedTotal().mt;
+  const totalAvq  = _avq.mt;
 
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   set('avqKpi1', fmtMt(totalAvq));
   set('avqKpi2', fmtMt(totalObt));
   set('avqKpi3', fmtMt(totalUtil));
-  set('avqKpi4', coSet.size);
+  set('avqKpi4', _avq.companies);
 
   const utilPct = totalObt > 0 ? (totalUtil / totalObt * 100).toFixed(1) : 0;
   const avqPct  = totalObt > 0 ? (totalAvq  / totalObt * 100).toFixed(1) : 0;

@@ -319,8 +319,13 @@ function updateOverviewStats() {
   const eligible  = fRa.filter(isEligible).length;
   const inShip    = fRa.filter(r => !r.cargoArrived).length;
   const arrived   = fRa.filter(r => r.cargoArrived);
-  const totalBerat   = arrived.reduce((s,r) => s + r.berat, 0);
-  const totalObtArr  = arrived.reduce((s,r) => s + r.obtained, 0);
+  /* Shared report totals — this function is the LAST writer of the gauge
+     elements (it runs after buildGauge/buildFlowKPIStrip in the render
+     sequence), so whatever it puts here is what the user actually sees.
+     It used to sum ra_records over arrived rows, giving the gauge a "Realized
+     MT" that disagreed with every KPI card once a period was picked. */
+  const totalBerat   = reportRealizedTotal().mt;
+  const totalObtArr  = reportObtainedTotal().mt;
   const realPct   = totalObtArr > 0 ? totalBerat / totalObtArr : 0;
   const subCodes  = fRa.filter(isReapplySubmitted).map(r=>r.code).join(', ') || '—';
   const eligCodes = fRa.filter(isEligible).map(r=>r.code).join(', ') || '—';
@@ -329,10 +334,12 @@ function updateOverviewStats() {
   const gPct = document.querySelector('.gauge-pct');
   if (gPct) gPct.textContent = (realPct*100).toFixed(1) + '%';
   // Update gauge MT stat boxes
+  /* fmtMt, not toLocaleString(undefined, …) — undefined follows the BROWSER
+     locale, so an id-ID machine rendered 15438.208 as "15.438". */
   const gRealMT = document.getElementById('gaugeRealMT');
-  if (gRealMT) gRealMT.textContent = totalBerat.toLocaleString(undefined,{maximumFractionDigits:0});
+  if (gRealMT) gRealMT.textContent = fmtMt(totalBerat);
   const gRemMT = document.getElementById('gaugeRemainMT');
-  if (gRemMT) gRemMT.textContent = Math.max(0, totalObtArr - totalBerat).toLocaleString(undefined,{maximumFractionDigits:0});
+  if (gRemMT) gRemMT.textContent = fmtMt(Math.max(0, totalObtArr - totalBerat));
   // Update gauge stat boxes
   const gs = document.getElementById('gaugeSubmitted'); if (gs) gs.textContent = submitted;
   const ge = document.getElementById('gaugeElig');      if (ge) ge.textContent = eligible;

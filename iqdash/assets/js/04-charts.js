@@ -757,20 +757,26 @@ function buildFlowKPIStrip() {
   const arrived   = fRa.filter(r => r.cargoArrived);
   const inShip    = fRa.filter(r => !r.cargoArrived);
 
-  // ① Obtained — total from ALL SPI companies using canonicalObtainedFiltered
-  // (consistent with Overview KPI2, OU chart, and Available Quota page)
-  const totalObtained = (typeof canonicalObtainedFiltered === 'function')
-    ? filteredSPI().reduce((s, co) => s + canonicalObtainedFiltered(co), 0)
-    : filteredSPI().reduce((s, co) => s + (co.obtained || 0), 0);
-  // ② Utilized — sum of utilizationByProd across ALL SPI companies
-  //    This is the SINGLE source of truth: same data used by Detail — Company & Product Level
-  const totalUtilized = filteredSPI().reduce((s, co) => s + scopedUtilTotal(co), 0); // rule #3: lot-date sliced
-  // ③ Realized — sum of berat for arrived companies
-  const totalRealized = arrived.reduce((s, r) => s + r.berat, 0);
+  /* ①②③⑤ come from the shared report totals — see their docblock in
+     02-period-filter.js. This strip used to derive its own, and under a period
+     filter it disagreed with the Overview card bearing the same label:
+     utilized 13.600 vs 17.300 (it pooled filteredSPI() alone, dropping every
+     company whose cargo landed in-window but whose PERTEK did not), and
+     realized 11.395,405 vs 15.438,208 (it summed ra_records.berat instead of
+     the PIB lines the report spec names). Team report 2026-08-05. */
+  const totalObtained  = reportObtainedTotal().mt;
+  const totalUtilized  = reportUtilizedTotal().mt;
+  const _realized      = reportRealizedTotal();
+  const totalRealized  = _realized.mt;
+  const realizedCoN    = _realized.companies;
   // ④ Realization % (of obtained)
   const realPct = totalObtained > 0 ? (totalRealized / totalObtained * 100) : 0;
-  // ⑤ Remaining = obtained − utilized (unallocated quota)
-  const totalRemaining = Math.max(0, totalObtained - totalUtilized);
+  /* ⑤ Remaining — the cumulative saldo, the same figure the Overview and
+     Available Quota cards print. Its "Obtained − Utilized" subtitle stays
+     literally true: that is how cumulativeAvailable() is defined. Deriving it
+     here as (period obtained − period utilized) instead produced a third
+     number for a concept the other two pages already agreed on. */
+  const totalRemaining = reportAvailableTotal().mt;
   // ⑥ Target Re-Apply
   const totalTarget = fRa.reduce((s, r) => s + (r.target || 0), 0);
   // Eligible count
@@ -779,7 +785,7 @@ function buildFlowKPIStrip() {
   const steps = [
     { num:'①', label:'Obtained Quota', val: fmtMt(totalObtained), unit:'MT', note:`${fRa.length} companies`, color:'var(--navy)', bg:'#eef2ff', border:'#c7d2fe' },
     { num:'②', label:'Utilized (In Shipment)', val: totalUtilized > 0 ? fmtMt(totalUtilized) : '—', unit: totalUtilized > 0 ? 'MT allocated' : 'pending', note: `${inShip.length} in transit`, color:'var(--blue)', bg:'var(--blue-bg)', border:'var(--blue-bd)' },
-    { num:'③', label:'Realized', val: totalRealized > 0 ? totalRealized.toLocaleString(MT_LOCALE) : '—', unit: totalRealized > 0 ? 'MT arrived JKT' : 'none yet', note: `${arrived.length} co. arrived`, color:'var(--green)', bg:'var(--green-bg)', border:'var(--green-bd)' },
+    { num:'③', label:'Realized', val: totalRealized > 0 ? totalRealized.toLocaleString(MT_LOCALE) : '—', unit: totalRealized > 0 ? 'MT arrived JKT' : 'none yet', note: `${realizedCoN} co. arrived`, color:'var(--green)', bg:'var(--green-bg)', border:'var(--green-bd)' },
     { num:'④', label:'Realization %', val: realPct.toFixed(1) + '%', unit: realPct >= 60 ? '≥ 60% threshold' : '< 60% threshold', note: `${eligCount} eligible co.`, color: realPct >= 60 ? 'var(--green)' : realPct >= 40 ? 'var(--amber)' : 'var(--red2)', bg: realPct >= 60 ? 'var(--green-bg)' : realPct >= 40 ? 'var(--amber-bg)' : 'var(--red-bg)', border: realPct >= 60 ? 'var(--green-bd)' : realPct >= 40 ? 'var(--amber-bd)' : 'var(--red-bd)' },
     { num:'⑤', label:'Remaining Quota', val: fmtMt(totalRemaining), unit:'MT unallocated', note:'Obtained − Utilized', color:'var(--teal)', bg:'var(--teal-bg)', border:'var(--teal-bd)' },
     { num:'⑥', label:'Target Re-Apply', val: totalTarget > 0 ? fmtMt(totalTarget) : '—', unit: totalTarget > 0 ? 'MT next cycle' : 'TBA', note:`${eligCount} eligible to apply`, color:'var(--amber)', bg:'var(--amber-bg)', border:'var(--amber-bd)' },
@@ -809,18 +815,23 @@ function buildFlowKPIStrip() {
 }
 
 function buildGauge() {
-  const fRa     = filteredRA(); // respects period filter
-  const arrived   = fRa.filter(r => r.cargoArrived);
-  const realized  = arrived.reduce((s,r) => s + r.berat, 0);
-  const obtained  = arrived.reduce((s,r) => s + r.obtained, 0);
+  const fRa = filteredRA(); // respects period filter
+  /* Realized and Obtained come from the shared report totals, like every other
+     surface. This gauge used to sum ra_records (berat / obtained) over arrived
+     rows only, so under a period filter it printed a third "Realized MT" —
+     the same divergence the team reported for the U&R strip on 2026-08-05. */
+  const realized  = reportRealizedTotal().mt;
+  const obtained  = reportObtainedTotal().mt;
   const remaining = obtained - realized;
-  // Weighted avg realization (berat / obtained), not simple mean of realPct
+  // Weighted avg realization (realized / obtained), not simple mean of realPct
   const avgReal   = obtained > 0 ? realized / obtained : 0;
-  // Update static labels
+  /* fmtMt, not a bare toLocaleString(undefined, …): passing undefined follows
+     the BROWSER locale, so an id-ID machine rendered 15438.208 as "15.438" —
+     precisely the bug 00-num.js's MT_LOCALE exists to prevent. */
   const rmt = document.getElementById('gaugeRealMT');
-  if (rmt) rmt.textContent = realized.toLocaleString(undefined,{maximumFractionDigits:0});
+  if (rmt) rmt.textContent = fmtMt(realized);
   const remEl = document.getElementById('gaugeRemainMT');
-  if (remEl) remEl.textContent = Math.max(0,remaining).toLocaleString(undefined,{maximumFractionDigits:0});
+  if (remEl) remEl.textContent = fmtMt(Math.max(0, remaining));
   const gPct = document.querySelector('.gauge-pct');
   if (gPct) gPct.textContent = (avgReal*100).toFixed(1) + '%';
   // Update stat boxes

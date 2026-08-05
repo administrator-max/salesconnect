@@ -9,36 +9,38 @@ function exportExecutivePDF() {
   const Nf = (n, d=1) => typeof n === 'number' ? n.toFixed(d) : '—';
   const genDate = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'});
 
-  // KPI 1 — Total Submitted (Submit #N, filter by Submit MOI date)
-  // CRITICAL FIX: dedup by cycleType per company — prevents duplicate cycle rows inflating total
-  let s1_mt = 0; const s1_co = new Set();
-  [...SPI, ...PENDING].forEach(co => {
-    // rule #1/#4/#6: per-cycle Submit MOI date gate, dedup, Revision/_fromRevReq excluded
-    const v = (typeof canonicalSubmittedFiltered === 'function') ? canonicalSubmittedFiltered(co) : 0;
-    if (v > 0) { s1_mt += v; s1_co.add(co.code); }
-  });
+  /* KPI 1/2/3 — delegated to the shared report totals (docblock in
+     02-period-filter.js). The PDF used to hold a THIRD copy of these rules,
+     and each copy differed from the dashboard in its own way:
+       · Submitted used canonicalSubmittedFiltered() rather than the Overview
+         Submit #N walk.
+       · Obtained called canonicalObtainedFiltered() unconditionally, so with
+         NO period active the PDF applied a period anchor the cards did not.
+       · Realized summed ra_records.berat by arrivalDate instead of the PIB
+         volume/pib_date the report spec names — the same gap that made the
+         U&R page read 11.395,405 against the Overview's 15.438,208. */
+  const _sub = reportSubmittedTotal();
+  const s1_mt = _sub.mt, s1_co = { size: _sub.companies };
 
-  // KPI 2 — Obtained: use canonicalObtainedFiltered for consistency with Overview KPI2
-  // Same formula: Obtained #N cycles with valid PERTEK Terbit, deduped, no _fromRevReq
-  let s2_mt = 0; const s2_co = new Set();
-  [...SPI, ...PENDING].forEach(co => {
-    const coObt = canonicalObtainedFiltered(co);
-    if (coObt > 0) { s2_mt += coObt; s2_co.add(co.code); }
-  });
+  const _obt = reportObtainedTotal();
+  const s2_mt = _obt.mt, s2_co = { size: _obt.companies };
 
-  // KPI 3 — Realized: filter by arrivalDate (YYYY-MM-DD). etaJKT is display text only.
+  const _real = reportRealizedTotal();
+  const s3_co    = _real.companies;
+  const s3_mt    = _real.mt;
+  const s3_codes = (_real.codes || []).join(', ') || '—';
+
   const validSpiCodes = new Set(
     PERIOD.active ? SPI.filter(co => companyInPeriod(co.cycles||[])).map(co => co.code) : SPI.map(co => co.code)
   );
+  /* avgReal stays on ra_records: it is an average of per-company realisation
+     PERCENTAGES, which the PIB lines do not carry (they hold volume only). */
   const arrivedRA = RA.filter(r => {
     if (!r.cargoArrived) return false;
     if (!PERIOD.active) return true;
     const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
     return inPd(ad);
   });
-  const s3_co    = arrivedRA.length;
-  const s3_mt    = arrivedRA.reduce((t,r) => t+(r.berat||0), 0);
-  const s3_codes = arrivedRA.map(r => r.code).join(', ') || '—';
   const avgReal  = arrivedRA.length ? arrivedRA.reduce((t,r) => t+r.realPct, 0)/arrivedRA.length*100 : 0;
 
   // KPI 4 — Re-Apply: scoped to SPI companies that match the period
@@ -56,23 +58,15 @@ function exportExecutivePDF() {
      a fallback) and only happened to land on the master's figure; the Overview
      card meanwhile had been switched to a period subtraction, so the two
      surfaces printed different numbers under the same name. */
-  const avqPoolPdf = PERIOD.active
-    ? [...filteredSPI(), ...filteredPending()]
-    : [...SPI, ...PENDING];
-  const availQuotaTotal = cumulativeAvailableTotal(avqPoolPdf);
+  const availQuotaTotal = reportAvailableTotal().mt;
 
-  /* Utilization total — delegated to the same helpers the Overview KPI uses.
-     This used to sum `co.utilizationByProd` directly, which is the ALL-TIME
-     per-product figure: the period only ever filtered WHICH COMPANIES were
-     counted, never how much of their utilization fell inside the window. For
-     Jan–Jun 2026 that printed 18,447 MT against a true 17,300. Pool via
-     utilizationPool() as well, so a company that utilised in-period but whose
-     cycles sit outside it is not dropped (see that function's docblock). */
-  const utilPoolPdf = PERIOD.active
-    ? utilizationPool([...filteredSPI(), ...filteredPending()])
-    : [...SPI, ...PENDING];
-  const utilTotal   = utilPoolPdf.reduce((s, co) => s + scopedUtilTotal(co), 0);
-  const utilCoCount = utilPoolPdf.filter(co => scopedUtilTotal(co) > 0).length;
+  /* Utilization total — delegated. It once summed `co.utilizationByProd`, the
+     ALL-TIME per-product figure, so the period only filtered WHICH COMPANIES
+     counted and never how much of their utilisation fell inside the window:
+     18.447 MT printed against a true 17.300 for Jan–Jun 2026. */
+  const _utilPdf    = reportUtilizedTotal();
+  const utilTotal   = _utilPdf.mt;
+  const utilCoCount = _utilPdf.companies;
   const utilRate    = s2_mt > 0 ? (utilTotal/s2_mt*100).toFixed(1) : '—';
 
   // Top 5 Products by obtained MT (PERTEK Terbit filter)

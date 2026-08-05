@@ -495,6 +495,130 @@ function kpiPool() {
     : [...SPI, ...PENDING];
 }
 
+/* Every company, unfiltered. Submitted/Obtained need this: they do their own
+   per-CYCLE date test inside, so pre-filtering by company would apply the
+   window twice. */
+function allCompaniesPool() {
+  return [...SPI, ...PENDING];
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   REPORT TOTALS — the five headline figures, ONE implementation each.
+
+   These numbers appear on THREE pages (Overview · Utilization & Realization ·
+   Available Quota) and in the PDF Summary. Each surface used to compute them
+   itself, and under a period filter the copies disagreed. Reported by the team
+   2026-08-05 for 01 Jan – 30 Jun 2026:
+
+     Utilized   Overview 17.300 · U&R 13.600 · AVQ 18.447
+     Obtained   Overview 19.710 · U&R 19.710 · AVQ 30.140
+     Realized   Overview 15.438,208 · U&R 11.395,405
+
+   UNFILTERED they all agreed — which is exactly why this survived so long.
+   Every copy collapses to the same value when there is no window to slice, so
+   the divergence is invisible until someone picks a period. Any check that
+   only ever looks at the all-time view cannot catch this class of bug.
+
+   Each gap had its own cause, and none of them was the rule being wrong:
+     · U&R utilized — pooled filteredSPI() alone, dropping whole any company
+       whose PERTEK sits outside the window but whose CARGO lands inside it.
+       Re-admitting those is the entire purpose of utilizationPool(): 3.700 MT.
+     · U&R realized — read ra_records.berat (a hand-kept one-row-per-company
+       summary) instead of the REALIZATIONS PIB lines the report spec names.
+     · AVQ obtained/utilized — all-time figures (canonicalObtained,
+       co.utilizationMT) printed beside a period-filtered company list, so the
+       cards described a different population than the rows beneath them.
+
+   The Overview implementations were the verified-correct ones (matched against
+   the master for H1 2026), so they are what moved here verbatim. Every surface
+   now CALLS these. Nothing re-derives them — that is the only thing that keeps
+   an arbitrary period, not just Jan–Jun, consistent.
+
+   Each returns { mt, companies }.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Σ Submit #N cycles only — Revision Requests track re-allocation, not new
+   quota. Deduped per (company, cycle type); anchored on submitDate. */
+function reportSubmittedTotal() {
+  let mt = 0;
+  const cos = new Set();
+  allCompaniesPool().forEach(co => {
+    const seen = new Set();
+    let coTotal = 0, any = false;
+    (co.cycles || []).forEach(c => {
+      if (!/^submit\s*#\d/i.test(c.type)) return;
+      const key = c.type.toLowerCase().trim();
+      if (seen.has(key)) return;
+      seen.add(key);
+      if (c._fromRevReq) return;
+      const v = typeof c.mt === 'number' ? c.mt : Number(c.mt) || 0;
+      if (v <= 0) return;
+      if (PERIOD.active && !inPd(pDate(c.submitDate))) return;
+      coTotal += v;
+      any = true;
+    });
+    if (any) { mt += coTotal; cos.add(co.code); }
+  });
+  return { mt, companies: cos.size };
+}
+
+/* Σ Obtained #N where PERTEK/SPI terbit, anchored on the PERTEK of the paired
+   Submit row. Delegated to canonicalObtained[Filtered] — never re-implemented;
+   a hand-kept copy of these rules is what read 890 MT against a true 10.040. */
+function reportObtainedTotal() {
+  let mt = 0;
+  const cos = new Set();
+  allCompaniesPool().forEach(co => {
+    const v = PERIOD.active ? canonicalObtainedFiltered(co) : canonicalObtained(co);
+    if (v > 0) { mt += v; cos.add(co.code); }
+  });
+  return { mt, companies: cos.size };
+}
+
+/* Σ utilisation sliced by LOT date (rule #3). The pool is widened by
+   utilizationPool() so a company that used quota inside the window still
+   counts when the permit granting it fell outside. */
+function reportUtilizedTotal() {
+  const pool = PERIOD.active ? utilizationPool(kpiPool()) : allCompaniesPool();
+  let mt = 0, n = 0;
+  pool.forEach(co => {
+    const v = scopedUtilTotal(co);
+    mt += v;
+    if (v > 0) n++;
+  });
+  return { mt, companies: n };
+}
+
+/* Σ PIB volume from the realizations tab, anchored on pib_date — the source
+   the report spec names ("REALISASI ... kolom Volume"). Falls back to the old
+   ra_records path only when the fetch failed, so a dead endpoint degrades to
+   previous behaviour instead of showing zero. */
+function reportRealizedTotal() {
+  if (Array.isArray(window.REALIZATIONS) && REALIZATIONS.length) {
+    const rows = REALIZATIONS.filter(r => !PERIOD.active || inPd(pDate(r.pib_date)));
+    const cos = new Set(rows.map(r => String(r.company_code || '').toUpperCase()).filter(Boolean));
+    const mt = rows.reduce((s, r) => s + (parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0), 0);
+    return { mt, companies: cos.size, codes: [...cos] };
+  }
+  const arrived = (typeof filteredRA === 'function' ? filteredRA() : RA).filter(r => r.cargoArrived);
+  return {
+    mt: arrived.reduce((s, r) => s + (Number(r.berat) || 0), 0),
+    companies: arrived.length,
+    codes: arrived.map(r => r.code),
+  };
+}
+
+/* CUMULATIVE saldo — a balance is a stock, not activity inside a window. The
+   period narrows WHICH companies are counted, never how much of their balance
+   "belongs to" the window. Confirmed by the data owners 2026-08-04. */
+function reportAvailableTotal() {
+  const pool = kpiPool();
+  return {
+    mt: cumulativeAvailableTotal(pool),
+    companies: pool.filter(co => cumulativeAvailable(co) > 0).length,
+  };
+}
+
 /**
  * Get cycles from a company that individually match the active period.
  * Used for per-cycle KPI calculations.

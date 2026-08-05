@@ -12,28 +12,14 @@ function updateOverviewKPIs() {
      for additional MT have an explicit Submit #2 cycle in DB (matching
      XLSX master). Deduped per (company, cycle_type).
   ────────────────────────────────────────────────────────────────────────── */
-  let totalSubmitMT = 0, submitCoSet = new Set();
-  const allCompanies = [...SPI, ...PENDING];
-  allCompanies.forEach(co => {
-    const seen = new Set();
-    let coTotal = 0, anyInPeriod = false;
-    (co.cycles || []).forEach(c => {
-      if (!/^submit\s*#\d/i.test(c.type)) return;   // Submit #N only — NOT Revision
-      const key = c.type.toLowerCase().trim();
-      if (seen.has(key)) return;
-      seen.add(key);
-      if (c._fromRevReq) return;
-      const mt = typeof c.mt === 'number' ? c.mt : Number(c.mt) || 0;
-      if (mt <= 0) return;
-      if (PERIOD.active && !inPd(pDate(c.submitDate))) return;
-      coTotal += mt;
-      anyInPeriod = true;
-    });
-    if (anyInPeriod) {
-      totalSubmitMT += coTotal;
-      submitCoSet.add(co.code);
-    }
-  });
+  /* Delegated to reportSubmittedTotal() — see its docblock in
+     02-period-filter.js. These five figures also head the Utilization &
+     Realization page, the Available Quota page and the PDF; when each surface
+     computed its own, the period-filtered views disagreed (team report
+     2026-08-05). There is now one implementation and four callers. */
+  const _sub = reportSubmittedTotal();
+  const totalSubmitMT = _sub.mt;
+  const submitCoSet   = { size: _sub.companies };
 
   /* ── KPI 2: Total Obtained ──────────────────────────────────────────────
      Match the Excel "Total Obtained (MT)" footer (23,090 MT in 240426 sheet).
@@ -51,14 +37,9 @@ function updateOverviewKPIs() {
      890 MT against a true 10,040. A copy that must be kept in step by hand is
      the same failure mode as the ledger/cycles split this whole change set
      removed, so there is now exactly one implementation of each rule. */
-  let totalObtainedMT = 0, obtCoSet = new Set();
-  allCompanies.forEach(co => {
-    const coObt = PERIOD.active ? canonicalObtainedFiltered(co) : canonicalObtained(co);
-    if (coObt > 0) {
-      totalObtainedMT += coObt;
-      obtCoSet.add(co.code);
-    }
-  });
+  const _obt = reportObtainedTotal();
+  const totalObtainedMT = _obt.mt;
+  const obtCoSet = { size: _obt.companies };
 
   /* ── KPI 3: Total Realized ───────────────────────────────────────────
      Source is the PIB line data (`realizations` tab: volume + pib_date), per
@@ -73,24 +54,10 @@ function updateOverviewKPIs() {
      (144 ISO + 60 D/M/YYYY, none ambiguous). Falls back to the old RA path
      only if the realizations fetch failed, so a dead endpoint degrades to the
      previous behaviour instead of showing zero. */
-  let realizedCount, totalRealizedMT, arrivedCodes;
-  if (Array.isArray(window.REALIZATIONS) && REALIZATIONS.length) {
-    const rows = REALIZATIONS.filter(r => !PERIOD.active || inPd(pDate(r.pib_date)));
-    const codes = new Set(rows.map(r => String(r.company_code || '').toUpperCase()).filter(Boolean));
-    realizedCount   = codes.size;
-    totalRealizedMT = rows.reduce((s, r) => s + (parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0), 0);
-    arrivedCodes    = [...codes].join(', ') || '—';
-  } else {
-    const arrivedRa = RA.filter(r => {
-      if (!r.cargoArrived) return false;
-      if (!PERIOD.active) return true;
-      const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
-      return inPd(ad);
-    });
-    realizedCount   = new Set(arrivedRa.map(r => r.code)).size;
-    totalRealizedMT = arrivedRa.reduce((s, r) => s + r.berat, 0);
-    arrivedCodes    = [...new Set(arrivedRa.map(r => r.code))].join(', ') || '—';
-  }
+  const _real = reportRealizedTotal();
+  const realizedCount   = _real.companies;
+  const totalRealizedMT = _real.mt;
+  const arrivedCodes    = (_real.codes || []).join(', ') || '—';
 
   /* ── KPI 4: Re-Apply Eligible / Submitted ───────────────────────────── */
   // Scope re-apply pool to companies whose SPI cycles match the active period
@@ -115,20 +82,12 @@ function updateOverviewKPIs() {
     if (inScope) { pendMT += p.mt; pendCoSet.add(p.code); }
   });
 
-  /* ── KPI 2b: Total Utilized MT ───────────────────────────────────────────
-     Match the Excel "Total Utilization (MT)" footer (15,181 MT in 240426).
-     Formula: Σ companies.utilization_mt across ALL companies (SPI + PENDING),
-     not just filteredSPI() — the Excel total covers every company in the sheet.
-     Period filter passes through filteredSPI semantics when active.
-  ────────────────────────────────────────────────────────────────────────── */
-  // Union with companies whose LOTS fall in the period — cycle-scoped
-  // filtering alone drops a company whose permit and cargo land in
-  // different quarters (see utilizationPool()'s docblock).
-  const utilPool = PERIOD.active
-    ? utilizationPool([...filteredSPI(), ...filteredPending()])
-    : allCompanies; // already SPI + PENDING from KPI 1
-  const totalUtilizedMT = utilPool.reduce((s, co) => s + scopedUtilTotal(co), 0); // rule #3: lot-date sliced
-  const utilCoCount     = utilPool.filter(co => scopedUtilTotal(co) > 0).length;
+  /* ── KPI 2b: Total Utilized MT — delegated. The rules (lot-date slicing and
+     the widened pool that re-admits a company whose permit and cargo land in
+     different quarters) live in reportUtilizedTotal(). ─────────────────── */
+  const _util = reportUtilizedTotal();
+  const totalUtilizedMT = _util.mt;
+  const utilCoCount     = _util.companies;
 
   /* ── Update DOM ───────────────────────────────────────────────────── */
   if (kpis[0]) {
@@ -176,8 +135,7 @@ function updateOverviewKPIs() {
      docblock. A period filter narrows WHICH companies are counted, never how
      much of their balance "belongs to" the window. Same helper the PDF Summary
      uses, so the two surfaces cannot drift apart again. */
-  const avqPool = PERIOD.active ? [...filteredSPI(), ...filteredPending()] : allCompanies;
-  const totalAvailableMT = cumulativeAvailableTotal(avqPool);
+  const totalAvailableMT = reportAvailableTotal().mt;
   const avqValEl  = document.getElementById('kpiAvqVal');
   const avqUnitEl = document.getElementById('kpiAvqUnit');
   const avqTagEl  = document.getElementById('kpiAvqTag');
