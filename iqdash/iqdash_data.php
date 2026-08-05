@@ -41,6 +41,15 @@ function iq_load_tables(GoogleSheets $gs, string $sid): array {
         'companies'       => $get('companies'),
         'cycles'          => $get('cycles'),
         'cycleProducts'   => $get('cycle_products'),
+        /* Utilisasi PER SIKLUS PER PRODUK, tiap baris dengan tanggalnya sendiri
+           (master 05/08/2026 memecah "Utilization (MT)" menjadi
+           "Utilization #1/#2/#3"). Tab TERPISAH, bukan kolom di cycle_products:
+           setiap PATCH cycles menulis ulang seluruh baris cycle_products milik
+           company itu dengan id baru dan hanya membaca `products`, jadi
+           utilisasi yang dititipkan di sana akan terhapus diam-diam. Berkunci
+           (company_code, cycle_type, product) supaya selamat dari penulisan
+           ulang tersebut. */
+        'cycleUtil'       => $get('cycle_utilization'),
         'stats'           => $get('company_product_stats'),
         'revisions'       => $get('revision_changes'),
         'lots'            => $get('company_shipments'),
@@ -175,7 +184,8 @@ function iq_build_company_obj(
     array $cycles,
     ?array $pendMeta,
     array $shipments,
-    array $reapplyTargets
+    array $reapplyTargets,
+    array $cycleUtil = []
 ): array {
     $utilizationByProd = [];
     $availableByProd   = [];
@@ -189,6 +199,23 @@ function iq_build_company_obj(
         if (iq_present($s['realization_mt'] ?? null)) $realizationByProd[$prod] = iq_num($s['realization_mt']);
         if (($s['eta_jkt'] ?? null) !== null)          $etaByProd[$prod]         = $s['eta_jkt'];
         $arrivedByProd[$prod] = $s['arrived'] ?? false;
+    }
+
+    /* Utilisasi per siklus per produk — sumber pengirisan periode sejak
+       2026-08-05. `utilizationByProd` di atas tetap dipakai untuk TOTAL
+       sepanjang waktu; yang di bawah ini membawa TANGGAL per potongan,
+       sehingga satu produk yang dipakai lintas tahun tidak lagi mendarat
+       seluruhnya pada tanggal terakhir. */
+    $utilCycles = [];
+    foreach ($cycleUtil as $u) {
+        $mt = iq_num($u['util_mt'] ?? 0);
+        if ($mt <= 0) continue;
+        $utilCycles[] = [
+            'cycle'   => (string) ($u['cycle_type'] ?? ''),
+            'product' => (string) ($u['product'] ?? ''),
+            'mt'      => $mt,
+            'date'    => (string) ($u['util_date'] ?? ''),
+        ];
     }
 
     $mapRev = fn($r) => [
@@ -249,6 +276,7 @@ function iq_build_company_obj(
         'shipments'       => $shipments,
         'reapplyTargets'  => array_values($reapplyTargets),
     ];
+    if (count($utilCycles))        $obj['utilCycles']        = $utilCycles;
     if (count($realizationByProd)) $obj['realizationByProd'] = $realizationByProd;
     if (count($etaByProd))         $obj['etaByProd']         = $etaByProd;
     if (count($arrivedByProd))     $obj['arrivedByProd']     = $arrivedByProd;
@@ -357,6 +385,7 @@ function iq_build_payload_raw(array $t): array {
     $prodMap  = $byCode($products);
     $statsMap = $byCode($stats);
     $revMap   = $byCode($revChanges);
+    $cycleUtilMap = $byCode($filterByCode($t['cycleUtil'] ?? []));
 
     $pendMap = [];
     foreach ($pendMetas as $p) { $pendMap[$p['company_code'] ?? ''] = $p; }
@@ -391,7 +420,8 @@ function iq_build_payload_raw(array $t): array {
             $cyclesMap[$code] ?? [],
             $pendMap[$code] ?? null,
             $shipMap[$code] ?? [],
-            $companyReapply
+            $companyReapply,
+            $cycleUtilMap[$code] ?? []
         );
         if (($co['section'] ?? '') === 'SPI') $spi[] = $obj;
         else                                  $pending[] = $obj;

@@ -530,10 +530,26 @@ function canonicalObtained(co) {
    PDF Summary (14-export.js) — the two had drifted apart, which is what
    surfaced this in the first place.
    ═══════════════════════════════════════════════════════════════════ */
+/* allTimeUtil — utilisasi SEPANJANG WAKTU, satu sumber.
+   Sejak master 05/08/2026 memecah utilisasi per siklus, `utilCycles` adalah
+   yang otoritatif: menjumlah SELURUH potongannya menjamin irisan periode mana
+   pun berjumlah tepat sama dengan angka sepanjang waktu (sifat partisi).
+   Menghitungnya dari `co.utilizationMT` yang tersimpan terpisah membuka celah
+   keduanya bergeser — persis kelas bug yang sudah dua kali kita bereskan.
+   Fallback ke utilizationMT untuk company yang belum punya rincian siklus. */
+function allTimeUtil(co) {
+  if (!co) return 0;
+  const uc = co.utilCycles;
+  if (Array.isArray(uc) && uc.length) {
+    return uc.reduce((s, u) => s + (Number(u.mt) || 0), 0);
+  }
+  return Number(co.utilizationMT) || 0;
+}
+
 function cumulativeAvailable(co) {
   if (!co) return 0;
   const obtained = canonicalObtained(co);            // all-time, single source
-  const utilised = Number(co.utilizationMT) || 0;    // all-time
+  const utilised = allTimeUtil(co);                  // all-time, single source
   return Math.max(0, obtained - utilised);
 }
 

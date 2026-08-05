@@ -189,6 +189,31 @@ function scopedUtilByProd(co) {
      utilizationByProd carries ledger names (`GI ALLOY`) while
      shipments/etaByProd keep the stats spelling (`GI BORON`). */
   const out = {};
+
+  /* SUMBER UTAMA sejak master 05/08/2026: utilisasi per SIKLUS per produk,
+     tiap potongan dengan tanggalnya sendiri (`utilCycles`).
+
+     Dua sumber di bawah hanya berlaku untuk company yang belum punya rincian
+     ini. Keduanya memberi SATU tanggal untuk angka KUMULATIF, sehingga produk
+     yang dipakai lintas tahun mendarat seluruhnya pada tanggal terakhir — itu
+     yang membuat filter 01 Jan–05 Agu 2026 melaporkan Utilized 21.500 melebihi
+     Obtained 21.140 (pimpinan, 2026-08-05). Dengan rincian siklus, angka yang
+     sama menjadi 15.375 dan 6.872 MT kembali ke 2025, tempatnya semula. */
+  const uc = co.utilCycles;
+  if (Array.isArray(uc) && uc.length) {
+    uc.forEach(u => {
+      const mt = Number(u.mt) || 0;
+      if (mt <= 0) return;
+      if (PERIOD.active) {
+        const d = pDate(u.date) || _parseEtaLoose(u.date);
+        if (!d || !inPd(d)) return;
+      }
+      const p = u.product || '';
+      out[p] = (out[p] || 0) + mt;
+    });
+    return out;
+  }
+
   const utilAll = co.utilizationByProd || {};
   const lotsByCanon = {}, etaByCanon = {};
   Object.keys(co.shipments || {}).forEach(p => {
@@ -288,7 +313,11 @@ function utilizationPool(cycleScoped) {
 /* Company-level utilization total, period-sliced. */
 function scopedUtilTotal(co) {
   if (!co) return 0;
-  if (!PERIOD.active) return Number(co.utilizationMT) || 0;
+  /* All Time lewat allTimeUtil(), bukan co.utilizationMT langsung: bila company
+     punya rincian per siklus, jumlah potongannya yang berlaku. Kalau tidak,
+     irisan periode (yang membaca utilCycles) tidak akan pernah berjumlah sama
+     dengan angka sepanjang waktu. */
+  if (!PERIOD.active) return (typeof allTimeUtil === 'function') ? allTimeUtil(co) : (Number(co.utilizationMT) || 0);
   return Object.values(scopedUtilByProd(co)).reduce((s, v) => s + v, 0);
 }
 /* Per-product available, kept consistent with the period view:
