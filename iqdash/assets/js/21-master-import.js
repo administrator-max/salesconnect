@@ -283,7 +283,10 @@ function mdParseWorkbook(wb, fileName) {
         code, rawName: coRaw,
         group: String(mdCell(row, cGroup)).trim(),
         cycles: [], util: {}, avail: {},
-        utilCycleMT: {}, utilCycleDate: {},   // { '1': {produk: mt}, ... } / { '1': {produk: 'teks tanggal'} }
+        // { '1': [ {mt:{produk:MT}, date:{produk:'teks'}}, ... ] } — DAFTAR per
+        // nomor siklus, karena satu siklus boleh punya beberapa pasangan baris
+        // (satu per tanggal pemakaian).
+        utilBlok: {},
         utilTotal: null, availTotal: null,
         excelRow: r + 1,
       };
@@ -311,14 +314,25 @@ function mdParseWorkbook(wb, fileName) {
     let mUtilMt = status.match(/^Utilization\s*#(\d+)\s*\(MT\)$/i);
     let mUtilDt = status.match(/^Utilization\s*#(\d+)\s*\(date\)$/i);
     if (mUtilMt) {
-      companies[cur].utilCycleMT[mUtilMt[1]] = products;
+      /* Pasangan (MT, date) DIKUMPULKAN sebagai daftar, bukan ditimpa.
+         Struktur master hanya menyediakan SATU sel tanggal per (siklus,
+         produk), sehingga pemakaian yang terjadi di beberapa tanggal —
+         GKL 1.000 @ 29 Des + 100 @ 31 Mar — hanya bisa ditulis dengan
+         MENGGANDAKAN pasangan barisnya. Itu langkah paling wajar di Excel,
+         dan versi sebelumnya diam-diam menimpa yang pertama. */
+      (companies[cur].utilBlok[mUtilMt[1]] = companies[cur].utilBlok[mUtilMt[1]] || [])
+        .push({ mt: products, date: {} });
       companies[cur].utilTotal = (companies[cur].utilTotal || 0) + mdNum(mdCell(row, cJumlah));
       continue;
     }
     if (mUtilDt) {
       const teks = {};
       prodCols.forEach(pc => { const v = mdFlat(mdCell(row, pc.i)); if (v) teks[pc.canon] = v; });
-      companies[cur].utilCycleDate[mUtilDt[1]] = teks;
+      const daftar = companies[cur].utilBlok[mUtilDt[1]];
+      /* Baris tanggal menempel pada baris MT yang PERSIS di atasnya. Tanpa
+         baris MT pendahulu, tanggal ini yatim — dilaporkan, bukan ditebak. */
+      if (daftar && daftar.length) daftar[daftar.length - 1].date = teks;
+      else warnings.push(`${cur} · Utilization #${mUtilDt[1]} (date) tanpa baris (MT) di atasnya — diabaikan.`);
       continue;
     }
 
@@ -364,9 +378,10 @@ function mdParseWorkbook(wb, fileName) {
        kehilangan diam-diam. Ditandai di sini; mdBuildChanges() menolak
        menawarkan perubahan untuk company yang bertanda. */
     c.utilSkipped = false;
-    Object.keys(c.utilCycleMT).forEach(no => {
-      const mtMap = c.utilCycleMT[no] || {};
-      const dtMap = c.utilCycleDate[no] || {};
+    Object.keys(c.utilBlok).forEach(no => {
+      (c.utilBlok[no] || []).forEach(blok => {
+      const mtMap = blok.mt || {};
+      const dtMap = blok.date || {};
       Object.keys(mtMap).forEach(prod => {
         const mt = Number(mtMap[prod]) || 0;
         if (mt <= 0) return;
@@ -391,6 +406,7 @@ function mdParseWorkbook(wb, fileName) {
           return;
         }
         c.utilCycles.push({ cycle: `Utilization #${no}`, product: prod, mt, date: d });
+      });
       });
     });
   });
