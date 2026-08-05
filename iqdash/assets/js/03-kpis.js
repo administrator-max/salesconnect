@@ -127,7 +127,30 @@ function updateOverviewKPIs() {
     ? `MT · ${utilCoCount} compan${utilCoCount !== 1 ? 'ies' : 'y'} with shipment` : 'MT';
   if (kpiUtilMTEl)   kpiUtilMTEl.textContent   = '';
   if (kpiUtilFillEl && totalObtainedMT > 0) kpiUtilFillEl.style.width = Math.min(100, totalUtilizedMT / totalObtainedMT * 100).toFixed(1) + '%';
-  if (kpiUtilTagEl)  kpiUtilTagEl.textContent  = totalObtainedMT > 0 ? `${(totalUtilizedMT/totalObtainedMT*100).toFixed(1)}% of obtained allocated` : 'Of obtained quota allocated';
+  /* Rasio ini BISA melampaui 100% dan itu benar, bukan kerusakan: kuota yang
+     terbit sebelum jendela ini boleh dipakai di dalamnya. Contoh nyata pada
+     filter 01 Jan – 05 Agu 2026 — obtained 21.140, utilized 21.500 (101,7%):
+     13.820 MT terbit sepanjang 2025 sementara hanya 1.047 MT terpakai di tahun
+     itu, jadi 12.773 MT terbawa ke 2026. Pimpinan menanyakannya 2026-08-05
+     karena angka "101,7%" berdiri tanpa keterangan dan terbaca seperti error.
+     Angkanya tidak diubah — keterangannya yang ditambahkan. */
+  if (kpiUtilTagEl) {
+    if (totalObtainedMT <= 0) {
+      kpiUtilTagEl.textContent = 'Of obtained quota allocated';
+      kpiUtilTagEl.title = '';
+    } else {
+      const pct = totalUtilizedMT / totalObtainedMT * 100;
+      const lebih = pct > 100.05;
+      kpiUtilTagEl.textContent = lebih
+        ? `${pct.toFixed(1)}% — incl. carry-over quota`
+        : `${pct.toFixed(1)}% of obtained allocated`;
+      kpiUtilTagEl.title = lebih
+        ? 'Utilisasi melebihi kuota yang TERBIT di periode ini karena kuota '
+          + 'yang terbit sebelumnya masih boleh dipakai di sini. Bukan kelebihan '
+          + 'pakai: sepanjang waktu, total utilisasi tetap di bawah total obtained.'
+        : '';
+    }
+  }
 
   /* ── Available Quota KPI = CUMULATIVE saldo ───────────────────────────
      Not obtained-minus-utilised within the window. Available is a balance, and
