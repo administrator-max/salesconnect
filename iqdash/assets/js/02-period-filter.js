@@ -608,11 +608,53 @@ function reportRealizedTotal() {
   };
 }
 
+/* Jalankan fn() seolah jendela aktifnya [from, to], lalu kembalikan seperti
+   semula. HANYA untuk pemanggilan sinkron — jangan ada await di dalam fn,
+   karena render lain bisa membaca jendela yang sedang ditukar.
+   Gunanya: bertanya "apa yang benar per tanggal X" sambil TETAP memakai aturan
+   kanonik, bukan menulis ulang salinannya. */
+function _asOfPeriod(from, to, fn) {
+  const prev = { from: PERIOD.from, to: PERIOD.to, label: PERIOD.label, active: PERIOD.active };
+  PERIOD.from = from; PERIOD.to = to; PERIOD.active = !!(from || to);
+  try { return fn(); }
+  finally { PERIOD.from = prev.from; PERIOD.to = prev.to; PERIOD.label = prev.label; PERIOD.active = prev.active; }
+}
+
 /* CUMULATIVE saldo — a balance is a stock, not activity inside a window. The
    period narrows WHICH companies are counted, never how much of their balance
-   "belongs to" the window. Confirmed by the data owners 2026-08-04. */
+   "belongs to" the window. Confirmed by the data owners 2026-08-04.
+
+   Two conditions, both required (confirmed 2026-08-05):
+
+     1. company aktif di periode — ada cycle-nya di jendela ini (kpiPool)
+     2. kuotanya SUDAH TERBIT paling lambat di akhir periode
+
+   Syarat kedua ditambahkan setelah koreksi tanggal MOI SNSD. SNSD mengajukan
+   17 Juni (masuk H1) tapi PERTEK-nya baru terbit 4 Agustus, sehingga syarat
+   pertama saja membuat saldo 120 MT-nya ikut terhitung di H1 — 11.813, padahal
+   master 11.693. Saldo tidak bisa ada sebelum kuota yang melahirkannya:
+   sepanjang H1, kuota itu belum pernah tersedia.
+
+   Perhatikan syarat kedua memakai "s/d akhir periode", BUKAN "di dalam
+   periode". Sempat diuji dan keduanya keliru:
+     · "obtained DI DALAM periode"  -> 10.780; menggugurkan ADP, DIOR, KAN, MIN,
+       MJU, MSN yang saldonya sah, cuma kuotanya terbit sebelum jendela ini.
+     · "obtained s/d akhir" TANPA syarat aktif -> 12.293; menarik masuk company
+       yang tidak beraktivitas sama sekali di periode ini.
+   Hanya gabungan keduanya yang menghasilkan 11.693 (H1) sekaligus menjaga
+   12.413 (All Time) dan tidak menggeser Q1/Q3. */
 function reportAvailableTotal() {
-  const pool = kpiPool();
+  if (!PERIOD.active) {
+    const semua = allCompaniesPool();
+    return {
+      mt: cumulativeAvailableTotal(semua),
+      companies: semua.filter(co => cumulativeAvailable(co) > 0).length,
+    };
+  }
+  const aktif = kpiPool();
+  const EPOCH = new Date(1900, 0, 1);
+  const pool = _asOfPeriod(EPOCH, PERIOD.to, () =>
+    aktif.filter(co => canonicalObtainedFiltered(co) > 0));
   return {
     mt: cumulativeAvailableTotal(pool),
     companies: pool.filter(co => cumulativeAvailable(co) > 0).length,

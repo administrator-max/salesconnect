@@ -54,23 +54,52 @@ Q3 2026 Submitted turun 8.600 → 5.600 (3.000 SNSD pindah ke H1, sebagaimana
 mestinya). Konsistensi antar menu tetap terjaga: Obtained sama di ketiga menu
 untuk H1, Q3, dan All Time.
 
-## ⚠️ Efek samping yang perlu keputusan pemilik data
+## Efek samping — SUDAH DIPUTUSKAN & DIPERBAIKI
 
-**Available H1 bergeser 11.693 → 11.813 (+120).**
+Koreksi tanggal membuat Available H1 naik 11.693 → 11.813 (+120): SNSD kini
+"aktif di H1" (mengajukan 17 Juni), sehingga saldo 120 MT-nya ikut terhitung —
+padahal kuotanya baru terbit Agustus.
 
-Bukan bug, dan bukan akibat perubahan aturan — murni konsekuensi tanggalnya.
-Available memakai **saldo kumulatif dari company yang aktif di periode**
-(aturan yang dikonfirmasi 2026-08-04). Sebelum koreksi, seluruh cycle SNSD ada
-di Agustus sehingga ia tidak dihitung "aktif di H1". Sesudah koreksi ia
-mengajukan 17 Juni, jadi ia aktif di H1 dan saldo 120 MT-nya ikut terhitung.
+**Jawaban tim: tidak.** Saldo itu tidak boleh muncul di H1.
 
-Pertanyaannya untuk tim: **kuota SNSD terbit Agustus — apakah saldonya pantas
-muncul di H1 hanya karena pengajuannya Juni?**
+### Aturan Available diperketat (`02-period-filter.js`)
 
-- Kalau **ya**, tidak ada yang perlu dikerjakan; 11.813 sudah benar.
-- Kalau **tidak**, aturan keaktifan Available perlu diubah (mis. bersandar pada
-  PERTEK, bukan aktivitas cycle apa pun). Itu **perubahan aturan** yang
-  menyentuh semua periode, jadi tidak saya ambil sendiri.
+Sekarang **dua syarat, keduanya wajib**:
+
+1. company **aktif di periode** (ada cycle-nya di jendela ini) — syarat lama
+2. kuotanya **sudah terbit paling lambat di akhir periode** — syarat baru
+
+Dasarnya: **saldo tidak bisa ada sebelum kuota yang melahirkannya.** Sepanjang
+H1, kuota SNSD belum pernah tersedia.
+
+Syarat kedua memakai **"s/d akhir periode"**, bukan "di dalam periode". Dua
+kandidat lain diuji lebih dulu dan **keduanya keliru** — dicatat supaya tidak
+dicoba lagi:
+
+| Kandidat | H1 | Kenapa salah |
+|---|---|---|
+| obtained **di dalam** periode | 10.780 | menggugurkan ADP, DIOR, KAN, MIN, MJU, MSN — saldo mereka sah, kuotanya cuma terbit sebelum jendela ini |
+| obtained **s/d akhir**, tanpa syarat aktif | 12.293 | menarik masuk company yang tidak beraktivitas sama sekali di periode ini |
+| saldo "per 30 Jun" penuh (obtained − utilisasi s/d 30 Jun) | 15.333 | bukan definisi kumulatif yang dipakai master |
+| **gabungan 1 + 2** | **11.693** ✅ | cocok master, All Time tetap 12.413, Q1/Q3 tidak bergeser |
+
+Dikerjakan lewat `_asOfPeriod(from, to, fn)` — menukar jendela sementara lalu
+memulihkannya, supaya pertanyaan "apa yang benar per tanggal X" tetap dijawab
+oleh `canonicalObtainedFiltered()` yang kanonik, **bukan** oleh salinan aturan
+obtained yang baru. Sinkron saja; tidak boleh ada `await` di dalamnya.
+
+### Verifikasi akhir
+
+| | Submitted | Obtained | Utilized | Available |
+|---|---|---|---|---|
+| **H1 2026** | **74.945** ✅ | **19.710** ✅ | **17.300** ✅ | **11.693** ✅ |
+| Q1 2026 | 13.150 | 8.650 | 7.014 | 5.793 |
+| Q2 2026 | 61.795 | 11.060 | 10.286 | 6.913 |
+| Q3 2026 | 5.600 | 1.430 | 4.200 | 7.580 |
+| All Time | 277.545 | 34.960 | 22.547 | 12.413 ✅ |
+
+Available **identik di ketiga menu** pada kelima periode. Q1 dan Q3 tidak
+bergeser dari sebelum perubahan — jadi tidak ada regresi.
 
 ## Catatan proses
 
