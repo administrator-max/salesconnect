@@ -1275,6 +1275,69 @@ function iq_replace_cycles(GoogleSheets $gs, string $sid, string $code, array $n
     });
 }
 
+/**
+ * PUT /api/company/:code/cycle-utilization — full-replace baris
+ * `cycle_utilization` milik SATU company. Baris company lain tidak disentuh.
+ *
+ * Tab ini menyimpan utilisasi PER SIKLUS PER PRODUK, tiap baris dengan
+ * tanggalnya sendiri (master 05/08/2026 memecah "Utilization (MT)" menjadi
+ * "Utilization #1/#2/#3"). Berkunci (company_code, cycle_type, product) —
+ * SENGAJA tidak dititipkan di `cycle_products`, karena iq_build_cycles_replacement()
+ * menulis ulang seluruh baris cycle_products milik company itu dengan id baru
+ * dan hanya membaca `products`, sehingga utilisasi di sana akan terhapus
+ * diam-diam pada edit cycle berikutnya.
+ *
+ * Satu (cycle_type, product) BOLEH punya beberapa baris: master memuat
+ * pemakaian yang terjadi pada tanggal berbeda untuk produk yang sama
+ * (mis. GKL GI ALLOY 1.000 MT @ 29/12/2025 + 100 MT @ 31/03/2026).
+ *
+ * $rows: [{ cycle, product, mt, date }, ...]
+ */
+function iq_replace_cycle_utilization(GoogleSheets $gs, string $sid, string $code, array $rows): array {
+    return iq_with_lock(function () use ($gs, $sid, $code, $rows) {
+        $tbl  = $gs->table($sid, 'cycle_utilization');
+        $keep = array_values(array_filter(
+            $tbl['rows'],
+            fn($r) => (string) ($r['company_code'] ?? '') !== $code
+        ));
+
+        $maxId = 0;
+        foreach ($tbl['rows'] as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxId) $maxId = $n; }
+
+        $add = [];
+        foreach ($rows as $x) {
+            if (!is_array($x)) continue;
+            $mt = iq_num($x['mt'] ?? 0);
+            if ($mt <= 0) continue;                 // 0 MT bukan utilisasi
+            $add[] = [
+                'id'             => ++$maxId,
+                'company_code'   => $code,
+                'cycle_type'     => iq_js_or($x['cycle'] ?? null, ''),
+                'product'        => iq_js_or($x['product'] ?? null, ''),
+                'util_mt'        => $mt,
+                'util_date'      => iq_js_or($x['date'] ?? null, ''),
+                'source_program' => 'B',
+            ];
+        }
+
+        iq_batch_write_full_tables($gs, $sid, [
+            ['tab' => 'cycle_utilization', 'rows' => array_merge($keep, $add), 'headers' => $tbl['headers']],
+        ]);
+
+        iq_log_change($gs, $sid, [
+            'sheet' => 'cycle_utilization',
+            'record_id' => $code,
+            'field' => '(replace)',
+            'old_value' => '',
+            'new_value' => count($add) . ' baris utilisasi',
+            'changed_by' => 'api',
+            'note' => 'master import',
+        ]);
+
+        return ['ok' => true, 'rows' => count($add)];
+    });
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
  * Task 14 (FINAL write endpoints) — POST /api/company/:code/record-obtained
  * + POST /api/company/:code/pertek-perubahan-release. Ports:

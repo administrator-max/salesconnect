@@ -19,12 +19,25 @@
    with our edits layered on, then any brand-new cycles appended. Losing
    those Revision Request rows would destroy sales-request history.
 
-   `utilization_mt` is NOT writable: it is derived from company_shipments
-   lots (iq_recompute_util_from_lots). `available_mt` is only reachable
-   through `obtainedStats`, which sets available = max(0, obtained −
-   utilization). So the Excel's "Obtained" figures import cleanly, while
-   its "Utilization (MT)" row is treated as read-only and merely
-   reported when it disagrees — fixing that means fixing shipments.
+   `utilization_mt` (baris LAMA "Utilization (MT)" tanpa nomor) tetap TIDAK
+   bisa ditulis: ia diturunkan dari lot company_shipments
+   (iq_recompute_util_from_lots). `available_mt` hanya terjangkau lewat
+   `obtainedStats`, yang menetapkan available = max(0, obtained − utilization).
+
+   ── Utilisasi PER SIKLUS — BISA ditulis (sejak 2026-08-05) ─────────
+   Master 05/08/2026 memecah utilisasi menjadi "Utilization #1/#2/#3", tiap
+   potongan dengan tanggalnya sendiri. Pemilik data menetapkan master sebagai
+   sumber kebenaran, jadi baris bernomor ini DITULIS ke tab `cycle_utilization`
+   lewat PUT /api/company/:code/cycle-utilization — inilah dasar pengirisan
+   periode. (Bentuk lama tanpa nomor memberi SATU tanggal untuk tonase
+   KUMULATIF, sehingga produk yang dipakai lintas tahun mendarat seluruhnya di
+   tanggal terakhir; itu yang membuat Utilized melampaui Obtained pada filter
+   01 Jan–05 Agu 2026.)
+
+   Penulisannya GANTI-TOTAL per company. Karena itu, bila ADA SATU SAJA baris
+   utilisasi company itu yang tidak terbaca (tanggal ganda / format asing),
+   seluruh utilisasi company tersebut TIDAK diimpor — menulis sisanya akan
+   menghapus data yang sudah benar untuk baris yang dilewati.
 ═══════════════════════════════════════════════════════════════════ */
 
 let _mdParsed  = null;   // { fileName, sheetName, companies:{}, warnings:[] }
@@ -48,6 +61,7 @@ const MD_CATS = {
   cycleDate: { label: 'Tanggal cycle',         hint: 'submitDate / releaseDate — termasuk kolom yang keisi nomor surat',       on: true  },
   cycleProd: { label: 'Produk dalam cycle',    hint: 'Rincian MT per produk di dalam satu cycle',                              on: true  },
   obtained:  { label: 'Obtained per produk',   hint: 'Ditulis via obtainedStats → available = obtained − utilization',         on: true  },
+  utilCycle: { label: 'Utilisasi per siklus',   hint: 'Utilization #1/#2/#3 beserta tanggalnya — dasar pengirisan periode',    on: true  },
   group:     { label: 'GROUP (AB/CD)',         hint: 'Kolom grp di tab companies',                                             on: true  },
   cosmetic:  { label: 'Label submit/release',  hint: 'Beda urutan kata saja, tidak mengubah angka apa pun',                    on: false },
   revProd:   { label: 'Produk baris Revision', hint: 'Dashboard menyimpan revisi sebagai revFrom/revTo — ini mengubah bentuk penyimpanan', on: false },
@@ -269,6 +283,7 @@ function mdParseWorkbook(wb, fileName) {
         code, rawName: coRaw,
         group: String(mdCell(row, cGroup)).trim(),
         cycles: [], util: {}, avail: {},
+        utilCycleMT: {}, utilCycleDate: {},   // { '1': {produk: mt}, ... } / { '1': {produk: 'teks tanggal'} }
         utilTotal: null, availTotal: null,
         excelRow: r + 1,
       };
@@ -287,6 +302,26 @@ function mdParseWorkbook(wb, fileName) {
       products[pc.canon] = mdNum(v);
     });
 
+    /* ── Utilisasi PER SIKLUS (master 05/08/2026) ──────────────────────
+       "Utilization #1 (MT)" / "Utilization #1 (date)" menggantikan pasangan
+       tunggal "Utilization (MT)/(date)". Pola lama TIDAK cocok dengan label
+       baru, dan sebelum blok ini ada, label itu jatuh ke cabang `else` di
+       bawah — artinya importer menawarkan membuat CYCLE PALSU bernama
+       "Utilization #1 (MT)". Cocokkan yang bernomor LEBIH DULU. */
+    let mUtilMt = status.match(/^Utilization\s*#(\d+)\s*\(MT\)$/i);
+    let mUtilDt = status.match(/^Utilization\s*#(\d+)\s*\(date\)$/i);
+    if (mUtilMt) {
+      companies[cur].utilCycleMT[mUtilMt[1]] = products;
+      companies[cur].utilTotal = (companies[cur].utilTotal || 0) + mdNum(mdCell(row, cJumlah));
+      continue;
+    }
+    if (mUtilDt) {
+      const teks = {};
+      prodCols.forEach(pc => { const v = mdFlat(mdCell(row, pc.i)); if (v) teks[pc.canon] = v; });
+      companies[cur].utilCycleDate[mUtilDt[1]] = teks;
+      continue;
+    }
+
     if (/^Utilization \(MT\)$/i.test(status)) {
       companies[cur].util = products;
       companies[cur].utilTotal = mdNum(mdCell(row, cJumlah));
@@ -294,8 +329,11 @@ function mdParseWorkbook(wb, fileName) {
       companies[cur].avail = products;
       companies[cur].availTotal = mdNum(mdCell(row, cJumlah));
     } else if (/^Utilization \(date\)$/i.test(status)) {
-      /* Per-product utilization dates: informational only. Nothing on the
-         write surface accepts them, so they are parsed and ignored. */
+      /* Bentuk LAMA (satu tanggal untuk angka kumulatif). Sengaja diabaikan:
+         satu tanggal untuk tonase kumulatif menempatkan produk yang dipakai
+         lintas tahun seluruhnya pada tanggal terakhir — persis yang membuat
+         Utilized melampaui Obtained pada filter 01 Jan–05 Agu 2026. Hanya
+         bentuk bernomor di atas yang dipakai. */
     } else {
       companies[cur].cycles.push({
         type: status,
@@ -316,7 +354,85 @@ function mdParseWorkbook(wb, fileName) {
   const n = Object.keys(companies).length;
   if (!n) throw new Error('Tidak ada baris company yang terbaca');
 
+  /* Ratakan utilisasi per siklus jadi daftar baris siap tulis. Dilakukan di
+     sini, bukan di dalam loop, karena baris (MT) dan (date) datang terpisah. */
+  Object.values(companies).forEach(c => {
+    c.utilCycles = [];
+    /* Penulisan utilisasi bersifat GANTI-TOTAL per company. Kalau ada satu
+       baris saja yang dilewati (tanggal ganda / tak terbaca), menulis sisanya
+       akan MENGHAPUS data yang sudah benar di dashboard untuk baris itu —
+       kehilangan diam-diam. Ditandai di sini; mdBuildChanges() menolak
+       menawarkan perubahan untuk company yang bertanda. */
+    c.utilSkipped = false;
+    Object.keys(c.utilCycleMT).forEach(no => {
+      const mtMap = c.utilCycleMT[no] || {};
+      const dtMap = c.utilCycleDate[no] || {};
+      Object.keys(mtMap).forEach(prod => {
+        const mt = Number(mtMap[prod]) || 0;
+        if (mt <= 0) return;
+        const teks = dtMap[prod] || '';
+        const d = mdUtilDate(teks);
+        if (d === 'GANDA') {
+          /* Satu angka MT dengan DUA tanggal tidak bisa dibelah tanpa menebak.
+             Ditolak dengan pesan jelas — menebak berarti memindahkan tonase ke
+             periode yang salah tanpa jejak. Terjadi pada master 05/08/2026:
+             GKL "29 Dec 25 & 31 Mar 26", KJK "20 Nov 25 & 1 Dec 25". */
+          warnings.push(`${c.code} · Utilization #${no} · ${prod}: tanggal ganda "${teks}" ` +
+            `untuk ${mt} MT — pecah dulu di master jadi baris terpisah per tanggal. ` +
+            `Utilisasi ${c.code} TIDAK diimpor sama sekali agar data yang sudah benar tidak terhapus.`);
+          c.utilSkipped = true;
+          return;
+        }
+        if (!d) {
+          warnings.push(`${c.code} · Utilization #${no} · ${prod}: tanggal "${teks || '(kosong)'}" ` +
+            `tidak terbaca untuk ${mt} MT. ` +
+            `Utilisasi ${c.code} TIDAK diimpor sama sekali agar data yang sudah benar tidak terhapus.`);
+          c.utilSkipped = true;
+          return;
+        }
+        c.utilCycles.push({ cycle: `Utilization #${no}`, product: prod, mt, date: d });
+      });
+    });
+  });
+
   return { fileName, sheetName, companies, warnings, prodCols };
+}
+
+/* Tanggal utilisasi dari master → 'DD/MM/YYYY'.
+   Mengembalikan 'GANDA' bila selnya memuat lebih dari satu tanggal, dan null
+   bila tidak terbaca. Toleran terhadap "28 Jul26" (kurang spasi sebelum
+   tahun) yang muncul pada ADP & MSN di master 05/08/2026. */
+const MD_BULAN = { jan:0,feb:1,mar:2,apr:3,may:4,mei:4,jun:5,jul:6,aug:7,agu:7,sep:8,oct:9,okt:9,nov:10,dec:11,des:11 };
+function mdUtilDate(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s) return null;
+  /* Sel bertipe tanggal datang sebagai NOMOR SERI Excel karena workbook
+     dibaca dengan raw:true — "46034", bukan "12 Jan 26". Ketahuan hanya lewat
+     uji terhadap file aslinya; sebelum ini SELURUH utilisasi bertanggal
+     terlewat dengan pesan "tidak terbaca". mdSerialToDate() sudah menangani
+     hal yang sama untuk submitDate/releaseDate. */
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    if (n > 20000 && n < 80000) return mdSerialToDate(n);
+    return null;                    // angka di luar rentang tanggal: bukan tanggal
+  }
+  const potong = s.split(/\s*(?:&|dan|\+|,)\s*/).filter(Boolean);
+  const satu = t => {
+    let m = t.match(/^(\d{1,2})[-\/\s]?([A-Za-z]{3,})[-\/\s]?(\d{2,4})$/);
+    if (m) {
+      const mo = MD_BULAN[m[2].slice(0, 3).toLowerCase()];
+      if (mo == null) return null;
+      let y = +m[3]; if (y < 100) y += 2000;
+      return `${String(+m[1]).padStart(2,'0')}/${String(mo+1).padStart(2,'0')}/${y}`;
+    }
+    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);   // DD/MM/YY — sama seperti pDate()
+    if (m) { let y = +m[3]; if (y < 100) y += 2000;
+      return `${String(+m[1]).padStart(2,'0')}/${String(+m[2]).padStart(2,'0')}/${y}`; }
+    return null;
+  };
+  const hasil = potong.map(x => satu(x.trim())).filter(Boolean);
+  if (hasil.length > 1) return 'GANDA';
+  return hasil[0] || null;
 }
 
 /* ── Preferred spelling when writing a product into cycle_products ────
@@ -473,7 +589,8 @@ function mdBuildChanges() {
       });
     });
 
-    /* Utilization is derived from shipments — report only, never write. */
+    /* Bentuk LAMA "Utilization (MT)" tanpa nomor: tetap read-only, hanya
+       dilaporkan. Diturunkan dari lot shipment, tidak ditulis dari sini. */
     Object.keys(x.util).forEach(p => {
       const dv = dUtilC[p] === undefined ? NaN : dUtilC[p];
       const xv = Number(x.util[p]);
@@ -484,6 +601,29 @@ function mdBuildChanges() {
         `Utilization dihitung dari data shipment, tidak bisa ditulis dari sini — perbaiki lewat Shipment.`
       );
     });
+
+    /* ── Utilisasi PER SIKLUS: INI yang ditulis (keputusan pemilik data
+       2026-08-05, "master jadi sumber"). Dibandingkan sebagai SATU HIMPUNAN
+       per company, bukan baris per baris: satu (siklus, produk) boleh punya
+       beberapa tanggal, jadi menyandingkan per baris akan salah pasang.
+       Full-replace per company lewat PUT .../cycle-utilization. */
+    if (Array.isArray(x.utilCycles) && x.utilCycles.length && !x.utilSkipped) {
+      const kunci = arr => (arr || []).map(u =>
+        `${u.cycle}|${canonicalProduct(u.product)}|${Number(u.mt)}|${u.date}`).sort().join(' ; ');
+      const xlsRows = x.utilCycles.map(u => ({ ...u, product: canonicalProduct(u.product) }));
+      const dashRows = (d.utilCycles || []).map(u => ({ ...u, product: canonicalProduct(u.product) }));
+      if (kunci(xlsRows) !== kunci(dashRows)) {
+        const jum = a => a.reduce((s, u) => s + Number(u.mt || 0), 0);
+        out.push({
+          cat: 'utilCycle', code: x.code, on: MD_CATS.utilCycle.on,
+          label: `${x.code} · utilisasi per siklus`,
+          from: dashRows.length ? `${dashRows.length} baris / ${jum(dashRows)} MT` : '(belum ada)',
+          to:   `${xlsRows.length} baris / ${jum(xlsRows)} MT`,
+          note: xlsRows.map(u => `${u.cycle.replace('Utilization ', '')} ${u.product} ${u.mt}@${u.date}`).join(' · '),
+          rows: xlsRows,
+        });
+      }
+    }
   });
 
   return out;
@@ -703,6 +843,24 @@ async function mdApply() {
         }
         const kept = merged.filter(mdIsPreservedCycle).length;
         write(`  ✓ cycles: ${merged.length} baris ditulis (${kept} Revision Request dipertahankan)`, 'ok');
+      }
+
+      /* 3. utilisasi per siklus — full-replace milik company ini.
+         Dikirim SESUDAH cycles: keduanya tab terpisah, tapi urutan ini membuat
+         log perubahan terbaca wajar (kuota dulu, pemakaiannya kemudian). */
+      const utilChange = mine.find(c => c.cat === 'utilCycle');
+      if (utilChange) {
+        const r = await fetch(`api/company/${encodeURIComponent(code)}/cycle-utilization`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: utilChange.rows }),
+        });
+        if (!r.ok) {
+          const e = await r.json().catch(() => ({}));
+          throw new Error(e.error || `HTTP ${r.status}`);
+        }
+        const j = await r.json().catch(() => ({}));
+        write(`  ✓ utilisasi per siklus: ${j.rows != null ? j.rows : utilChange.rows.length} baris`, 'ok');
       }
 
       okCount++;

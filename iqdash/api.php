@@ -279,6 +279,24 @@ try {
                 json_out($result);
             }
 
+            // PUT /api/company/:code/cycle-utilization — full-replace baris
+            // utilisasi per siklus milik company ini. Sama seperti /cycles,
+            // harus diperiksa SEBELUM cabang PATCH-company polos di bawah.
+            if ($method === 'PUT' && isset($parts[1]) && ($parts[2] ?? '') === 'cycle-utilization') {
+                $code = urldecode($parts[1]);
+                if ($code === '') {
+                    json_out(['error' => 'Missing company code'], 400);
+                }
+                $body = json_body();
+                $rows = $body['rows'] ?? null;
+                if (!iq_is_list($rows)) {
+                    json_out(['error' => 'rows must be array'], 400);
+                }
+                $result = iq_replace_cycle_utilization($gs, $SID, $code, $rows);
+                @unlink(iq_payload_memo_file());
+                json_out($result);
+            }
+
             // Bare company PATCH ONLY — a trailing sub-resource segment
             // ($parts[2] set) must NOT be swallowed here: /cycles (PATCH),
             // /record-obtained + /pertek-perubahan-release (POST, Task 14)
