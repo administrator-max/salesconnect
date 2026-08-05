@@ -176,5 +176,7 @@ Elemen gauge yang sudah tak ada di HTML membuat `buildGauge()` dan sebagian
 Kartu **Available Quota** di Overview bersubjudul "18 companies with PERTEK
 Terbit" sementara halaman Available Quota menulis "Companies w/ Quota: 11".
 Keduanya benar dan mengukur hal berbeda (18 = punya PERTEK di periode; 11 =
-masih punya sisa saldo), tapi berpotensi dibaca sebagai selisih. Belum diubah —
-menunggu tim memutuskan penamaan yang mereka inginkan.
+masih punya sisa saldo).
+
+**Diputuskan pemilik data 2026-08-05: dibiarkan apa adanya.** Bukan kelalaian —
+jangan "diperbaiki" agar seragam di kemudian hari tanpa menanyakan ulang.
