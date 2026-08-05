@@ -75,14 +75,25 @@ console.log('── struktural: tidak boleh ada toLocaleString() tanpa locale �
 const stripComments = src => src
   .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
   .replace(/\/\/[^\n]*/g, m => ' '.repeat(m.length));
+
+/* DUA bentuk, bukan satu.
+     toLocaleString()                 — tanpa argumen
+     toLocaleString(undefined, {...}) — argumen locale-nya undefined
+   Keduanya sama-sama mengikuti locale BROWSER. Pemeriksaan ini semula hanya
+   mengenali bentuk pertama, sehingga bentuk kedua bertahan diam-diam di enam
+   tempat (rincian realisasi di drawer: volume, nilai USD, harga satuan; total
+   volume & tabel pada import realisasi; dan dua gauge). Ditemukan 2026-08-05
+   saat menelusuri hal lain — bukan oleh tes ini, yang justru seharusnya
+   menangkapnya. */
 const offenders = [];
 for (const f of readdirSync(JS_DIR).filter(f => f.endsWith('.js'))) {
   stripComments(readFileSync(join(JS_DIR, f), 'utf8')).split('\n').forEach((line, i) => {
-    if (/toLocaleString\(\s*\)/.test(line)) offenders.push(`${f}:${i + 1}`);
+    if (/toLocaleString\(\s*\)/.test(line)) offenders.push(`${f}:${i + 1} (tanpa argumen)`);
+    if (/toLocaleString\(\s*undefined\b/.test(line)) offenders.push(`${f}:${i + 1} (undefined)`);
   });
 }
 ok(offenders.length === 0,
-  `toLocaleString() tanpa argumen masih ada di ${offenders.length} baris: ` +
+  `toLocaleString tanpa locale eksplisit masih ada di ${offenders.length} baris: ` +
   `${offenders.slice(0, 8).join(', ')}${offenders.length > 8 ? ' …' : ''}`);
 
 console.log(`\n${fail === 0 ? '✔ SEMUA LULUS' : '✖ GAGAL'}  —  lulus ${pass}, gagal ${fail}`);

@@ -228,7 +228,7 @@ function renderRealizPreview() {
   summary.style.display = 'block';
   summary.innerHTML = `
     <strong>${sourceFile}</strong> — ${rows.length} line items · ${pibNos.length} PIB(s): ${pibNos.join(', ')||'—'}<br>
-    Total volume: <strong>${totalVolume.toLocaleString(undefined,{maximumFractionDigits:3})}</strong> ${rows[0].unit||'TNE'} ·
+    Total volume: <strong>${fmtNum(totalVolume, {maximumFractionDigits:3})}</strong> ${rows[0].unit||'TNE'} ·
     Total value: <strong>$${totalValue.toLocaleString(MT_LOCALE)}</strong> ·
     Products auto-resolved: <strong>${productResolved}/${rows.length}</strong>
   `;
@@ -357,7 +357,7 @@ async function loadRealizationsList() {
         <td style="padding:5px 8px;border-bottom:1px solid var(--border)">${r.line_no||1}</td>
         <td style="padding:5px 8px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace">${r.hs_code||'—'}</td>
         <td style="padding:5px 8px;border-bottom:1px solid var(--border);font-weight:600">${r.product||'—'}</td>
-        <td style="padding:5px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace">${r.volume!=null?Number(r.volume).toLocaleString(undefined,{maximumFractionDigits:3}):'—'}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace">${r.volume!=null?fmtNum(Number(r.volume),{maximumFractionDigits:3}):'—'}</td>
         <td style="padding:5px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace">${r.value_usd!=null?Number(r.value_usd).toLocaleString(MT_LOCALE):'—'}</td>
         <td style="padding:5px 8px;border-bottom:1px solid var(--border)">${r.pib_date||'—'}</td>
         <td style="padding:5px 8px;border-bottom:1px solid var(--border)"><span style="font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:3px;background:${r.source==='excel'?'var(--blue-bg)':'var(--green-bg)'};color:${r.source==='excel'?'var(--blue)':'var(--green)'};border:1px solid ${r.source==='excel'?'var(--blue-bd)':'var(--green-bd)'}">${(r.source||'manual').toUpperCase()}</span></td>

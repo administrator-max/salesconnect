@@ -565,7 +565,12 @@ async function openRealizationDetail(code) {
     // Aggregate stats across ALL PIBs
     const totalVol = rows.reduce((s, r) => s + (Number(r.volume)    || 0), 0);
     const totalVal = rows.reduce((s, r) => s + (Number(r.value_usd) || 0), 0);
-    const _fmt = (n, d = 2) => n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: 0 });
+    /* fmtNum, not toLocaleString(undefined, …): `undefined` means "use the
+       BROWSER locale", so on an id-ID machine 15438.208 renders as "15.438" —
+       the exact reversal (dot as thousands) that 00-num.js's MT_LOCALE exists
+       to prevent, and that cost IKM 1.998 MT. fmtNum locks the locale and
+       still honours the fraction-digit options. */
+    const _fmt = (n, d = 2) => fmtNum(n, { maximumFractionDigits: d, minimumFractionDigits: 0 });
 
     // ── Header summary strip ──────────────────────────────────────────
     const summaryHTML = `
@@ -673,9 +678,9 @@ async function openRealizationDetail(code) {
                 </thead>
                 <tbody>
                   ${g.items.map((r, idx) => {
-                    const vol  = r.volume     != null ? Number(r.volume).toLocaleString(undefined,{maximumFractionDigits:3}) : '—';
-                    const val  = r.value_usd  != null ? Number(r.value_usd).toLocaleString(undefined,{maximumFractionDigits:2}) : '—';
-                    const up   = r.unit_price != null ? Number(r.unit_price).toLocaleString(undefined,{maximumFractionDigits:2}) : '—';
+                    const vol  = r.volume     != null ? fmtNum(Number(r.volume),     {maximumFractionDigits:3}) : '—';
+                    const val  = r.value_usd  != null ? fmtNum(Number(r.value_usd),  {maximumFractionDigits:2}) : '—';
+                    const up   = r.unit_price != null ? fmtNum(Number(r.unit_price), {maximumFractionDigits:2}) : '—';
                     const kurs = r.kurs       != null ? Number(r.kurs).toLocaleString(MT_LOCALE) : '—';
                     const desc = (r.description || '—').replace(/\n/g, ' · ');
                     const descShort = desc.length > 70 ? desc.slice(0, 70) + '…' : desc;

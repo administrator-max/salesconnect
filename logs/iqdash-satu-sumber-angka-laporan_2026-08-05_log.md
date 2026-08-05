@@ -110,13 +110,48 @@ diberikan di periode lebih awal boleh dipakai belakangan.
 - Seluruh berkas JS lolos `node --check`
 - **7 suite JS + 15 suite PHP — 0 FAIL**
 
-## Sisa / risiko
+## Susulan — format locale di drawer (diminta tim, selesai hari yang sama)
 
-`toLocaleString(undefined, …)` **masih ada** di `08-drawer.js` (volume,
-value USD, unit price pada rincian realisasi) dan `20-realization-import.js`.
-Berbeda dengan gauge, keduanya **permukaan hidup** — di browser ber-locale
-Indonesia angkanya akan tampil salah. Belum diperbaiki karena di luar lingkup
-laporan ini; layak dikerjakan terpisah.
+Sisa `toLocaleString(undefined, …)` di permukaan hidup ikut diperbaiki:
+
+| Berkas | Yang diperbaiki |
+|---|---|
+| `08-drawer.js` | helper `_fmt` (total volume & total USD) + volume, nilai USD, harga satuan per baris PIB |
+| `20-realization-import.js` | total volume dan kolom volume pada pratinjau impor |
+
+Semuanya jadi `fmtNum(n, {…})` — locale terkunci ke en-US, opsi jumlah desimal
+tetap jalan. `fmtMt()` **tidak** dipakai di sini: sebagian angka ini USD, dan
+`fmtMt` membulatkan ke ton bulat.
+
+**Kenapa berbahaya:** `undefined` sebagai argumen locale berarti "ikut locale
+BROWSER". Di mesin ber-setelan Indonesia `15438.208` tampil `15.438,208` —
+titik jadi pemisah ribuan, koma jadi desimal, persis terbalik. Itu jalur yang
+sama dengan hilangnya 1.998 MT milik IKM.
+
+### Tesnya diperkuat — dan inilah pelajaran utamanya
+
+`test_mt_format.cjs` sudah punya pemeriksaan struktural untuk ini sejak
+2026-07-27, tapi polanya hanya `toLocaleString(\s*)` — **tanpa argumen**.
+Bentuk `toLocaleString(undefined, {...})` lolos begitu saja dan bertahan diam-diam
+di enam tempat. Tes itu memberi rasa aman yang keliru: ia berjalan hijau selama
+setahun sambil melewatkan varian yang persis sama bahayanya.
+
+Pemeriksaannya kini mengenali **kedua** bentuk, dan polanya diuji terhadap enam
+contoh (tiga harus tertangkap, tiga harus lolos) supaya tidak jadi tes yang
+tak pernah bisa gagal.
+
+Bug ini ditemukan saat menelusuri hal lain — bukan oleh tes yang seharusnya
+menjaganya.
+
+### Verifikasi
+Panel rincian realisasi CGK di live: volume `96.104` · `193.864` · `487.42`,
+nilai USD `60,641.62` · `120,971.14` · `181,612.76`. Nol angka bergaya
+Indonesia. Dibuktikan pula `fmtNum(15438.208)` = `15,438.208` sementara
+`toLocaleString('id-ID')` = `15.438,208` — jadi penguncian locale benar-benar
+bekerja, bukan sekadar kebetulan karena browser penguji ber-locale en-US
+(justru itu sebabnya bug ini tak pernah terlihat dari sini).
+
+## Sisa / risiko
 
 Elemen gauge yang sudah tak ada di HTML membuat `buildGauge()` dan sebagian
 `updateOverviewStats()` menjadi kode mati. Tidak dihapus di sini.
