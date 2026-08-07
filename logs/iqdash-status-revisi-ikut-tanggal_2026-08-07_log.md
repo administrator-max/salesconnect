@@ -66,7 +66,63 @@ bertahan — masing-masing memang masih punya permohonan menggantung:
 
 24 suite, 0 gagal.
 
-## MIN — belum keluar, dan ini soal DATA bukan logika
+## MIN — dibersihkan (dikonfirmasi tim: "MIN juga sudah bukan revisi")
+
+Master 05/08/2026 menjadi penentu: di sana MIN **hanya** punya `Submit #1` +
+`Obtained #1` (+ Utilization 247 & Available 353). **Tidak ada `Obtained #2`
+maupun `Revision #1`** — keduanya sisa di sistem yang master tidak punya.
+
+Dua baris itu dihapus lewat `PATCH /api/company/MIN/cycles`:
+
+| Cycle | MT | Kenapa dihapus |
+|---|---|---|
+| `Obtained #2` | 600 | Isinya BORDES 247 + GI 353 = **realokasi 600 MT yang sama**, bukan kuota baru. Tanpa tanggal, `_fromRevReq: true`. |
+| `Revision #1` | 0,3 | Tanpa produk sama sekali — artefak `.3` yang dulu mengotori total obtained. |
+
+**Yang SENGAJA tidak dilakukan:** mengisikan tanggal PERTEK/SPI ke `Obtained #2`
+supaya "lengkap". Itu justru merusak — `canonicalObtained()` akan menghitungnya
+dan obtained MIN melonjak **600 → 1.200**, padahal master bilang 600. Aturan
+pemilik data (2026-08-04) juga tegas: *realokasi/pindah produk tidak termasuk
+obtained, karena nilai kuotanya tetap sama*.
+
+Riwayat realokasinya **tidak hilang**: baris `Revision Request — BORDES ALLOY`
+dipertahankan dan sudah memuat rincian yang sama (GI 353 / BORDES 247).
+
+Sesudahnya — angka MIN **tidak bergeser sedikit pun**, cocok master:
+
+| | Sebelum | Sesudah | Master |
+|---|---|---|---|
+| Obtained | 600 | 600 | 600 |
+| Utilization | 247 | 247 | 247 |
+| Available | 353 | 353 | 353 |
+| Status revisi | active | **completed** | — |
+
+Cadangan: `backups/min-cycles-sebelum-bersih_2026-08-07.json`.
+
+**Active Revisions akhir: 3** — Re-Apply CGK & GKL, PERTEK Pending MJU.
+Under Revision kosong.
+
+## Temuan susulan — SNSD tertimpa edit web (BUKAN akibat perubahan ini)
+
+Saat verifikasi akhir, Submitted H1 turun **74.945 → 71.945**. Selisihnya persis
+3.000, sebesar Submit #1 milik SNSD.
+
+Sebabnya: koreksi tanggal MOI SNSD **17/06/2026** — yang dikonfirmasi pemilik
+data 2026-08-05 dan dicatat di
+`logs/iqdash-koreksi-tanggal-moi-snsd_2026-08-05_log.md` — **sudah tertimpa
+kembali menjadi 04/08/2026** oleh edit lewat web hari ini
+(`lastUpdate` 2026-08-07T08:28:54). Edit yang sama juga mengisi
+`Obtained #1` PERTEK/SPI 07/08/2026, yang tampaknya informasi baru yang sah.
+
+**Tidak dikembalikan sepihak.** Edit itu dibuat orang lain beberapa jam lalu;
+menimpanya balik hanya jadi tarik-menarik. Diserahkan ke pemilik data.
+
+Ini persis risiko "dua pintu masuk data" yang dijelaskan ke tim beberapa jam
+sebelumnya — dan terwujud dalam hitungan jam, bukan teori. Selama belum ada
+pemeriksa kecocokan otomatis, kejadian seperti ini hanya ketahuan kalau ada
+yang kebetulan memperhatikan angkanya.
+
+## (arsip) MIN sebelum dibersihkan — soal DATA bukan logika
 
 Tim menyebut MIN ikut selesai, tapi di sistem MIN masih punya **dua cycle tanpa
 tanggal sama sekali**:
