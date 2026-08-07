@@ -158,6 +158,62 @@ sebelumnya — dan terwujud dalam hitungan jam, bukan teori. Selama belum ada
 pemeriksa kecocokan otomatis, kejadian seperti ini hanya ketahuan kalau ada
 yang kebetulan memperhatikan angkanya.
 
+## Susulan 2 — MJU harus "Under Revision", bukan "PERTEK Pending"
+
+Tim melaporkan MJU salah golongan. Perbaikan pertama hanya menjawab
+**selesai/belum**; **tahapnya** masih ditentukan teks lama (`revType`,
+`spiRef`) yang sama basinya.
+
+`outstandingStage(d)` (baru) menentukan golongan dari cycle yang menggantung
+paling akhir:
+
+| Yang menggantung | Golongan |
+|---|---|
+| `Submit #2`+ | Re-Apply Submit |
+| `Revision #N`, PERTEK **belum** terbit | **Under Revision** |
+| `Revision #N`, PERTEK terbit, SPI belum | PERTEK Pending |
+
+### Data — sistem tertinggal jauh dari master
+
+Master mengungkap MJU punya **tiga** revisi, bukan dua, dan yang menggantung
+adalah **Revision #3** (MOI 27-Jul-26, PERTEK **TBA**) — itulah kenapa memang
+"Under Revision". Sistem juga menyimpan SPI Revision #2 (16-Jul) di baris
+`Obtained (Revision #1)`, padahal SPI Revision #1 adalah 06-Mei.
+
+MJU direkonstruksi penuh dari master. Cadangan:
+`backups/mju-cycles-sebelum-rekonstruksi_2026-08-07.json`
+
+### Aturan baru memunculkan 4 PT — dicek satu per satu ke master
+
+| PT | Temuan master | Tindakan |
+|---|---|---|
+| **GIS** | Revision #1 MOI 29-Jul-26, PERTEK **TBA** | **Benar menggantung** — aturan lama menyembunyikannya. Tidak diubah. |
+| **BDG** | Rev#1 SPI 21-Apr · Rev#2 PERTEK 22-Jun, SPI 21-Jul | SPI tidak tercatat + baris `Revision #2` sebenarnya sisi *Obtained* Rev#1 (lihat `submitType`-nya). Direkonstruksi. |
+| **GAS** | Rev#1 SPI 18-Mei-26 | SPI ditambahkan |
+| **SPA** | Rev#1 SPI 13-Jul-26 | SPI ditambahkan |
+
+Cadangan: `backups/bdg-gas-spa-sebelum-lengkapi-spi_2026-08-07.json`
+
+### Hasil akhir
+
+| | Isi |
+|---|---|
+| Under Revision | **GIS, MJU** |
+| Re-Apply Submit | CGK, GKL |
+| PERTEK Pending | *(kosong)* |
+
+**Tidak satu pun angka bergeser** — sepanjang waktu 34.960 / 22.747 / 12.213,
+H1 71.945 / 19.860 / 12.525 / 11.493. Per PT juga tetap: MJU 200/200,
+GIS 400/400, BDG 1.000/0, GAS 200/0, SPA 515/0. 24 suite, 0 gagal.
+
+### Catatan
+
+Tiga dari empat PT itu tertahan karena **SPI Perubahan tidak pernah tercatat di
+sistem** meski sudah terbit berbulan-bulan lalu (April, Mei, Juli). Selama
+status dinilai dari teks, ini tak terlihat; begitu dinilai dari tanggal,
+kekosongannya langsung muncul. Ini gejala yang sama dengan MJU dan MIN — rantai
+revisi di sistem umumnya tertinggal dari master.
+
 ## (arsip) MIN sebelum dibersihkan — soal DATA bukan logika
 
 Tim menyebut MIN ikut selesai, tapi di sistem MIN masih punya **dua cycle tanpa

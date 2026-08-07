@@ -72,10 +72,50 @@ function hasOutstandingCycle(d) {
   return false;
 }
 
+/* Permohonan mana yang sedang menggantung, dan sudah sampai tahap apa.
+   Mengembalikan null bila semuanya sudah tuntas.
+
+   Dipakai untuk menentukan GOLONGAN, bukan sekadar selesai/belum. Tanpa ini,
+   tahapnya masih ditentukan teks lama (`revType`, `spiRef`, `revStatus`) yang
+   sama mudah basinya — MJU tergolong "PERTEK Pending" padahal Revision #3-nya
+   baru diajukan 27 Jul 2026 dengan PERTEK masih TBA, yang berarti
+   "Under Revision". Dilaporkan tim 2026-08-07. */
+function outstandingStage(d) {
+  const cy = (d && d.cycles) || [];
+  const obtained = cy.filter(c => /^obtained/i.test(c.type || ''));
+  const kandidat = [];
+  for (const c of cy) {
+    const t = String(c.type || '');
+    if (/^revision request/i.test(t)) continue;
+    let m = t.match(/^submit\s*#(\d+)/i);
+    if (m) {
+      const p = obtained.find(o => new RegExp(`^obtained\\s*#${m[1]}\\b`, 'i').test(o.type || ''));
+      if (!p || !_cycleTerbitLengkap(p)) kandidat.push({ c, jenis: 'submit', n: +m[1] });
+      continue;
+    }
+    m = t.match(/^revision\s*#(\d+)/i);
+    if (m) {
+      const p = obtained.find(o => new RegExp(`^obtained\\s*\\(revision\\s*#${m[1]}\\)`, 'i').test(o.type || ''));
+      if (!p || !_cycleTerbitLengkap(p)) kandidat.push({ c, jenis: 'revision', n: +m[1] });
+    }
+  }
+  if (!kandidat.length) return null;
+  /* Yang TERBARU yang menentukan tahap: itulah yang sedang berjalan. */
+  kandidat.sort((a, b) => a.n - b.n);
+  const akhir = kandidat[kandidat.length - 1];
+  if (akhir.jenis === 'submit') return akhir.n >= 2 ? 'reapply' : 'active';
+  const pertek = String(akhir.c.pertekDate || akhir.c.releaseDate || '').trim();
+  const sudahPertek = pertek && !/^tba$/i.test(pertek);
+  // PERTEK belum terbit -> masih Under Revision. Sudah terbit, SPI belum -> PERTEK Pending.
+  return sudahPertek ? 'revpending' : 'active';
+}
+
 function revisionStatus(d) {
   if (d.revType === 'none')   return 'clean';
   /* Tidak ada yang menggantung -> selesai, apa pun bunyi teks statusnya. */
-  if (!hasOutstandingCycle(d)) return 'completed';
+  const tahap = outstandingStage(d);
+  if (!tahap) return 'completed';
+  return tahap;
   if (d.revType === 'active') {
     // Distinguish Re-Apply (Submit #2 — additional quota) from Revision (product/tonnage change)
     const hasSubmit2 = (d.cycles||[]).some(c => /^submit\s*#[2-9]/i.test(c.type));
