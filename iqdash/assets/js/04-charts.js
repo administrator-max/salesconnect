@@ -23,8 +23,59 @@ const chips = prods => prods.map(p => `<span class="chip" style="background:${pc
      SMS  → spiRef:'PERTEK TERBIT 26/02/26'          → SPI belum → PENDING
      MJU  → spiRef:'SPI TERBIT 05/01/26'             → SPI terbit → COMPLETE
 ──────────────────────────────────────────────────────────────── */
+/* ── Masih ada permohonan yang menggantung? ────────────────────────────
+   Sebuah permohonan (Submit #N / Revision #N) dianggap SELESAI bila sudah
+   dijawab oleh cycle Obtained pasangannya yang membawa PERTEK **dan** SPI.
+
+   Ini menjawab keluhan tim 2026-08-05: sembilan PT masih tercantum di Active
+   Revisions padahal tanggalnya sudah lengkap. Sebabnya revisionStatus() di
+   bawah menilai dari TEKS (`revStatus`, `spiRef`, `statusUpdate`) — dan teks
+   itu tidak ikut diperbarui saat tanggal dilengkapi. PPGL contoh paling
+   gamblang: cycle-nya lengkap (PERTEK 30/05, SPI 09/06/2026) sementara
+   `spiRef`-nya masih berbunyi "SPI belum terbit" dan `spiNo` kosong.
+
+   Tanggal adalah fakta; kalimat status adalah catatan yang mudah basi. Yang
+   dipercaya tanggalnya.
+
+   "Revision Request — <produk>" SENGAJA tidak dihitung: itu permintaan sales
+   internal yang dikonfirmasi CorpSec, bukan permohonan izin ke pemerintah,
+   jadi ia tidak menunggu PERTEK/SPI. */
+function _cycleTerbitLengkap(c) {
+  const p = String((c && (c.pertekDate || c.releaseDate)) || '').trim();
+  const s = String((c && c.spiDate) || '').trim();
+  const sah = v => v && !/^tba$/i.test(v);
+  return sah(p) && sah(s);
+}
+function hasOutstandingCycle(d) {
+  const cy = (d && d.cycles) || [];
+  const obtained = cy.filter(c => /^obtained/i.test(c.type || ''));
+
+  // Obtained yang belum bertanggal lengkap = masih menggantung.
+  if (obtained.some(c => !_cycleTerbitLengkap(c))) return true;
+
+  // Tiap permohonan harus punya Obtained pasangannya yang sudah lengkap.
+  for (const c of cy) {
+    const t = String(c.type || '');
+    if (/^revision request/i.test(t)) continue;
+    let m = t.match(/^submit\s*#(\d+)/i);
+    if (m) {
+      const p = obtained.find(o => new RegExp(`^obtained\\s*#${m[1]}\\b`, 'i').test(o.type || ''));
+      if (!p || !_cycleTerbitLengkap(p)) return true;
+      continue;
+    }
+    m = t.match(/^revision\s*#(\d+)/i);
+    if (m) {
+      const p = obtained.find(o => new RegExp(`^obtained\\s*\\(revision\\s*#${m[1]}\\)`, 'i').test(o.type || ''));
+      if (!p || !_cycleTerbitLengkap(p)) return true;
+    }
+  }
+  return false;
+}
+
 function revisionStatus(d) {
   if (d.revType === 'none')   return 'clean';
+  /* Tidak ada yang menggantung -> selesai, apa pun bunyi teks statusnya. */
+  if (!hasOutstandingCycle(d)) return 'completed';
   if (d.revType === 'active') {
     // Distinguish Re-Apply (Submit #2 — additional quota) from Revision (product/tonnage change)
     const hasSubmit2 = (d.cycles||[]).some(c => /^submit\s*#[2-9]/i.test(c.type));
