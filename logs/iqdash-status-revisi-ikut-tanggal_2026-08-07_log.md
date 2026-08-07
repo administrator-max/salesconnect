@@ -117,6 +117,42 @@ kembali menjadi 04/08/2026** oleh edit lewat web hari ini
 **Tidak dikembalikan sepihak.** Edit itu dibuat orang lain beberapa jam lalu;
 menimpanya balik hanya jadi tarik-menarik. Diserahkan ke pemilik data.
 
+### Diselesaikan — pemilik data memberi tanggal final
+
+> 1. Submit MOI SNSD 3000 MT pada **17/07/2026**
+> 2. PERTEK Terbit 120 MT pada **04/08/2026**, Submit MOT **04/08/2026**,
+>    SPI Terbit **07/08/2026**
+
+**Perhatian: tanggal MOI berubah dari keterangan 2026-08-05.** Waktu itu
+"17 Juni 2026", kini **17 Juli 2026**. Yang dipakai keterangan terbaru.
+Konsekuensinya nyata — 17 Juli **di luar H1**, jadi 3.000 MT SNSD **tidak**
+masuk Submitted Januari–Juni.
+
+Struktur yang ditulis (mengikuti bentuk master: PERTEK di baris Submit, SPI di
+baris Obtained):
+
+| Cycle | MT | Submission | Release |
+|---|---|---|---|
+| `Submit #1` | 3.000 | Submit MOI **17/07/2026** | PERTEK **04/08/2026** |
+| `Obtained #1` | 120 | Submit MOT **04/08/2026** | SPI **07/08/2026** |
+
+`pertekDate` pada `Obtained #1` **dikosongkan** — PERTEK hidup di baris Submit
+yang berpasangan, dan itulah yang dibaca `getPertekTerbitForObtained()`.
+Sebelumnya baris Obtained ikut memuat 07/08/2026, yang keliru: itu tanggal SPI.
+
+Cadangan: `backups/snsd-cycles-sebelum-koreksi-2_2026-08-07.json`
+
+**Hasil — SNSD kini mendarat di periode yang benar:**
+
+| Periode | Submitted | Obtained |
+|---|---|---|
+| H1 (1 Jan–30 Jun) | 71.945 | 19.860 |
+| **Juli 2026** | 8.600 *(+3.000 SNSD)* | 1.160 |
+| **Agustus 2026** | 0 | 120 *(SNSD)* |
+| 2026 setahun | 80.545 | 21.140 |
+
+Sifat partisi utuh: H1 + H2 = setahun, persis, untuk Submitted maupun Obtained.
+
 Ini persis risiko "dua pintu masuk data" yang dijelaskan ke tim beberapa jam
 sebelumnya — dan terwujud dalam hitungan jam, bukan teori. Selama belum ada
 pemeriksa kecocokan otomatis, kejadian seperti ini hanya ketahuan kalau ada
