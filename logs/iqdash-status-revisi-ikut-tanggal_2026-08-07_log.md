@@ -236,3 +236,43 @@ Tidak ditebak sendiri. Yang perlu dipastikan tim:
 1. `Obtained #2` 600 MT — baris kembar yang harus dihapus, atau pemberian nyata
    yang tanggalnya belum diisi?
 2. `Revision #1` 0,3 MT — masih berjalan, atau sisa yang bisa ditutup?
+
+---
+
+## Koreksi akhir — MJU tidak pending apa pun
+
+Tim membatalkan permintaan sebelumnya: **MJU tidak masuk golongan mana pun**,
+karena SPI-nya sudah ada (SPI Perubahan Revision #2, 16/07/2026).
+
+`Revision #3` dihapus dari sistem — itulah satu-satunya yang menahan MJU.
+Rantainya kini berakhir di `Revision #2` yang SPI-nya sudah terbit.
+
+Yang dihapus (dicatat supaya mudah dikembalikan):
+
+```
+Revision #3 · MOI 27/07/2026 · PERTEK (kosong/TBA)
+products: HRPO ALLOY -200, CRC ALLOY +200   (net 0, tukar produk)
+```
+
+**Master 05/08/2026 MEMUAT baris Revision #3 ini** (`Submit MOI Perubahan
+(Revision #3)`, SubDate 27-Jul-26, RelDate TBA). Jadi kalau suatu saat master
+diimpor ulang, baris itu akan **muncul lagi** dan MJU kembali ke Under
+Revision. Kalau memang bukan permohonan yang berjalan, baris tersebut perlu
+dibersihkan **di master** juga.
+
+Catatan: blok MJU di master memang berantakan labelnya — baris Revision #3
+menulis `Release = "PERTEK Perubahan (Revision #1)"` dan REMARKS2
+`"PERTEK Perubahan Terbit 04/02/26"` (tanggal milik Revision #1), sementara
+baris Utilization ikut memuat metadata Submission/Release. Wajar kalau
+statusnya jadi ambigu.
+
+**Hasil akhir:**
+
+| | Isi |
+|---|---|
+| Under Revision | GIS |
+| Re-Apply Submit | CGK, GKL |
+| PERTEK Pending | *(kosong)* |
+
+MJU `completed`, obtained 200 · available 200 — tidak bergeser. Total
+sepanjang waktu 34.960 / 22.747 / 12.213 dan H1 71.945 / 19.860 juga tetap.
