@@ -22,28 +22,34 @@ Juli. Konvensinya diverifikasi ke 15+ record lain — **selisih hari + 1**
 Cadangan: `backups/scot-192-178-sebelum-koreksi_2026-08-07.json`
 (termasuk id 177 sebagai pembanding).
 
+## Susulan — tanggal bongkar id 178 (tim mengonfirmasi tidak seharusnya Delayed)
+
+Sesudah koreksi pertama, record masih bertanda **"⚠ Delayed"**. Penyebabnya
+bukan `delivery_days` melainkan `unloading_days = 10` — `gd()` di `state.js`
+menandai bila `unloading_days > 3`. Angka itu sisa dari tanggal 31 Juli yang
+sudah dikoreksi, dan menyisakan keadaan mustahil: selesai bongkar 30 Juli
+padahal barang sudah masuk gudang 22 Juli.
+
+| Field | Sebelum | Sesudah |
+|---|---|---|
+| `finish_unloading` | 2026-07-30 | **2026-07-21** |
+| `unloading_days` | 10 | **1** |
+
+**Acuannya Lot 74 (id 192)** — pola terdekat, sama-sama `cargo_status` "Direct":
+`start_delivery` 20 Jul · bongkar 20 → 20 Jul · `unloading_days` 1 ·
+`enter_warehouse` 21 Jul. Untuk #04 dengan `start_delivery` 21 Jul, bentuk yang
+setara adalah bongkar 21 → 21 Jul selama 1 hari.
+
+Ini **asumsi**, bukan angka dari tim: yang dikonfirmasi hanya "tidak seharusnya
+Delayed". Kalau tanggal bongkar sebenarnya berbeda, tinggal dikoreksi — yang
+penting `finish_unloading` tidak melewati `enter_warehouse`.
+
+Sesudahnya: `start_delivery` 21 Jul · bongkar 21 → 21 Jul (1 hari) · masuk
+gudang 22 Jul · durasi 2 hari · **tanpa penanda delay**.
+
 ## BELUM diubah — perlu konfirmasi tim
 
-### 1. Tanggal bongkar id 178 kini mustahil
-
-`enter_warehouse` sudah 22 Juli, tapi tersisa:
-
-```
-start_unloading   2026-07-21
-finish_unloading  2026-07-30   ← 8 hari SESUDAH masuk gudang
-unloading_days    10
-```
-
-Barang tidak mungkin selesai dibongkar 30 Juli kalau sudah masuk gudang 22
-Juli. Angka **10** inilah yang membuat record ini bertanda **"⚠ Delayed"**
-(`gd()` di `state.js` menandai bila `unloading_days > 3`) — bukan
-`delivery_days`. Jadi selama belum dikoreksi, #04 tetap tampil Delayed padahal
-pengirimannya hanya 1 hari.
-
-Tidak ditebak sendiri: tim hanya menyebut tanggal masuk gudang, dan saya tidak
-tahu apakah tanggal bongkarnya juga salah ketik atau memang mengacu ke hal lain.
-
-### 2. Horse Stable #03 (id 177) kemungkinan besar sama
+### Horse Stable #03 (id 177) kemungkinan besar sama
 
 Tanggalnya **identik** dengan #04 sebelum koreksi:
 
