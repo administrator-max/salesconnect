@@ -105,8 +105,33 @@ MT akan terhitung dua kali. Uji regresi mencatat perilaku ini apa adanya.
 
 Akar soalnya struktural: master dan lot menyimpan peristiwa yang sama tanpa
 penanda apa pun yang mengaitkan keduanya. Selama itu belum ada, sistem hanya
-bisa **menebak** mana yang kembar. Perbaikan sebenarnya: beri lot penanda
-siklus utilisasi mana yang ia catat.
+bisa **menebak** mana yang kembar.
+
+### Rencana penuntasan — DITUNDA sampai tim selesai mengisi
+
+Diputuskan 2026-08-10 (pemilik data): dikerjakan **setelah tim kabari selesai
+mengisi**, bukan sekarang — tiga isian masuk pagi ini (10:13, 10:15, 10:17),
+dan mengubah jalur simpan di tengah mereka bekerja berisiko mengganggu.
+
+Aman ditunda: pagar obtained menahan **seluruh** kasus yang ada hari ini, dan
+tidak ada satu pun angka yang sedang salah. Celahnya baru terbuka bila obtained
+sebuah produk naik melewati jumlah master + lot.
+
+Isi pekerjaannya — hentikan tebakan, ganti dengan penanda:
+
+1. Satu kolom baru di `company_shipments`, mis. `util_ref`: berisi siklus
+   master yang lot ini catat (`Utilization #2`), atau penanda "pemakaian baru".
+2. Ditentukan **sekali saat disimpan**, bukan ditebak ulang tiap render. Jalur
+   simpan mencocokkan isian dengan baris master yang ada; kalau cocok, ia
+   menautkan; kalau tidak, menandainya baru.
+3. Import master memakai penanda itu — bukan sidik jari tanggal+MT — untuk tahu
+   apa yang sudah terwakili, dan melaporkan apa pun yang mendua.
+4. Perhitungan runtime menyusut jadi penjumlahan biasa. Ketiga syarat di atas
+   (kembar / sesudah master / atap) **dihapus** — tidak ada lagi yang ditebak.
+5. Migrasi: 3 lot yang sudah bertanggal ditautkan; lot tanpa tanggal tidak
+   perlu diapa-apakan (memang belum dihitung).
+
+Yang hilang bukan cuma risiko IKM, tapi seluruh kelas bug ini.
 
 **2. CGK terpakai 1.020 dari obtained 800.** Bukan akibat perubahan ini — CGK
 tidak punya lot ber-MT sama sekali; angka itu datang dari master
