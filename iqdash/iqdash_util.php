@@ -173,6 +173,39 @@ function iq_is_date_like($v): bool {
     return false;
 }
 
+/**
+ * Tanggal -> kunci hari 'YYYY-MM-DD', atau null bila bukan tanggal.
+ *
+ * Menerima BENTUK YANG SAMA dengan iq_is_date_like() — sengaja, karena
+ * dipakai untuk MEMBANDINGKAN dua tanggal yang datang dari sumber berbeda dan
+ * hampir tidak pernah seragam: master menulis '31/03/2026', form Sales
+ * menulis '07 August 2026', cycle revisi menulis '30-Jul-26'. Tanpa
+ * penyeragaman, dua catatan atas peristiwa yang sama tidak akan pernah
+ * dikenali sama.
+ */
+function iq_util_day_key($v): ?string {
+    if ($v === null) return null;
+    $s = trim((string) $v);
+    if ($s === '' || preg_match('/^(tba|null|undefined)$/i', $s)) return null;
+
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m)) {
+        return checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $s : null;
+    }
+    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/', $s, $m)) {
+        $y = (int) $m[3]; if ($y < 100) $y += 2000;
+        $d = (int) $m[1]; $mo = (int) $m[2];
+        return checkdate($mo, $d, $y) ? sprintf('%04d-%02d-%02d', $y, $mo, $d) : null;
+    }
+    if (preg_match('/^(\d{1,2})[-\s]([A-Za-z]+)[-\s](\d{2,4})$/', $s, $m)) {
+        $mo = iq_month_name_map()[strtolower($m[2])] ?? null;
+        if ($mo === null) return null;
+        $y = (int) $m[3]; if ($y < 100) $y += 2000;
+        $d = (int) $m[1];
+        return checkdate($mo, $d, $y) ? sprintf('%04d-%02d-%02d', $y, $mo, $d) : null;
+    }
+    return null;
+}
+
 /** Cached json_decode of iqdash/data/quotaLedger.json. */
 function iq_ledger(): array {
     static $data = null;

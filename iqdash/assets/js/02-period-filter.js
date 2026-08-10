@@ -296,6 +296,90 @@ function scopedUtilByProd(co) {
       const p = u.product || '';
       out[p] = (out[p] || 0) + mt;
     });
+
+    /* Lot yang mencatat pemakaian BARU — belum pernah dilihat master.
+       Cerminan iq_sync_util_with_cycles() di server (2026-08-10); aturannya
+       harus sama persis, kalau tidak filter periode akan berselisih dengan
+       Overview lagi.
+
+       Dilaporkan lewat KAN: master mencatat GI ALLOY 80 MT @ 31/03/2026, tim
+       mengisi 60 MT @ 07/08/2026 atas kuota re-apply Obtained #2. Karena
+       jumlahnya tidak sama dengan master, pakaiLot() menolaknya dan 60 MT itu
+       lenyap — sisa tampil 60 padahal sudah nol.
+
+       Ditambahkan hanya bila: bukan catatan kembar (produk+hari+MT sama),
+       tanggalnya SESUDAH hari terakhir yang master tahu, dan hasilnya tidak
+       melampaui obtained produk itu. Alasan tiap syarat ada di sisi server. */
+    /* Kunci hari 'YYYY-MM-DD' dari komponen LOKAL — jangan toISOString(), yang
+       menggeser tanggal ke UTC dan bisa memundurkannya sehari. Cerminan
+       iq_util_day_key() di PHP. */
+    const _hari = v => {
+      const d = pDate(v) || _parseEtaLoose(v);
+      if (!d) return null;
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+             + '-' + String(d.getDate()).padStart(2, '0');
+    };
+
+    const sidikMaster = new Set(), hariAkhir = {};
+    uc.forEach(u => {
+      const mt = Number(u.mt) || 0, c = _canonProd(u.product || ''), h = _hari(u.date);
+      if (h === null) return;
+      sidikMaster.add(c + '|' + h + '|' + mt.toFixed(3));
+      if (!hariAkhir[c] || h > hariAkhir[c]) hariAkhir[c] = h;
+    });
+
+    // Atap obtained per produk = pasangan stats (terpakai + tersedia).
+    const atap = {};
+    [co.utilizationByProd, co.availableByProd].forEach(src =>
+      Object.entries(src || {}).forEach(([p, v]) => {
+        const c = _canonProd(p); atap[c] = (atap[c] || 0) + (Number(v) || 0);
+      }));
+
+    const sudah = {};                       // yang SUDAH dihitung per produk kanonik
+    uc.forEach(u => { const c = _canonProd(u.product || '');
+      sudah[c] = (sudah[c] || 0) + (Number(u.mt) || 0); });
+
+    Object.entries(lotPer).forEach(([c, e]) => {
+      if (pakaiLot(c)) return;              // produk ini sudah diiris dari lot
+      const nama = (uc.find(u => _canonProd(u.product || '') === c) || {}).product || c;
+      e.lots.forEach(l => {
+        const mt = Number(l.utilMT) || 0;
+        if (mt <= 0) return;
+        const h = _hari(l.utilDate);
+        if (h === null) return;                                          // tanpa tanggal
+        if (sidikMaster.has(c + '|' + h + '|' + mt.toFixed(3))) return;  // kembar
+        if (hariAkhir[c] && h <= hariAkhir[c]) return;                   // sudah terliput
+        if (atap[c] > 0 && (sudah[c] || 0) + mt > atap[c] + 0.001) return;
+        sudah[c] = (sudah[c] || 0) + mt;
+        if (PERIOD.active) { const d = pDate(l.utilDate) || _parseEtaLoose(l.utilDate);
+          if (!d || !inPd(d)) return; }
+        out[nama] = (out[nama] || 0) + mt;
+      });
+    });
+
+    /* Produk yang rincian siklus maupun lot tidak sebut SAMA SEKALI: kolom
+       stats satu-satunya yang bicara soal pemakaiannya, jadi ia dipakai —
+       aturan yang sama dengan iq_sync_util_with_cycles() di server sejak
+       2026-08-10. Tanpa ini, "siklus yang berlaku" tanpa sengaja berlaku per
+       COMPANY: satu produk punya siklus, produk lain milik company itu ikut
+       dinolkan (IKM SEAMLESS PIPE 275 MT).
+
+       Tanggalnya dari etaByProd; tanpa tanggal ia tidak bisa ditempatkan di
+       periode mana pun sehingga hanya muncul saat filter mati — sisi periode
+       memang tidak bisa menebak, dan menebak-nya akan merusak sifat partisi
+       yang dijaga di seluruh berkas ini. */
+    const disebut = new Set(uc.map(u => _canonProd(u.product || '')));
+    Object.keys(lotPer).forEach(c => { if (pakaiLot(c)) disebut.add(c); });
+    Object.entries(co.utilizationByProd || {}).forEach(([p, v]) => {
+      const mt = Number(v) || 0;
+      if (mt <= 0 || disebut.has(_canonProd(p))) return;
+      if (PERIOD.active) {
+        const raw = (co.etaByProd || {})[p];
+        const d = pDate(raw) || _parseEtaLoose(raw);
+        if (!d || !inPd(d)) return;
+      }
+      out[p] = (out[p] || 0) + mt;
+    });
     return out;
   }
 

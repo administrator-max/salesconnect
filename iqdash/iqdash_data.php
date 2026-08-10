@@ -219,37 +219,105 @@ function iq_sync_util_with_cycles(array &$co, array $aliasMap = []): void {
 
     // Utilisasi sebenarnya, dari rincian per siklus.
     $utilBaru = [];
+    $sidikMaster = [];   // produk|hari|MT dari master -> untuk kenali catatan kembar
+    $hariAkhir  = [];    // produk -> hari TERAKHIR yang master tahu
     foreach ($uc as $u) {
         $c = $canon((string) ($u['product'] ?? ''));
-        $utilBaru[$c] = ($utilBaru[$c] ?? 0) + iq_num($u['mt'] ?? 0);
+        $mt = iq_num($u['mt'] ?? 0);
+        $utilBaru[$c] = ($utilBaru[$c] ?? 0) + $mt;
+        $hari = iq_util_day_key($u['date'] ?? null);
+        if ($hari !== null) {
+            $sidikMaster[$c . '|' . $hari . '|' . (string) round($mt, 3)] = true;
+            if (!isset($hariAkhir[$c]) || $hari > $hariAkhir[$c]) $hariAkhir[$c] = $hari;
+        }
     }
 
-    /* Produk yang master SAMA SEKALI tidak sebut utilisasinya: lot Sales yang
-       BERTANGGAL ikut dihitung. Ini penerapan keputusan 2026-08-07 ("input
-       Sales jadi sumbernya") untuk kasus yang sebelumnya terjebak — GKL
-       GL ALLOY 600 MT sudah di-re-apply dan dipakai, tapi saldonya tetap
-       tampil 600 karena master diam soal produk itu. Mengisi kekosongan bukan
-       membantah master, jadi tidak perlu menunggu lot "lengkap".
+    /* Lot Sales yang BERTANGGAL ikut dihitung — penerapan keputusan 2026-08-07
+       ("input Sales jadi sumbernya").
+
+       Dulu di sini berlaku "master sudah bicara -> lot dilewati": begitu master
+       menyebut utilisasi sebuah produk, lot Sales untuk produk itu dibuang
+       seluruhnya. Maksudnya mencegah hitung ganda, tapi akibatnya input Sales
+       yang benar-benar BARU ikut terbuang diam-diam. KAN kena persis begitu
+       (dilaporkan 2026-08-10): master mencatat GI ALLOY 80 MT @ 31/03/2026,
+       lalu tim mengisi 60 MT @ 07/08/2026 atas kuota re-apply Obtained #2.
+       Keduanya peristiwa berbeda dan seharusnya berjumlah 140 = obtained,
+       sisa 0 — yang tampil 80 terpakai, 60 masih "tersedia". Bagi tim itu
+       terlihat seperti isian yang hilang lagi.
+
+       Tapi MENJUMLAHKAN begitu saja juga salah, dan jauh lebih berbahaya.
+       Sapuan seluruh data (2026-08-10) menunjukkan lot pada UMUMNYA mencatat
+       peristiwa yang SAMA dengan master, cuma lebih rinci: ADP lot 100 = master
+       Utilization #2 100; HKG 250 = #2 250; JKT 100 = #2 100; IKM lot 2.000
+       masih bagian dari master 2.300. Menjumlahkan semuanya akan melipatgandakan
+       utilisasi mereka — IKM jadi 4.300 dari obtained 4.150.
+
+       Yang membedakan KAN: tanggal lotnya SESUDAH seluruh baris master. Master
+       terakhir tahu 31/03/2026; tim mengisi 07/08/2026. Itu pemakaian yang
+       memang belum pernah dilihat master — nanti muncul sebagai Utilization #2
+       saat master di-impor ulang.
+
+       Jadi lot ditambahkan hanya bila KETIGA syarat ini terpenuhi:
+
+         1. bukan catatan kembar — produk, hari, dan MT sama persis;
+         2. tanggalnya SESUDAH hari terakhir yang master tahu untuk produk itu
+            (master diam sama sekali = otomatis lolos: mengisi kekosongan bukan
+            membantah master — GKL GL ALLOY, IKM SEAMLESS PIPE);
+         3. hasilnya tidak melampaui obtained produk itu. Ini pagar terakhir,
+            dan bukan sekadar heuristik: memakai lebih banyak dari yang didapat
+            mustahil. Tanpa pagar ini, satu tanggal yang salah ketik cukup untuk
+            melipatgandakan angka sebuah produk.
 
        WAJIB bertanggal: tanpa tanggal, MT itu tidak bisa ditempatkan di periode
        mana pun, dan menghitungnya di total saja akan membuat H1 + H2 tidak lagi
        sama dengan setahun — sifat partisi yang selama ini dijaga. */
     foreach (($co['shipments'] ?? []) as $prod => $lots) {
         $c = $canon((string) $prod);
-        if (isset($utilBaru[$c]) && $utilBaru[$c] > 0) continue;   // master sudah bicara
         foreach ((array) $lots as $l) {
             $mt = iq_num($l['utilMT'] ?? 0);
             if ($mt <= 0) continue;
-            if (!iq_present($l['utilDate'] ?? null)) continue;      // tanpa tanggal -> tidak dihitung
+
+            $hari = iq_util_day_key($l['utilDate'] ?? null);
+            if ($hari === null) continue;                                                       // 0. tanpa tanggal
+            if (isset($sidikMaster[$c . '|' . $hari . '|' . (string) round($mt, 3)])) continue;  // 1. kembar
+            if (isset($hariAkhir[$c]) && $hari <= $hariAkhir[$c]) continue;                      // 2. sudah terliput
+
+            $atap = $obtProd[$c] ?? 0;                                                           // 3. pagar obtained
+            if ($atap > 0 && ($utilBaru[$c] ?? 0) + $mt > $atap + 0.001) continue;
+
             $utilBaru[$c] = ($utilBaru[$c] ?? 0) + $mt;
         }
+    }
+
+    /* Utilisasi versi stats, per produk kanonik. Dipakai HANYA sebagai
+       cadangan terakhir di bawah — lihat alasannya di sana. */
+    $utilStats = [];
+    foreach ($utilByProd as $p => $v) {
+        $c = $canon((string) $p);
+        $utilStats[$c] = ($utilStats[$c] ?? 0) + iq_num($v);
     }
 
     $nUtil = [];
     $nAvail = [];
     foreach (array_unique(array_merge(array_keys($obtProd), array_keys($utilBaru))) as $c) {
         $key = $ejaan[$c] ?? $c;
-        $u   = $utilBaru[$c] ?? 0;
+        /* Urutan sumber: rincian siklus / lot bertanggal ($utilBaru) lebih
+           dulu, kolom stats hanya bila KEDUANYA diam soal produk itu.
+
+           Tanpa baris terakhir ini, aturan "siklus yang berlaku" tanpa sengaja
+           berlaku PER COMPANY, bukan per produk: begitu satu produk punya
+           rincian siklus, produk lain milik company yang sama yang TIDAK
+           disebut siklus mana pun ikut dinolkan — padahal yang menyebut
+           pemakaiannya cuma stats. IKM SEAMLESS PIPE 275 MT hilang persis
+           begitu (utilisasi tercatat 2.300, seharusnya 2.575), dan sisanya
+           malah tampil 2.100 — 275 MT kuota terpakai ditawarkan lagi sebagai
+           tersedia. Dilaporkan lewat selisih dengan SCOT 2026-08-10; SCOT
+           memang punya kontrak Arsen SSP #50 sebesar 275 MT untuk IKM.
+
+           Ini kelanjutan langsung dari aturan lot di atas ("mengisi kekosongan
+           bukan membantah master"): di mana master bicara ia tetap menang, di
+           mana ia diam kita tidak boleh menganggapnya nol. */
+        $u   = array_key_exists($c, $utilBaru) ? $utilBaru[$c] : ($utilStats[$c] ?? 0);
         // Produk yang hanya muncul di utilCycles: obtained-nya minimal sebesar
         // yang terpakai — menganggapnya 0 akan membuat saldo negatif.
         $o   = $obtProd[$c] ?? $u;
@@ -752,11 +820,21 @@ function iq_apply_pending_revision(array &$maps, array $revDef, string $releaseD
  * @param string $releaseDate  this company's `pertek_perubahan_release` date, or ''
  * @param array|null $revDef   this company's PENDING_REVISIONS entry, or null
  */
-function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $releaseDate = '', ?array $revDef = null): void {
+function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $releaseDate = '', ?array $revDef = null, array $aliasMap = []): void {
     $utilByProd = [];
     $availByProd = [];
     $obtByProd = [];
     $ships = $co['shipments'] ?? [];
+
+    /* Utilisasi versi `company_product_stats`, sebagaimana dibaca
+       iq_build_company_obj() SEBELUM overlay ini menimpanya. Dikanonikkan
+       supaya baris lama yang masih dieja `GI BORON` ketemu dengan nama produk
+       ledger `GI ALLOY`. */
+    $statsU = [];
+    foreach (($co['utilizationByProd'] ?? []) as $p => $v) {
+        $c = $aliasMap[trim((string) $p)] ?? trim((string) $p);
+        $statsU[$c] = ($statsU[$c] ?? 0) + iq_num($v);
+    }
 
     foreach ($ent as $hs => $v) {
         $name = ($hsName[$hs] ?? '') !== '' ? $hsName[$hs] : $hs;
@@ -766,6 +844,19 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
         foreach (($ships[$name] ?? []) as $l) {
             $lotU += iq_num($l['utilMT'] ?? 0);
         }
+        /* Kolom stats ikut direkonsiliasi, dengan alasan yang sama persis
+           seperti lot di bawah: quotaLedger.json adalah SNAPSHOT BEKU dari
+           master (regen terakhir 03/08/2026), sementara `company_product_stats`
+           ditulis aplikasi setiap kali tim menyimpan pemakaian. Pemakaian yang
+           dicatat SESUDAH regen karena itu hanya hidup di stats — dan sebelum
+           ini dibuang diam-diam oleh overlay.
+           IKM SEAMLESS PIPE 275 MT (kontrak Arsen SSP #50 di SCOT) hilang
+           begitu: ledger 0, lot 0, stats 275 -> tampil 0 terpakai / 2.100
+           tersisa, padahal master sendiri bilang 275 terpakai / 1.825 sisa.
+           Ketahuan 2026-08-10 dari selisih dengan SCOT.
+           Tetap max(), bukan jumlah: ketiganya mengaku sebagai TOTAL produk
+           yang sama, bukan tiga potongan yang bisa ditambahkan. */
+        $statU = $statsU[$aliasMap[$name] ?? $name] ?? 0.0;
         // Both numbers claim to be the SAME total, not two halves of one, so
         // they reconcile with max() — never by adding. The ledger's util is
         // the master's `Utilization (MT)` row at regen time; a lot re-states
@@ -779,7 +870,7 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
         // above the frozen ledger baseline — without counting the overlap
         // twice. Verified over every company in the ledger: only IKM moves,
         // and the new total lands exactly on the master's 22,547 MT.
-        $u = min($o, max($ledgerU, $lotU));
+        $u = min($o, max($ledgerU, $lotU, $statU));
         $obtByProd[$name] = $o;
         $utilByProd[$name] = $u;
         $availByProd[$name] = max(0, $o - $u);
@@ -917,7 +1008,7 @@ function iq_build_payload(array $t): array {
         if ($ent) {
             $revDef = $pendingRevisions[$code] ?? null;
             $release = $releasedMap[$code] ?? '';
-            iq_apply_ledger($co, $ent, $hsName, $release, $revDef);
+            iq_apply_ledger($co, $ent, $hsName, $release, $revDef, $aliasMap);
             // Ledger menulis ulang keempat kolom itu dari berkas statis quotaLedger.json —
             // selaraskan lagi, kalau tidak hasilnya tertimpa kembali.
             iq_sync_util_with_cycles($co, $aliasMap);
@@ -1008,7 +1099,7 @@ function iq_build_payload(array $t): array {
 
         $revDef = $pendingRevisions[$code] ?? null;
         $release = $releasedMap[$code] ?? '';
-        iq_apply_ledger($co, $ent, $hsName, $release, $revDef);
+        iq_apply_ledger($co, $ent, $hsName, $release, $revDef, $aliasMap);
         // Ledger menulis ulang keempat kolom itu dari berkas statis quotaLedger.json —
         // selaraskan lagi, kalau tidak hasilnya tertimpa kembali.
         iq_sync_util_with_cycles($co, $aliasMap);
