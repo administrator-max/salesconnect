@@ -212,9 +212,63 @@ function scopedUtilByProd(co) {
      sama menjadi 15.375 dan 6.872 MT kembali ke 2025, tempatnya semula. */
   const uc = co.utilCycles;
   if (Array.isArray(uc) && uc.length) {
+    /* Keputusan pemilik data 2026-08-07: input Sales jadi sumbernya.
+       Diterapkan PER PRODUK, dan hanya bila lot produk itu sudah LENGKAP —
+       yaitu setiap lot ber-MT punya tanggal utilisasi, dan jumlahnya sama
+       dengan total per siklus dari master.
+
+       Kenapa tidak langsung lot semuanya: saat aturan ini dibuat, 32 produk
+       sama sekali belum punya lot, dan 4 lot yang ada masih separuh jalan
+       (HKG 250 dari 1.000; JKT 100 dari 400; IKM 2.000 dari 2.300; SPA 400
+       dari 401). Menukar sumber secara borongan akan MENGHILANGKAN 1.351 MT
+       seketika dan menolkan 32 produk. Dengan syarat "lengkap", peralihannya
+       terjadi sendiri per produk begitu Sales selesai mengisi — tanpa ada
+       tonase yang hilang di tengah jalan. */
+    const totalSiklus = {};                       // produk kanonik -> MT master
+    uc.forEach(u => { const m = Number(u.mt) || 0; if (m > 0) {
+      const c = _canonProd(u.product || ''); totalSiklus[c] = (totalSiklus[c] || 0) + m; } });
+
+    const lotPer = {};                            // produk kanonik -> {mt, lengkap, lots[]}
+    Object.entries(co.shipments || {}).forEach(([p, ls]) => {
+      const c = _canonProd(p);
+      (ls || []).forEach(l => {
+        const mt = Number(l.utilMT) || 0;
+        if (mt <= 0) return;
+        const e = lotPer[c] || (lotPer[c] = { mt: 0, lengkap: true, lots: [] });
+        e.mt += mt;
+        /* WAJIB `utilDate` — bukan lotUtilDate(). Cadangan pibDate/etaJKT
+           JANGAN dipakai untuk memutuskan peralihan sumber: keduanya tanggal
+           KEDATANGAN, dan memakainya sebagai tanggal pemakaian persis
+           kekeliruan yang kolom ini dibuat untuk memperbaiki.
+           Percobaan pertama memakai lotUtilDate() dan langsung menggeser
+           650 MT keluar dari H1 (12.525 -> 11.875) untuk empat produk yang
+           lotnya hanya berbekal PIB/ETA. Sumber baru hanya boleh menang kalau
+           Sales benar-benar sudah mengisi tanggal pemakaiannya. */
+        const ud = String(l.utilDate || '').trim();
+        if (!ud || !(pDate(ud) || _parseEtaLoose(ud))) e.lengkap = false;
+        e.lots.push(l);
+      });
+    });
+    const pakaiLot = c => {
+      const e = lotPer[c];
+      return !!(e && e.lengkap && Math.abs(e.mt - (totalSiklus[c] || 0)) < 0.01);
+    };
+
+    // Produk yang lot-nya sudah lengkap: iris dari LOT (tanggalnya lebih rinci).
+    Object.keys(lotPer).forEach(c => {
+      if (!pakaiLot(c)) return;
+      const nama = (uc.find(u => _canonProd(u.product || '') === c) || {}).product || c;
+      lotPer[c].lots.forEach(l => {
+        if (PERIOD.active) { const d = lotUtilDate(l); if (!d || !inPd(d)) return; }
+        out[nama] = (out[nama] || 0) + (Number(l.utilMT) || 0);
+      });
+    });
+
+    // Sisanya tetap dari rincian per siklus milik master.
     uc.forEach(u => {
       const mt = Number(u.mt) || 0;
       if (mt <= 0) return;
+      if (pakaiLot(_canonProd(u.product || ''))) return;
       if (PERIOD.active) {
         const d = pDate(u.date) || _parseEtaLoose(u.date);
         if (!d || !inPd(d)) return;
