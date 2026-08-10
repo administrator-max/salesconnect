@@ -546,6 +546,37 @@ function allTimeUtil(co) {
   return Number(co.utilizationMT) || 0;
 }
 
+/* allTimeUtilByProd — utilisasi SEPANJANG WAKTU per produk, satu sumber.
+   Pasangan per-produk dari allTimeUtil(): `utilCycles` bila ada, kalau tidak
+   barulah kolom `utilizationByProd` dari company_product_stats.
+
+   Kolom stats itu TIDAK ikut diperbarui ketika utilisasi bertambah, dan itulah
+   yang membuat form Sales ADP menulis "250 / 350 MT used · Available 100 MT"
+   padahal kuotanya sudah habis (350 dari 350). Dilaporkan Sales 2026-08-10.
+
+   Kunci keluarannya memakai ejaan yang sama dengan `utilizationByProd` bila
+   produknya ada di sana, supaya pemanggil lama tidak perlu ikut berubah. */
+function allTimeUtilByProd(co) {
+  if (!co) return {};
+  const stats = co.utilizationByProd || {};
+  const uc = co.utilCycles;
+  if (!Array.isArray(uc) || !uc.length) return stats;
+
+  const canon = p => (typeof canonicalProduct === 'function') ? canonicalProduct(p) : p;
+  const ejaanStats = {};
+  Object.keys(stats).forEach(p => { ejaanStats[canon(p)] = p; });
+
+  const out = {};
+  uc.forEach(u => {
+    const mt = Number(u.mt) || 0;
+    if (mt <= 0) return;
+    const c = canon(u.product || '');
+    const key = ejaanStats[c] || u.product || c;
+    out[key] = (out[key] || 0) + mt;
+  });
+  return out;
+}
+
 function cumulativeAvailable(co) {
   if (!co) return 0;
   const obtained = canonicalObtained(co);            // all-time, single source

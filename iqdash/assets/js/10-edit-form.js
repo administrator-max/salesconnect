@@ -392,7 +392,13 @@ function utilBaselineForProd(co, prod) {
   if (!co) return 0;
   if (!co._utilBaseline) co._utilBaseline = {};
   if (co._utilBaseline[prod] == null) {
-    const statUtil = Number((co.utilizationByProd || {})[prod]) || 0;
+    /* allTimeUtilByProd(), BUKAN co.utilizationByProd langsung: kolom stats itu
+       tidak ikut diperbarui saat utilisasi bertambah, sehingga form Sales ADP
+       menulis "250 / 350 MT used · Available 100 MT" padahal kuotanya sudah
+       habis. Sumbernya kini sama dengan yang dipakai kartu KPI. */
+    const semua = (typeof allTimeUtilByProd === 'function')
+      ? allTimeUtilByProd(co) : (co.utilizationByProd || {});
+    const statUtil = Number(semua[prod]) || 0;
     const lotUtil  = totalUtilForProd(co.shipments || {}, prod);
     co._utilBaseline[prod] = Math.max(0, statUtil - lotUtil);
   }

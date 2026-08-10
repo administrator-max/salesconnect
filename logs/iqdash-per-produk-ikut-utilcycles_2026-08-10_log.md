@@ -129,3 +129,58 @@ Jadi baris yang sama perlu ditambahkan juga di master:
 Utilization #3 (MT)     GL ALLOY  100
 Utilization #3 (date)   GL ALLOY  10 Aug 26
 ```
+
+---
+
+## Susulan 2 — form Sales sendiri masih memakai stats lama
+
+David menunjukkan form ADP: **"250 / 350 MT used · Available: 100 MT"** padahal
+kartu dan daftar per produk sudah benar (350 / 0). Permukaan **ketiga** dengan
+sebab yang sama.
+
+`utilBaselineForProd()` (`10-edit-form.js`) membaca `co.utilizationByProd`
+langsung:
+
+```
+statUtil (stats lama)  = 250
+lotUtil                = 100
+baseline = 250 − 100   = 150
+used     = 150 + 100   = 250     <- yang tampil
+available = 350 − 250  = 100     <- yang David lihat
+```
+
+Angka 250 itu kolom `company_product_stats` yang tidak ikut diperbarui — sama
+persis dengan yang sudah dilewati di `scopedUtilByProd()`, tapi form ini belum.
+
+### Perbaikan
+
+**`01-data.js`** — `allTimeUtilByProd(co)` (baru): pasangan per-produk dari
+`allTimeUtil()`. Membaca `utilCycles` bila ada, kalau tidak barulah kolom stats.
+Kunci keluarannya mengikuti ejaan `utilizationByProd` bila produknya ada di sana,
+supaya pemanggil lama tidak perlu ikut berubah.
+
+**`10-edit-form.js`** — `utilBaselineForProd()` memakainya.
+
+### Verifikasi
+
+| PT | PERTEK | Used | Available |
+|---|---|---|---|
+| **ADP** | 350 | 250 → **350** | 100 → **0** |
+| **MSN** | 250 | 150 → **250** | 100 → **0** |
+| **HDP** | 1.000 | 900 → **1.000** | 100 → **0** |
+
+Total dashboard tidak bergeser: Obtained 34.740 · Utilized 22.847 · Available
+12.113 · Pending Shipment 7.408,79. Partisi tetap utuh.
+
+### Catatan — tiga permukaan, satu sebab
+
+Kolom `company_product_stats.utilization_mt` kini punya **tiga** pembaca yang
+sudah dialihkan ke `utilCycles`: total (`allTimeUtil`), per produk
+(`scopedUtilByProd` / `scopedAvailByProd`), dan form Sales
+(`utilBaselineForProd`). Semuanya ditemukan satu per satu lewat laporan tim,
+bukan sekaligus.
+
+Yang tersisa: kolom stats itu sendiri **tidak pernah diperbarui** saat utilisasi
+bertambah. Selama masih begitu, setiap pembaca baru yang menyentuhnya akan
+mengulang bug yang sama. Layak dipertimbangkan: hapus kolom itu dari payload,
+atau isi ulang dari `utilCycles` di sisi server sehingga hanya ada satu angka.
