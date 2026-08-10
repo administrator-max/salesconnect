@@ -174,6 +174,74 @@ function iq_get_cycles_for(array $codeSet, array $cyclesRows, array $cycleProduc
     return $byCode;
 }
 
+/**
+ * Selaraskan kolom utilisasi/saldo dengan `utilCycles`.
+ *
+ * Sejak 2026-08-05 `cycle_utilization` adalah SUMBER utilisasi, tapi
+ * `company_product_stats.utilization_mt` / `available_mt` tetap dikirim apa
+ * adanya — dan kolom itu TIDAK pernah diperbarui saat utilisasi bertambah.
+ * Jadilah dua angka untuk satu ukuran, dan tiap pembaca yang kebetulan
+ * menyentuh kolom lama menampilkan yang basi. Sudah tiga kali terjadi di
+ * permukaan berbeda (total, daftar per produk, form Sales), ketiganya ketahuan
+ * lewat laporan tim satu per satu — bukan sekaligus.
+ *
+ * Ditambal DI SUMBER, bukan di 12 titik pembaca: begitu payload keluar semua
+ * pembaca ikut benar — termasuk PDF Summary dan ekspor XLSX — dan pembaca BARU
+ * tidak bisa mengulang bug yang sama.
+ *
+ * Obtained per produk SENGAJA dipertahankan: definisinya util + avail dari
+ * stats, dan getObtainedByProdAgg() di frontend bersandar padanya. Yang diubah
+ * hanya PEMBAGIAN antara terpakai dan tersisa, bukan jumlahnya. Contoh GKL:
+ * 3.000 terpakai / 0 sisa  ->  2.400 terpakai / 600 sisa, obtained tetap 3.000.
+ *
+ * Dipanggil DUA kali: sekali saat objek dibangun, dan sekali lagi sesudah
+ * iq_apply_ledger() — overlay ledger menulis ulang keempat kolom ini dari
+ * berkas statis quotaLedger.json, jadi tanpa panggilan kedua hasilnya tertimpa
+ * kembali (itu yang terjadi pada percobaan pertama).
+ */
+function iq_sync_util_with_cycles(array &$co, array $aliasMap = []): void {
+    $uc = $co['utilCycles'] ?? [];
+    if (!is_array($uc) || !count($uc)) return;
+
+    $canon = fn(string $p): string => $aliasMap[$p] ?? $p;
+    $utilByProd  = $co['utilizationByProd'] ?? [];
+    $availByProd = $co['availableByProd'] ?? [];
+
+    // Ejaan yang dipakai stats, supaya bentuk kunci keluaran tidak berubah.
+    $ejaan = [];
+    foreach (array_keys($utilByProd) as $p)  { $ejaan[$canon((string) $p)] = $p; }
+    foreach (array_keys($availByProd) as $p) { if (!isset($ejaan[$canon((string) $p)])) $ejaan[$canon((string) $p)] = $p; }
+
+    // Obtained per produk = pasangan stats (util + avail) — dipertahankan.
+    $obtProd = [];
+    foreach ($utilByProd as $p => $v)  { $c = $canon((string) $p); $obtProd[$c] = ($obtProd[$c] ?? 0) + iq_num($v); }
+    foreach ($availByProd as $p => $v) { $c = $canon((string) $p); $obtProd[$c] = ($obtProd[$c] ?? 0) + iq_num($v); }
+
+    // Utilisasi sebenarnya, dari rincian per siklus.
+    $utilBaru = [];
+    foreach ($uc as $u) {
+        $c = $canon((string) ($u['product'] ?? ''));
+        $utilBaru[$c] = ($utilBaru[$c] ?? 0) + iq_num($u['mt'] ?? 0);
+    }
+
+    $nUtil = [];
+    $nAvail = [];
+    foreach (array_unique(array_merge(array_keys($obtProd), array_keys($utilBaru))) as $c) {
+        $key = $ejaan[$c] ?? $c;
+        $u   = $utilBaru[$c] ?? 0;
+        // Produk yang hanya muncul di utilCycles: obtained-nya minimal sebesar
+        // yang terpakai — menganggapnya 0 akan membuat saldo negatif.
+        $o   = $obtProd[$c] ?? $u;
+        $nUtil[$key]  = round($u * 1000) / 1000;
+        $nAvail[$key] = max(0, round(($o - $u) * 1000) / 1000);
+    }
+
+    $co['utilizationByProd'] = $nUtil;
+    $co['availableByProd']   = $nAvail;
+    $co['utilizationMT']     = round(array_sum($nUtil) * 1000) / 1000;
+    $co['availableQuota']    = round(array_sum($nAvail) * 1000) / 1000;
+}
+
 /* ── per-company object (mirrors buildCompanyObj in IQ/server.js:337) ──── */
 
 function iq_build_company_obj(
@@ -185,7 +253,8 @@ function iq_build_company_obj(
     ?array $pendMeta,
     array $shipments,
     array $reapplyTargets,
-    array $cycleUtil = []
+    array $cycleUtil = [],
+    array $aliasMap = []
 ): array {
     $utilizationByProd = [];
     $availableByProd   = [];
@@ -217,6 +286,7 @@ function iq_build_company_obj(
             'date'    => (string) ($u['util_date'] ?? ''),
         ];
     }
+
 
     $mapRev = fn($r) => [
         'prod'  => $r['product'] ?? null,
@@ -251,6 +321,8 @@ function iq_build_company_obj(
         'products'        => array_values(array_map(fn($p) => $p['product'] ?? null, iq_sort_by_sort_order($products))),
         'submit1'         => iq_present($co['submit1'] ?? null) ? iq_num($co['submit1']) : null,
         'obtained'        => iq_present($co['obtained'] ?? null) ? iq_num($co['obtained']) : 0,
+        /* Diisi apa adanya di sini; iq_sync_util_with_cycles() di bawah yang
+           menyelaraskannya dengan utilCycles bila company punya rinciannya. */
         'utilizationMT'   => iq_num($co['utilization_mt'] ?? 0),
         'availableQuota'  => iq_present($co['available_quota'] ?? null) ? iq_num($co['available_quota']) : null,
         'revType'         => $co['rev_type'] ?? 'none',
@@ -285,6 +357,7 @@ function iq_build_company_obj(
         $obj['status'] = $pendMeta['status'] ?? '';
         $obj['date']   = $pendMeta['date'] ?? '';
     }
+    iq_sync_util_with_cycles($obj, $aliasMap);
     return $obj;
 }
 
@@ -426,7 +499,8 @@ function iq_build_payload_raw(array $t): array {
             $pendMap[$code] ?? null,
             $shipMap[$code] ?? [],
             $companyReapply,
-            $cycleUtilMap[$code] ?? []
+            $cycleUtilMap[$code] ?? [],
+            $aliasMap
         );
         if (($co['section'] ?? '') === 'SPI') $spi[] = $obj;
         else                                  $pending[] = $obj;
@@ -777,6 +851,10 @@ function iq_build_payload(array $t): array {
 
     $spi = $raw['spi'];
     $pending = $raw['pending'];
+    /* Peta alias dibangun di iq_build_payload_raw(); di sini hanya tersedia
+       lewat payload-nya. Dibutuhkan oleh iq_sync_util_with_cycles() yang
+       dipanggil ulang sesudah overlay ledger. */
+    $aliasMap = $raw['productAliases'] ?? [];
 
     // dirName: abbreviation -> fullName (used only when synthesizing a
     // brand-new ledger-only company that has no `companies` row at all).
@@ -819,6 +897,9 @@ function iq_build_payload(array $t): array {
             $revDef = $pendingRevisions[$code] ?? null;
             $release = $releasedMap[$code] ?? '';
             iq_apply_ledger($co, $ent, $hsName, $release, $revDef);
+            // Ledger menulis ulang keempat kolom itu dari berkas statis quotaLedger.json —
+            // selaraskan lagi, kalau tidak hasilnya tertimpa kembali.
+            iq_sync_util_with_cycles($co, $aliasMap);
         } else {
             $co['_ledgerObtained'] = 0; // not in current master -> contributes 0
         }
@@ -903,6 +984,9 @@ function iq_build_payload(array $t): array {
         $revDef = $pendingRevisions[$code] ?? null;
         $release = $releasedMap[$code] ?? '';
         iq_apply_ledger($co, $ent, $hsName, $release, $revDef);
+        // Ledger menulis ulang keempat kolom itu dari berkas statis quotaLedger.json —
+        // selaraskan lagi, kalau tidak hasilnya tertimpa kembali.
+        iq_sync_util_with_cycles($co, $aliasMap);
         $spi[] = $co;
     }
 
