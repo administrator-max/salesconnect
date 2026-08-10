@@ -983,6 +983,10 @@ function iq_build_payload(array $t): array {
                 $shipMapFor[$prod][] = [
                     'lotNo'        => $s['lot_no'] ?? null,
                     'utilMT'       => iq_num($s['util_mt'] ?? 0),
+                    // Sejajarkan dengan pembangun lot utama (~baris 500). Lot
+                    // yang sampai ke frontend tanpa `utilDate` akan dikirim
+                    // balik kosong saat Save -> tanggalnya terhapus.
+                    'utilDate'     => $s['util_date'] ?? '',
                     'etaJKT'       => $s['eta_jkt'] ?? '',
                     'note'         => $s['note'] ?? '',
                     'realMT'       => iq_num($s['real_mt'] ?? 0),

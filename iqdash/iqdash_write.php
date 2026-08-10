@@ -708,8 +708,6 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
                         'product'       => $product,
                         'lot_no'        => $lot['lotNo'] ?? null,
                         'util_mt'       => iq_js_or($lot['utilMT'] ?? null, 0),
-                        // Tanggal kuota DIPAKAI (2026-08-07). Bukan etaJKT.
-                        'util_date'     => iq_js_or($lot['utilDate'] ?? null, ''),
                         'eta_jkt'       => iq_js_or($lot['etaJKT'] ?? null, ''),
                         'note'          => iq_js_or($lot['note'] ?? null, ''),
                         'real_mt'       => iq_js_or($lot['realMT'] ?? null, 0),
@@ -717,6 +715,26 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
                         'cargo_arrived' => iq_js_truthy($lot['cargoArrived'] ?? null),
                         'updated_at'    => $nowISO,
                     ];
+
+                    /* ── Tanggal kuota DIPAKAI (2026-08-07). Bukan etaJKT. ──
+                       ABSEN != KOSONG. Baris lot ditulis utuh, jadi field yang
+                       tidak dikirim penyimpan akan tertulis '' dan MENGHAPUS
+                       tanggal yang sudah ada. Persis itu yang terjadi 10 Agu
+                       2026: tombol Save utama (16-storage.js) tidak menyertakan
+                       `utilDate`, dan setiap simpan menyapu bersih tanggal
+                       seluruh lot company itu — seisi tab jadi kosong.
+
+                       Aturannya sekarang: kirim '' = hapus (disengaja); tidak
+                       mengirim sama sekali = pertahankan yang tersimpan.
+                       Penyimpan yang lupa jadi tidak berbahaya. */
+                    if (array_key_exists('utilDate', $lot)) {
+                        $row['util_date'] = iq_js_or($lot['utilDate'], '');
+                    } elseif ($exIdx !== null) {
+                        $row['util_date'] = $ship[$exIdx]['util_date'] ?? '';
+                    } else {
+                        $row['util_date'] = '';
+                    }
+
                     if ($exIdx !== null) {
                         $ship[$exIdx] = array_merge($ship[$exIdx], $row);
                     } else {

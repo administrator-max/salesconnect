@@ -369,7 +369,7 @@ function ensureShipments(co) {
     if (!co.shipments[p]) co.shipments[p] = [];
     // Ensure at least one lot exists
     if (co.shipments[p].length === 0) {
-      co.shipments[p].push({ lot: 1, utilMT: null, etaJKT: '', note: '', realMT: null, pibDate: '', arrived: false });
+      co.shipments[p].push({ lot: 1, utilMT: null, utilDate: '', etaJKT: '', note: '', realMT: null, pibDate: '', arrived: false });
     }
   });
   return co.shipments;

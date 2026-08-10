@@ -418,6 +418,11 @@ async function patchToServer(co) {
       shipPayload[prod] = lots.map((l, i) => ({
         lotNo:        l.lotNo  || (i + 1),
         utilMT:       l.utilMT || 0,
+        // WAJIB ikut. Server menulis SELURUH kolom baris lot: field yang tidak
+        // dikirim ditulis '' — jadi payload tanpa utilDate MENGHAPUS tanggal
+        // utilisasi setiap lot company ini, diam-diam. Itu yang membuat seisi
+        // tab kehilangan tanggalnya (2026-08-10).
+        utilDate:     l.utilDate || '',
         etaJKT:       l.etaJKT || '',
         note:         l.note   || '',
         realMT:       l.realMT || 0,
