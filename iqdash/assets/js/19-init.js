@@ -273,6 +273,10 @@ function buildAvqProdGrid() {
       prodMap[p].cos.push(co.code);
     });
   });
+  /* Produk yang saldonya sudah habis dibuang — disaring SESUDAH penjumlahan,
+     karena satu produk bisa nol di satu PT tapi masih bersisa di PT lain
+     (2026-08-10). */
+  Object.keys(prodMap).forEach(p => { if ((prodMap[p].avail || 0) <= 0.001) delete prodMap[p]; });
   const PROD_CLR = {
     'GL BORON':'#0369a1','GI BORON':'#0f766e','SHEETPILE':'#b45309',
     'BORDES ALLOY':'#dc2626','PPGL CARBON':'#7c3aed','ERW PIPE OD≤140mm':'#9333ea',
@@ -373,6 +377,9 @@ function openProdCoPopup(event, prodName, anchorEl) {
     if (obtForProd <= 0) return;
     const utilForProd = Number(up[prodName]) || 0;
     const avqForProd  = ap[prodName] != null ? Number(ap[prodName]) : (obtForProd - utilForProd);
+    // Popup ini membuka dari kartu produk di halaman Available Quota — PT yang
+    // saldonya habis tidak ditampilkan (2026-08-10).
+    if (avqForProd <= 0.001) return;
     coRows.push({ code: co.code, group: co.group, obt: obtForProd, util: utilForProd, avq: avqForProd });
   });
   coRows.sort((a, b) => b.avq - a.avq);
@@ -471,6 +478,8 @@ function buildAvqTable() {
     // Use canonical obtained — not raw co.obtained from DB
     const obtained = canonicalObtained(co) || co.obtained || 0;
     if (obtained <= 0) return;
+    // Saldo habis -> tidak ditampilkan di halaman Available Quota (2026-08-10).
+    if (cumulativeAvailable(co) <= 0.001) return;
     const ap = scopedAvailByProd(co);   // period-aware (rule #3)
     const up = scopedUtilByProd(co);
     const spi = getSPI(co.code);
@@ -581,6 +590,8 @@ function buildAvqProdChart() {
       prodMap[p].avail    += ap[p] != null ? (Number(ap[p]) || 0) : Math.max(obt - (Number(up[p])||0), 0);
     });
   });
+  // Produk bersaldo nol tidak ditampilkan (2026-08-10) — sama seperti grid.
+  Object.keys(prodMap).forEach(p => { if ((prodMap[p].avail || 0) <= 0.001) delete prodMap[p]; });
   const sorted = Object.entries(prodMap).sort((a,b) => b[1].obtained - a[1].obtained);
   if (CH['avqProdChart']) CH['avqProdChart'].destroy();
   CH['avqProdChart'] = new Chart(el, {

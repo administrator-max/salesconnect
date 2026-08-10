@@ -392,6 +392,11 @@ function buildAvailableQuota() {
     if (obtained <= 0) return;
     const totalUtil = Number(co.utilizationMT) || 0;
     const totalAvq  = cumulativeAvailable(co);
+    /* Halaman ini bernama Available Quota — yang saldonya HABIS tidak boleh
+       ikut terdaftar. Gerbangnya dulu `obtained > 0`, sehingga 24 dari 34 PT
+       tetap muncul dengan sisa 0. Dilaporkan tim 2026-08-10: "kan sudah
+       di-utilize, kenapa masih ada di available quota". */
+    if (totalAvq <= 0.001) return;
 
     const aProd = co.availableByProd   || {};
     const uProd = co.utilizationByProd || {};

@@ -485,6 +485,8 @@ function refreshAvqDrill() {
     const obtained = (typeof canonicalObtained === 'function' ? canonicalObtained(co) : null)
                      ?? (typeof co.obtained === 'number' ? co.obtained : 0);
     if (obtained <= 0) return;
+    // Saldo habis -> tidak masuk rincian Available Quota (2026-08-10).
+    if (cumulativeAvailable(co) <= 0.001) return;
     const totalUtil = scopedUtilTotal(co);   // period-aware (rule #3)
     // Recompute fresh — stale DB-cached available_quota was inflated from
     // pre-fix canonicalObtained (which included not-yet-terbit Obtained #2).
