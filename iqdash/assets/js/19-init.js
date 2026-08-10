@@ -249,7 +249,7 @@ function buildAvqProdGrid() {
   const grid = document.getElementById('avqProdGrid');
   if (!grid) return;
   const prodMap = {}; // product → { obtained, util, avail, companies[] }
-  filteredSPI().forEach(co => {
+  kpiPool().forEach(co => {
     const ap = scopedAvailByProd(co);   // period-aware (rule #3): util sliced by lot date
     const up = scopedUtilByProd(co);
     // Deduped per-product obtained map (legacy DB has duplicate Obtained
@@ -474,7 +474,7 @@ function buildAvqTable() {
 
   // Build all rows with HS code
   const allRows = [];
-  filteredSPI().forEach(co => {
+  kpiPool().forEach(co => {
     // Use canonical obtained — not raw co.obtained from DB
     const obtained = canonicalObtained(co) || co.obtained || 0;
     if (obtained <= 0) return;
@@ -572,7 +572,7 @@ function buildAvqProdChart() {
   const el = document.getElementById('avqProdChart');
   if (!el) return;
   const prodMap = {};
-  filteredSPI().forEach(co => {
+  kpiPool().forEach(co => {
     const ap = scopedAvailByProd(co);   // period-aware (rule #3)
     const up = scopedUtilByProd(co);
     // Use deduped helper so legacy duplicate Obtained #N rows don't

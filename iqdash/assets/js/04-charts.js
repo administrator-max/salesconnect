@@ -380,7 +380,7 @@ function buildAvailableQuota() {
   // Multi-product companies (e.g. BTS: BORDES 900 + AS STEEL 900 + SHEETPILE 3200 + SEAMLESS 1000)
   // get ONE ROW PER PRODUCT so that product-filter pills show correct per-product MT.
   const rows = [];
-  filteredSPI().forEach(co => {
+  kpiPool().forEach(co => {
     /* This breakdown is "remaining capacity by product" — a BALANCE, so every
        figure is CUMULATIVE, matching the Overview card, the AVQ page cards and
        the PDF (see cumulativeAvailable()'s docblock). The active period decides

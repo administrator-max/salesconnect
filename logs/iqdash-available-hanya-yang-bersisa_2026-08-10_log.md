@@ -54,3 +54,29 @@ nol. Jumlah PT di halaman kini sama dengan angka pada kartunya
 MIN, MJU, SNSD.
 
 25 suite, 0 gagal.
+
+---
+
+## Susulan — halaman Available Quota melewatkan PENDING
+
+Verifikasi menemukan celah kedua: kartu menyebut **10 PT** sementara halaman
+hanya menampilkan **9**. Yang hilang **SNSD (120 MT)** — company itu ada di
+`PENDING`, bukan `SPI`.
+
+Keempat pembangun halaman masih memakai `filteredSPI()`, sedangkan kartunya
+memakai `kpiPool()` (SPI + PENDING). Ini kelas bug yang sama persis dengan yang
+diperbaiki 2026-08-07 untuk ketiga drill — waktu itu halamannya belum ikut
+dirapikan.
+
+`buildAvailableQuota` · `buildAvqProdGrid` · `buildAvqTable` ·
+`buildAvqProdChart` kini memakai `kpiPool()`.
+
+### Verifikasi akhir
+
+| | Tanpa filter | 1 Jan – 30 Jun |
+|---|---|---|
+| Kartu | 12.113 MT · 10 PT | 11.393 MT · 8 PT |
+| PT yang hilang dari halaman | **0** | **0** |
+| PT bersaldo nol yang bocor | **0** | **0** |
+
+Daftar halaman kini sama persis dengan angka kartunya di kedua keadaan.
