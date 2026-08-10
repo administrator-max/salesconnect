@@ -155,9 +155,20 @@ function _parseEtaLoose(str) {
   return (typeof parseETA === 'function') ? parseETA(s) : null;  // English "DD Mon YY"
 }
 /* Utilization date for one shipment lot: actual PIB date, else expected ETA. */
+/* Tanggal sebuah lot dianggap "terpakai".
+   `utilDate` adalah yang SEBENARNYA ditanyakan — tanggal kuota dipakai. Kolom
+   itu baru ada 2026-08-07 (form Sales sebelumnya hanya punya ETA JKT), jadi
+   dua sumber lama tetap dipakai sebagai cadangan untuk lot yang sudah telanjur
+   tersimpan tanpanya.
+
+   Cadangan itu memang APROKSIMASI dan diketahui meleset: ETA JKT adalah
+   perkiraan barang TIBA, rutin berjarak berbulan-bulan dari saat kuota dipakai
+   (HKG dipakai 8 Jul, ETA 15 Sep; IKM 24 Jul vs September). Karena itu urutan
+   ini penting — begitu `utilDate` terisi, ia yang menang. */
 function lotUtilDate(lot) {
   if (!lot) return null;
-  return pDate(lot.pibDate) || _parseEtaLoose(lot.etaJKT);
+  return pDate(lot.utilDate) || _parseEtaLoose(lot.utilDate)
+      || pDate(lot.pibDate)  || _parseEtaLoose(lot.etaJKT);
 }
 /* Per-product utilization for a company, sliced to the active period from its
    shipment lots. All Time → the server stats (co.utilizationByProd) verbatim.

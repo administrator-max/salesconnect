@@ -708,6 +708,8 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
                         'product'       => $product,
                         'lot_no'        => $lot['lotNo'] ?? null,
                         'util_mt'       => iq_js_or($lot['utilMT'] ?? null, 0),
+                        // Tanggal kuota DIPAKAI (2026-08-07). Bukan etaJKT.
+                        'util_date'     => iq_js_or($lot['utilDate'] ?? null, ''),
                         'eta_jkt'       => iq_js_or($lot['etaJKT'] ?? null, ''),
                         'note'          => iq_js_or($lot['note'] ?? null, ''),
                         'real_mt'       => iq_js_or($lot['realMT'] ?? null, 0),

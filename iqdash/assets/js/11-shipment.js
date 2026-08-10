@@ -58,7 +58,11 @@ function buildSalesOpsForm(co) {
           <tr>
             <th style="width:32px" class="t-c">Lot</th>
             <th style="width:185px">Utilization</th>
-            <th style="width:105px">ETA JKT <span style="color:var(--red2)" title="Wajib diisi saat simpan utilisasi">*</span></th>
+            <!-- Tanggal kuota DIPAKAI. Sebelum 2026-08-07 kolom ini tidak ada
+                 dan ETA JKT dipaksa jadi penggantinya, padahal ETA adalah
+                 perkiraan barang TIBA — beda peristiwa, sering beda berbulan. -->
+            <th style="width:110px">Tgl Utilisasi <span style="color:var(--red2)" title="Tanggal kuota dipakai — ini yang menentukan MT masuk periode mana">*</span></th>
+            <th style="width:105px">ETA JKT</th>
             <th>Note / Vessel</th>
             <th style="width:24px"></th>
           </tr>
@@ -165,6 +169,7 @@ function buildSalesRow(prod, idx, lot, obtMT) {
   const pid    = prod.replace(/[^a-zA-Z0-9]/g,'_');
   const lotNo  = idx + 1;
   const curMT  = lot.utilMT != null ? lot.utilMT : 0;
+  const utilDate = lot.utilDate || '';
   const eta    = lot.etaJKT || '';
   const note   = lot.note   || '';
   const hist   = lot.utilHistory || [];
@@ -224,11 +229,20 @@ function buildSalesRow(prod, idx, lot, obtMT) {
     </td>
     <td>
       <input type="text"
+        class="ship-txt-inp sales-utildate-inp"
+        data-prod="${prod}" data-idx="${idx}"
+        value="${utilDate}"
+        placeholder="e.g. 07 Mar 26 (wajib)"
+        title="Tanggal kuota DIPAKAI — ini yang menentukan MT masuk periode mana. Bukan tanggal barang tiba."
+        oninput="onSalesUtilDateChange(this)">
+    </td>
+    <td>
+      <input type="text"
         class="ship-txt-inp sales-eta-inp"
         data-prod="${prod}" data-idx="${idx}"
         value="${eta}"
-        placeholder="e.g. 07 Mar 26 (wajib)"
-        title="ETA JKT wajib diisi saat menyimpan utilisasi"
+        placeholder="e.g. 15 Sep 26"
+        title="Perkiraan barang tiba di Jakarta — hanya informasi, tidak memengaruhi periode"
         oninput="onSalesEtaChange(this)">
     </td>
     <td>
@@ -322,7 +336,7 @@ function addSalesLot(prod) {
   if (!co.shipments[prod]) co.shipments[prod] = [];
 
   const lotNum = co.shipments[prod].length + 1;
-  co.shipments[prod].push({ lot: lotNum, utilMT: null, etaJKT: '', note: '', realMT: null, pibDate: '', arrived: false });
+  co.shipments[prod].push({ lot: lotNum, utilMT: null, utilDate: '', etaJKT: '', note: '', realMT: null, pibDate: '', arrived: false });
 
   buildSalesOpsForm(co);   // rebuild both forms
   applyShipmentRoleLock();
@@ -408,8 +422,9 @@ function onSalesDirectChange(inp) {
     }
     if (saveBtn) saveBtn.disabled = true;
   } else if (newMT > 0 && !lotHasUtilDate({
-      etaJKT:  (document.querySelector(`.sales-eta-inp[data-prod="${prod}"][data-idx="${idx}"]`) || {}).value || '',
-      pibDate: (document.querySelector(`.ops-pib-inp[data-prod="${prod}"][data-idx="${idx}"]`)  || {}).value || '',
+      utilDate: (document.querySelector(`.sales-utildate-inp[data-prod="${prod}"][data-idx="${idx}"]`) || {}).value || '',
+      pibDate:  (document.querySelector(`.ops-pib-inp[data-prod="${prod}"][data-idx="${idx}"]`)  || {}).value || '',
+      etaJKT:   '',
     })) {
     // Same rule saveSalesUtil() enforces on click — surfaced while typing so
     // the user sees WHY Simpan is disabled instead of hitting it and being
@@ -447,6 +462,7 @@ async function patchShipmentsToServer(co) {
         shipPayload[prod] = lots.map((l, i) => ({
           lotNo:        l.lotNo || l.lot || (i + 1),
           utilMT:       l.utilMT || 0,
+          utilDate:     l.utilDate || '',
           etaJKT:       l.etaJKT || '',
           note:         l.note   || '',
           realMT:       l.realMT || 0,
@@ -544,37 +560,43 @@ function saveSalesUtil(prod, idx) {
   const lot    = co.shipments[prod] && co.shipments[prod][idx];
   if (!lot) return;
 
-  // ── ETA JKT mandatory (Sales manual input) ──────────────────────────────
-  // When Sales records a utilization (newMT > 0), the ETA JKT column must be
-  // filled — Ops/planning rely on the expected JKT arrival per lot, and the
-  // obtained-detail breakdown surfaces this ETA. Block the save and flag the
-  // field if it's empty. (Clearing a lot to 0 MT does not require an ETA.)
+  /* ── Tanggal utilisasi WAJIB (input manual Sales) ──────────────────────
+     Saat Sales mencatat utilisasi (newMT > 0), tanggal pemakaiannya harus ada
+     — tanpa itu MT ini tidak masuk filter periode mana pun.
+
+     Sebelum 2026-08-07 yang diwajibkan adalah ETA JKT, karena kolom tanggal
+     utilisasi memang belum ada. Itu keliru: ETA JKT adalah perkiraan barang
+     TIBA, sedangkan utilisasi adalah saat kuota DIPAKAI — rutin berjarak
+     berbulan-bulan (HKG dipakai 8 Jul, ETA 15 Sep). Dilaporkan tim Sales.
+
+     PIB date dari Ops tetap diterima sebagai pemenuh, sama seperti dulu: lot
+     yang sudah bertanggal PIB tidak perlu diblokir. */
+  const udInp   = document.querySelector(`.sales-utildate-inp[data-prod="${prod}"][data-idx="${idx}"]`);
+  const udVal   = udInp ? udInp.value.trim() : String(lot.utilDate || '').trim();
   const etaInp  = document.querySelector(`.sales-eta-inp[data-prod="${prod}"][data-idx="${idx}"]`);
   const etaVal  = etaInp ? etaInp.value.trim() : String(lot.etaJKT || '').trim();
   const pibInp  = document.querySelector(`.ops-pib-inp[data-prod="${prod}"][data-idx="${idx}"]`);
   const pibVal  = pibInp ? pibInp.value.trim() : String(lot.pibDate || '').trim();
-  // The filter reads PIB date first and falls back to ETA, so an Ops-entered
-  // PIB date satisfies this just as well — requiring ETA on top of it would
-  // block a lot that is already fully dated.
-  if (newMT > 0 && !lotHasUtilDate({ etaJKT: etaVal, pibDate: pibVal })) {
+  if (newMT > 0 && !lotHasUtilDate({ utilDate: udVal, pibDate: pibVal, etaJKT: '' })) {
     const errEl = g(`util-err-${pid}-${idx}`);
     if (errEl) {
-      errEl.textContent = 'ETA JKT wajib diisi sebelum simpan utilisasi.';
+      errEl.textContent = 'Tgl Utilisasi wajib diisi — tanpa tanggal, MT ini tidak masuk filter periode.';
       errEl.style.display = 'block';
       errEl.style.color   = 'var(--red2)';
     }
-    if (etaInp) {
-      etaInp.style.borderColor = 'var(--red2)';
-      etaInp.focus();
+    if (udInp) {
+      udInp.style.borderColor = 'var(--red2)';
+      udInp.focus();
     } else {
-      alert('ETA JKT wajib diisi sebelum menyimpan utilisasi.');
+      alert('Tgl Utilisasi wajib diisi sebelum menyimpan utilisasi.');
     }
     return;
   }
-  // Passed validation — make sure the lot carries the ETA the user typed
-  // (oninput already syncs it, but read-back guards against edge timing).
-  if (etaVal) lot.etaJKT = etaVal;
-  if (etaInp) etaInp.style.borderColor = '';
+  // Lolos — pastikan lot membawa apa yang diketik (oninput sudah menyinkronkan,
+  // baca-ulang ini menjaga dari timing yang meleset).
+  if (udVal)  lot.utilDate = udVal;
+  if (etaVal) lot.etaJKT   = etaVal;
+  if (udInp)  udInp.style.borderColor = '';
 
   const curMT   = lot.utilMT || 0;
   const obtMT   = (getObtainedByProd(co))[prod] || 0;
@@ -800,6 +822,23 @@ function onSalesEtaChange(inp) {
   scheduleShipmentsPersist();
 }
 
+/* Tanggal utilisasi per lot — tanggal kuota DIPAKAI, bukan tanggal barang tiba.
+   Inilah yang menentukan MT masuk periode mana (lihat lotUtilDate()). Sebelum
+   2026-08-07 kolom ini tidak ada dan ETA JKT dipaksa jadi penggantinya. */
+function onSalesUtilDateChange(inp) {
+  const prod = inp.dataset.prod;
+  const idx  = parseInt(inp.dataset.idx);
+  const co   = getCurrentEditCo();
+  if (!co) return;
+  ensureShipments(co);
+  if (co.shipments[prod] && co.shipments[prod][idx] !== undefined) {
+    co.shipments[prod][idx].utilDate = inp.value.trim();
+  }
+  if (inp.value.trim()) { inp.style.borderColor = ''; inp.title = ''; }
+  livePreview();
+  scheduleShipmentsPersist();
+}
+
 /* Sales note / vessel name — autosave on typing. */
 function onSalesNoteChange(inp) {
   const prod = inp.dataset.prod;
@@ -837,7 +876,7 @@ function applyShipmentRoleLock() {
   const canSales = allowed.includes('salesShipTable');
   const canOps   = allowed.includes('opsShipTable');
 
-  document.querySelectorAll('.sales-util-direct-inp,.sales-util-save-btn,.sales-util-add-inp,.sales-util-apply-btn,.sales-eta-inp,.sales-note-inp,.add-ship-btn').forEach(el => {
+  document.querySelectorAll('.sales-util-direct-inp,.sales-util-save-btn,.sales-util-add-inp,.sales-util-apply-btn,.sales-utildate-inp,.sales-eta-inp,.sales-note-inp,.add-ship-btn').forEach(el => {
     el.disabled = !canSales;
   });
   document.querySelectorAll('.del-ship-btn').forEach(btn => {
@@ -892,26 +931,27 @@ function lotsMissingUtilDate() {
     const mt = (typeof parseMT === 'function') ? parseMT(raw) : parseFloat(raw.replace(/,/g, ''));
     if (mt === null || !(mt > 0)) return;
 
-    const etaInput = document.querySelector(`.sales-eta-inp[data-prod="${prod}"][data-idx="${idx}"]`);
+    const udInput  = document.querySelector(`.sales-utildate-inp[data-prod="${prod}"][data-idx="${idx}"]`);
     const pibInput = document.querySelector(`.ops-pib-inp[data-prod="${prod}"][data-idx="${idx}"]`);
     const probe = {
-      etaJKT:  etaInput ? etaInput.value.trim() : '',
-      pibDate: pibInput ? pibInput.value.trim() : '',
+      utilDate: udInput  ? udInput.value.trim()  : '',
+      pibDate:  pibInput ? pibInput.value.trim() : '',
+      etaJKT:   '',        // ETA JKT tidak lagi memenuhi syarat — beda peristiwa
     };
-    if (!lotHasUtilDate(probe)) out.push({ prod, idx, etaInput });
+    if (!lotHasUtilDate(probe)) out.push({ prod, idx, udInput });
   });
   return out;
 }
 
-/** Flag the offending ETA fields red and focus the first one. */
+/** Tandai merah kolom Tgl Utilisasi yang kosong, lalu fokuskan yang pertama. */
 function flagMissingUtilDates(missing) {
   (missing || []).forEach(m => {
-    if (!m.etaInput) return;
-    m.etaInput.style.borderColor = 'var(--red2)';
-    m.etaInput.title = 'ETA JKT (atau PIB Date) wajib diisi — tanpa tanggal, MT lot ini hilang dari semua filter periode.';
+    if (!m.udInput) return;
+    m.udInput.style.borderColor = 'var(--red2)';
+    m.udInput.title = 'Tgl Utilisasi (atau PIB Date) wajib diisi — tanpa tanggal, MT lot ini hilang dari semua filter periode.';
   });
-  const first = (missing || []).find(m => m.etaInput);
-  if (first) first.etaInput.focus();
+  const first = (missing || []).find(m => m.udInput);
+  if (first) first.udInput.focus();
 }
 
 /* ── Collect all shipment data from the form → write back to co.shipments ── */
@@ -930,6 +970,11 @@ function collectShipmentData(co) {
       const val = inp.value.trim() === '' ? 0 : parseMT(inp.value);
       if (val !== null && val >= 0) co.shipments[prod][idx].utilMT = val;
     }
+  });
+  document.querySelectorAll('.sales-utildate-inp').forEach(inp => {
+    const prod = inp.dataset.prod;
+    const idx  = parseInt(inp.dataset.idx);
+    if (co.shipments[prod] && co.shipments[prod][idx]) co.shipments[prod][idx].utilDate = inp.value.trim();
   });
   document.querySelectorAll('.sales-eta-inp').forEach(inp => {
     const prod = inp.dataset.prod;

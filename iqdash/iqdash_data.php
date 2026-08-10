@@ -399,6 +399,11 @@ function iq_build_payload_raw(array $t): array {
         $shipMap[$code][$prod][] = [
             'lotNo'        => $s['lot_no'] ?? null,
             'utilMT'       => iq_num($s['util_mt'] ?? 0),
+            /* Tanggal kuota DIPAKAI — beda peristiwa dari etaJKT (perkiraan
+               barang TIBA) yang rutin berjarak berbulan-bulan. Sebelum kolom
+               ini ada (2026-08-07), lotUtilDate() terpaksa menebak dari
+               pib_date/eta_jkt. */
+            'utilDate'     => $s['util_date'] ?? '',
             'etaJKT'       => $s['eta_jkt'] ?? '',
             'note'         => $s['note'] ?? '',
             'realMT'       => iq_num($s['real_mt'] ?? 0),
