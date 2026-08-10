@@ -539,10 +539,15 @@ function canonicalObtained(co) {
    Fallback ke utilizationMT untuk company yang belum punya rincian siklus. */
 function allTimeUtil(co) {
   if (!co) return 0;
-  const uc = co.utilCycles;
-  if (Array.isArray(uc) && uc.length) {
-    return uc.reduce((s, u) => s + (Number(u.mt) || 0), 0);
-  }
+  /* Cukup baca `utilizationMT`. Sejak iq_sync_util_with_cycles() ada di server
+     (2026-08-10), kolom itu SUDAH diisi dari utilCycles + lot bertanggal untuk
+     produk yang master tidak sebut — jadi server-lah satu-satunya sumber.
+
+     Versi sebelumnya menjumlah `utilCycles` sendiri di sini. Itu benar selama
+     utilCycles satu-satunya sumber, tapi begitu server ikut melipat lot Sales,
+     perannya terbalik: server benar (GKL 3.000) sementara helper ini tertinggal
+     (2.400). Menjumlah ulang di frontend hanya menciptakan sumber kedua —
+     persis yang seluruh rangkaian perbaikan ini hapus. */
   return Number(co.utilizationMT) || 0;
 }
 
@@ -558,23 +563,8 @@ function allTimeUtil(co) {
    produknya ada di sana, supaya pemanggil lama tidak perlu ikut berubah. */
 function allTimeUtilByProd(co) {
   if (!co) return {};
-  const stats = co.utilizationByProd || {};
-  const uc = co.utilCycles;
-  if (!Array.isArray(uc) || !uc.length) return stats;
-
-  const canon = p => (typeof canonicalProduct === 'function') ? canonicalProduct(p) : p;
-  const ejaanStats = {};
-  Object.keys(stats).forEach(p => { ejaanStats[canon(p)] = p; });
-
-  const out = {};
-  uc.forEach(u => {
-    const mt = Number(u.mt) || 0;
-    if (mt <= 0) return;
-    const c = canon(u.product || '');
-    const key = ejaanStats[c] || u.product || c;
-    out[key] = (out[key] || 0) + mt;
-  });
-  return out;
+  // Pasangan per-produk dari allTimeUtil() — server sudah menyelaraskannya.
+  return co.utilizationByProd || {};
 }
 
 function cumulativeAvailable(co) {

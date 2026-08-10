@@ -183,18 +183,10 @@ function scopedUtilByProd(co) {
      daftar per produk padahal totalnya sudah 350 dan saldonya nol.
      Dilaporkan Sales 2026-08-10 — mereka mengira input utilisasinya tidak
      masuk, padahal yang salah tampilannya. */
-  if (!PERIOD.active) {
-    const uc0 = co.utilCycles;
-    if (Array.isArray(uc0) && uc0.length) {
-      const out0 = {};
-      uc0.forEach(u => {
-        const mt = Number(u.mt) || 0;
-        if (mt > 0) { const p = u.product || ''; out0[p] = (out0[p] || 0) + mt; }
-      });
-      return out0;
-    }
-    return co.utilizationByProd || {};
-  }
+  // All Time: langsung dari server, yang sudah menyelaraskan kolom ini dengan
+  // utilCycles + lot bertanggal (iq_sync_util_with_cycles). Menjumlah ulang di
+  // sini hanya menciptakan sumber kedua.
+  if (!PERIOD.active) return co.utilizationByProd || {};
 
   /* Two date sources, in priority order:
 
