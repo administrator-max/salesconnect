@@ -175,7 +175,26 @@ function lotUtilDate(lot) {
    Keys match co.utilizationByProd (shipment product == stats product post β-2). */
 function scopedUtilByProd(co) {
   if (!co) return {};
-  if (!PERIOD.active) return co.utilizationByProd || {};
+  /* All Time juga harus lewat utilCycles bila ada. Sebelumnya baris ini
+     langsung mengembalikan `co.utilizationByProd` — angka lama dari
+     company_product_stats — sementara scopedUtilTotal() sudah memakai
+     allTimeUtil() yang menjumlah utilCycles. Akibatnya tampilan PER PRODUK dan
+     TOTAL saling bertentangan: ADP tertulis "Used 250, tersisa 100 MT" di
+     daftar per produk padahal totalnya sudah 350 dan saldonya nol.
+     Dilaporkan Sales 2026-08-10 — mereka mengira input utilisasinya tidak
+     masuk, padahal yang salah tampilannya. */
+  if (!PERIOD.active) {
+    const uc0 = co.utilCycles;
+    if (Array.isArray(uc0) && uc0.length) {
+      const out0 = {};
+      uc0.forEach(u => {
+        const mt = Number(u.mt) || 0;
+        if (mt > 0) { const p = u.product || ''; out0[p] = (out0[p] || 0) + mt; }
+      });
+      return out0;
+    }
+    return co.utilizationByProd || {};
+  }
 
   /* Two date sources, in priority order:
 
@@ -455,7 +474,25 @@ function scopedObtainedDetailByProd(co) {
 
 function scopedAvailByProd(co) {
   if (!co) return {};
-  if (!PERIOD.active) return co.availableByProd || {};
+  /* All Time: turunkan dari obtained − utilized yang SUDAH dikoreksi, bukan
+     dari `co.availableByProd` mentah. Kolom stats itu belum ikut diperbarui
+     ketika utilisasi bertambah, jadi ADP tetap menampilkan sisa 100 MT padahal
+     kuotanya sudah habis (350 dari 350). Sama seperti scopedUtilByProd di
+     atas — dilaporkan Sales 2026-08-10. */
+  if (!PERIOD.active) {
+    const uc0 = co.utilCycles;
+    if (Array.isArray(uc0) && uc0.length) {
+      const su0 = scopedUtilByProd(co);
+      const so0 = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
+      const out0 = {};
+      new Set([...Object.keys(so0), ...Object.keys(su0), ...Object.keys(co.availableByProd || {})]).forEach(p => {
+        const obt = Number(so0[p]) || Number(so0[_canonProd(p)]) || 0;
+        out0[p] = Math.max(0, obt - (Number(su0[p]) || 0));
+      });
+      return out0;
+    }
+    return co.availableByProd || {};
+  }
   /* available = OBTAINED − UTILIZED, both sliced to the SAME period — the
      report definition. This used to subtract period utilization from ALL-TIME
      obtained, a hybrid that overstated available whenever a period was
