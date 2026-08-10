@@ -75,3 +75,57 @@ Jadi untuk HDP ada dua jalan, dan itu keputusan pemilik data:
 1. Tambahkan 100 MT itu ke master sebagai `Utilization #3`, atau
 2. Sales mengisi SELURUH lot HDP (900 MT) lengkap dengan tanggalnya, sehingga
    lot menjadi lengkap dan mengambil alih dari master
+
+---
+
+## Susulan — HDP Utilization #3 ditambahkan
+
+Pemilik data memilih jalan pertama: 100 MT itu dicatat sebagai siklus baru.
+
+| Cycle | Produk | MT | Tanggal |
+|---|---|---|---|
+| Utilization #1 | GL ALLOY | 800 | 11/11/2025 |
+| Utilization #2 | GL ALLOY | 100 | 28/04/2026 |
+| **Utilization #3** | **GL ALLOY** | **100** | **10/08/2026** ← baru |
+
+**Tanggalnya 10/08/2026** karena Sales menginputnya pagi itu ("td pagi udah gw
+utilize"). Lot yang sama membawa **ETA JKT 30 September 2026** — dan justru itu
+contoh bagus kenapa kedua tanggal dipisah sejak 2026-08-07: kuota dipakai
+Agustus, barangnya baru tiba September. Kalau ETA masih dipakai sebagai
+pengganti, 100 MT ini akan mendarat di September.
+
+Cadangan: `backups/hdp-cycle-utilization-sebelum-util3_2026-08-10.json`
+
+### Hasil
+
+| HDP | Sebelum | Sesudah |
+|---|---|---|
+| Obtained | 1.000 | 1.000 |
+| Used | 900 | **1.000** |
+| Available | 100 | **0** |
+
+Total dashboard bergerak sebagaimana mestinya:
+
+| | Sebelum | Sesudah |
+|---|---|---|
+| Utilized (sepanjang waktu) | 22.747 | **22.847** |
+| Available | 12.213 | **12.113** |
+| Pending Shipment | 7.308,79 | **7.408,79** |
+| **Utilized Agustus 2026** | 0 | **100** |
+
+Angkanya mendarat di **Agustus**, persis sesuai tanggalnya. Sifat partisi tetap
+utuh: H1 + H2 = setahun (15.975), persis.
+
+### PENTING — harus ikut ditambahkan di Excel master
+
+`PUT /api/company/:code/cycle-utilization` bersifat **ganti-total per company**.
+Kalau master diimpor ulang lewat tombol **Import Master** sementara Excel-nya
+masih memuat dua baris utilisasi HDP, baris **Utilization #3 ini akan hilang**
+dan HDP kembali ke 900.
+
+Jadi baris yang sama perlu ditambahkan juga di master:
+
+```
+Utilization #3 (MT)     GL ALLOY  100
+Utilization #3 (date)   GL ALLOY  10 Aug 26
+```
