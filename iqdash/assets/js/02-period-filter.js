@@ -270,7 +270,16 @@ function scopedUtilByProd(co) {
     });
     const pakaiLot = c => {
       const e = lotPer[c];
-      return !!(e && e.lengkap && Math.abs(e.mt - (totalSiklus[c] || 0)) < 0.01);
+      if (!e || !e.lengkap) return false;
+      /* Produk yang master SAMA SEKALI tidak sebut utilisasinya: lot yang
+         bertanggal langsung berlaku. Versi pertama membandingkan jumlah lot
+         dengan total master, sehingga produk bertotal 0 di master tidak akan
+         PERNAH bisa cocok — berapa pun isi lotnya. GKL GL ALLOY 600 MT
+         terjebak persis di situ: sudah di-re-apply dan dipakai, tapi saldonya
+         tetap tampil 600 karena master diam soal produk itu. Mengisi kekosongan
+         bukan membantah master. */
+      if (!(totalSiklus[c] > 0)) return true;
+      return Math.abs(e.mt - totalSiklus[c]) < 0.01;
     };
 
     // Produk yang lot-nya sudah lengkap: iris dari LOT (tanggalnya lebih rinci).

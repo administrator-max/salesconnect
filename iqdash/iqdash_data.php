@@ -224,6 +224,27 @@ function iq_sync_util_with_cycles(array &$co, array $aliasMap = []): void {
         $utilBaru[$c] = ($utilBaru[$c] ?? 0) + iq_num($u['mt'] ?? 0);
     }
 
+    /* Produk yang master SAMA SEKALI tidak sebut utilisasinya: lot Sales yang
+       BERTANGGAL ikut dihitung. Ini penerapan keputusan 2026-08-07 ("input
+       Sales jadi sumbernya") untuk kasus yang sebelumnya terjebak — GKL
+       GL ALLOY 600 MT sudah di-re-apply dan dipakai, tapi saldonya tetap
+       tampil 600 karena master diam soal produk itu. Mengisi kekosongan bukan
+       membantah master, jadi tidak perlu menunggu lot "lengkap".
+
+       WAJIB bertanggal: tanpa tanggal, MT itu tidak bisa ditempatkan di periode
+       mana pun, dan menghitungnya di total saja akan membuat H1 + H2 tidak lagi
+       sama dengan setahun — sifat partisi yang selama ini dijaga. */
+    foreach (($co['shipments'] ?? []) as $prod => $lots) {
+        $c = $canon((string) $prod);
+        if (isset($utilBaru[$c]) && $utilBaru[$c] > 0) continue;   // master sudah bicara
+        foreach ((array) $lots as $l) {
+            $mt = iq_num($l['utilMT'] ?? 0);
+            if ($mt <= 0) continue;
+            if (!iq_present($l['utilDate'] ?? null)) continue;      // tanpa tanggal -> tidak dihitung
+            $utilBaru[$c] = ($utilBaru[$c] ?? 0) + $mt;
+        }
+    }
+
     $nUtil = [];
     $nAvail = [];
     foreach (array_unique(array_merge(array_keys($obtProd), array_keys($utilBaru))) as $c) {
