@@ -702,6 +702,54 @@ function reportRealizedTotal() {
   };
 }
 
+/* reportPendingShipmentTotal — kuota yang sudah dialokasikan tapi barangnya
+   BELUM tiba: utilisasi dikurangi realisasi. Diminta tim 2026-08-10,
+   menggantikan kartu Total Submitted.
+
+   KUMULATIF, seperti Available — dan itu bukan pilihan gaya. Diuji dulu dengan
+   pengurangan per periode, hasilnya rutin NEGATIF: H1 2026 −2.913, Q1 −670,
+   Q2 −2.243. Sebabnya 6.872 MT dipakai sepanjang 2025 dengan NOL realisasi;
+   barangnya baru tiba di 2026, sehingga di jendela 2026 realisasi melampaui
+   pemakaian. "Belum terkirim" itu STOCK (berapa yang sedang di jalan saat ini),
+   bukan FLOW (berapa yang bergerak dalam jendela) — sama persis dengan
+   Available, dan periode menyaring COMPANY-nya, bukan mengiris saldonya.
+
+   Kolamnya sengaja dibuat sama dengan reportAvailableTotal() supaya dua kartu
+   yang sama-sama stock tidak pernah menghitung populasi berbeda. */
+function reportPendingShipmentTotal() {
+  const pool = PERIOD.active
+    ? (() => {
+        const aktif = kpiPool();
+        const EPOCH = new Date(1900, 0, 1);
+        return _asOfPeriod(EPOCH, PERIOD.to, () => aktif.filter(co => canonicalObtainedFiltered(co) > 0));
+      })()
+    : allCompaniesPool();
+
+  /* Realisasi kumulatif per company — dari baris PIB, sumber yang sama dengan
+     kartu Realized, tanpa saringan tanggal (ini stock). Peta dibangun SEKALI:
+     versi pertama menyapu seluruh 200+ baris PIB untuk setiap company demi
+     menghitung jumlah company, dan itu murni pemborosan. */
+  const realPerCo = {};
+  if (Array.isArray(window.REALIZATIONS)) {
+    REALIZATIONS.forEach(r => {
+      const c = String(r.company_code || '').toUpperCase();
+      if (!c) return;
+      realPerCo[c] = (realPerCo[c] || 0) + (parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0);
+    });
+  }
+
+  let util = 0, real = 0, n = 0;
+  pool.forEach(co => {
+    const u = allTimeUtil(co);
+    const r = realPerCo[co && co.code] || 0;
+    util += u;
+    real += r;
+    if (u - r > 0.01) n++;
+  });
+
+  return { mt: Math.max(0, util - real), companies: n, utilized: util, realized: real };
+}
+
 /* Jalankan fn() seolah jendela aktifnya [from, to], lalu kembalikan seperti
    semula. HANYA untuk pemanggilan sinkron — jangan ada await di dalam fn,
    karena render lain bisa membaca jendela yang sedang ditukar.

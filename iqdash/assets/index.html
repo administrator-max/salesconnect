@@ -533,14 +533,18 @@ window.ensureXLSX = function () {
 
   <!-- 5 KPI CARDS (Target Re-Apply removed) -->
   <div class="g5 mb14">
-    <div class="kpi" onclick="openSubmitDrill()" style="cursor:pointer" title="Click to see submission breakdown">
+    <!-- Total Pending Shipment = Utilized − Realized (permintaan tim 2026-08-10).
+         Menggantikan kartu Total Submitted; angka Submitted tetap dihitung
+         untuk Approval Rate pada kartu Obtained, dan tetap tampil di PDF
+         Summary serta drill-down Submission. -->
+    <div class="kpi" onclick="openPendingShipDrill()" style="cursor:pointer" title="Klik untuk rincian per company">
       <div class="kpi-accent" style="background:var(--navy)"></div>
-      <div class="kpi-lbl">Total Submitted</div>
+      <div class="kpi-lbl">Total Pending Shipment</div>
       <div class="kpi-val">—</div>
       <div class="kpi-unit">MT</div>
-      <div class="kpi-bar"><div class="kpi-fill" id="kpiSubmitFill" style="width:0%;background:var(--navy)"></div></div>
+      <div class="kpi-bar"><div class="kpi-fill" id="kpiPendShipFill" style="width:0%;background:var(--navy)"></div></div>
       <div class="kpi-tag" style="background:#eef2ff;color:var(--navy);display:flex;align-items:center;justify-content:space-between">
-        <span id="kpiSubmitNote">All Submissions</span>
+        <span id="kpiPendShipNote">Utilized − Realized</span>
         <span style="font-size:9px;opacity:.5;margin-left:6px">↗ detail</span>
       </div>
     </div>

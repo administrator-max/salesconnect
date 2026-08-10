@@ -90,14 +90,29 @@ function updateOverviewKPIs() {
   const utilCoCount     = _util.companies;
 
   /* ── Update DOM ───────────────────────────────────────────────────── */
+  /* Kartu 1 — Total Pending Shipment (menggantikan Total Submitted, permintaan
+     tim 2026-08-10). Kuota yang sudah dialokasikan tapi barangnya belum tiba.
+     KUMULATIF, lihat docblock reportPendingShipmentTotal(): pengurangan per
+     periode rutin menghasilkan angka NEGATIF karena barang yang dipakai 2025
+     baru tiba 2026.
+     `totalSubmitMT` tetap dihitung — Approval Rate di kartu Obtained memakainya,
+     begitu pula PDF Summary dan drill-down Submission. */
+  const _pend = reportPendingShipmentTotal();
   if (kpis[0]) {
-    kpis[0].querySelector('.kpi-val').textContent  = totalSubmitMT > 0 ? fmtMt(totalSubmitMT) : '—';
-    kpis[0].querySelector('.kpi-unit').textContent = submitCoSet.size > 0 ? `MT · ${submitCoSet.size} companies` : 'MT';
+    kpis[0].querySelector('.kpi-val').textContent  = _pend.mt > 0 ? fmtMt(_pend.mt) : '—';
+    kpis[0].querySelector('.kpi-unit').textContent = _pend.companies > 0
+      ? `MT · ${_pend.companies} compan${_pend.companies !== 1 ? 'ies' : 'y'} in transit` : 'MT';
     const t = kpis[0].querySelector('.kpi-tag');
-    if (t) { const n=t.querySelector('#kpiSubmitNote')||t; n.textContent = PERIOD.active ? `Filtered: ${submitCoSet.size} co.` : 'All Submissions'; }
-    // Submit fill: 100% reference (always full bar — Submit is the baseline)
-    const sFill = document.getElementById('kpiSubmitFill');
-    if (sFill) sFill.style.width = totalSubmitMT > 0 ? '100%' : '0%';
+    if (t) {
+      const n = t.querySelector('#kpiPendShipNote') || t;
+      n.textContent = _pend.utilized > 0
+        ? `${fmtMt(_pend.utilized)} utilized − ${fmtMt(_pend.realized)} realized`
+        : 'Utilized − Realized';
+    }
+    // Bar: porsi yang belum tiba dari total yang sudah dialokasikan.
+    const sFill = document.getElementById('kpiPendShipFill');
+    if (sFill) sFill.style.width = _pend.utilized > 0
+      ? Math.min(100, _pend.mt / _pend.utilized * 100).toFixed(1) + '%' : '0%';
   }
   if (kpis[1]) {
     kpis[1].querySelector('.kpi-val').textContent  = totalObtainedMT > 0 ? fmtMt(totalObtainedMT) : '—';
@@ -792,6 +807,92 @@ function refreshReapplyDrill() {
 
   document.getElementById('raDrillFooter').textContent =
     `${subCount} submitted · ${eligCount} eligible · Click row to open company detail`;
+}
+
+/* ══════════════════════════════════════════════════
+   PENDING SHIPMENT DRILL — rincian per company
+
+   Modalnya dibangun di JS, bukan ditulis di index.html: kartu ini menggantikan
+   Total Submitted yang modalnya masih dipakai (PDF & drill Submission), jadi
+   menambah satu blok HTML lagi hanya menambah yang harus dijaga sinkron.
+
+   Angka KUMULATIF, sama seperti kartunya — lihat reportPendingShipmentTotal().
+════════════════════════════════════════════════════ */
+function openPendingShipDrill() {
+  const p = reportPendingShipmentTotal();
+  const pool = PERIOD.active
+    ? (typeof kpiPool === 'function' ? kpiPool() : [...SPI, ...PENDING])
+    : [...SPI, ...PENDING];
+
+  const realPerCo = {};
+  (window.REALIZATIONS || []).forEach(r => {
+    const c = String(r.company_code || '').toUpperCase();
+    if (!c) return;
+    realPerCo[c] = (realPerCo[c] || 0) + (parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0);
+  });
+
+  const rows = pool.map(co => {
+    const u = (typeof allTimeUtil === 'function') ? allTimeUtil(co) : (Number(co.utilizationMT) || 0);
+    const r = realPerCo[co.code] || 0;
+    return { code: co.code, group: co.group || '—', util: u, real: r, pend: u - r };
+  }).filter(x => x.pend > 0.01).sort((a, b) => b.pend - a.pend);
+
+  const el = document.getElementById('pendShipDrillModal') || (() => {
+    const d = document.createElement('div');
+    d.id = 'pendShipDrillModal';
+    d.style.cssText = 'display:none;position:fixed;inset:0;z-index:700;background:rgba(15,23,42,.55);backdrop-filter:blur(3px)';
+    d.onclick = e => { if (e.target === d) d.style.display = 'none'; };
+    document.body.appendChild(d);
+    return d;
+  })();
+
+  const pct = x => x.util > 0 ? (x.pend / x.util * 100).toFixed(0) + '%' : '—';
+  el.innerHTML = `
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,860px);max-height:86vh;background:var(--bg);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:16px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--txt)">Total Pending Shipment — Rincian</div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:2px">
+            Kuota sudah dialokasikan, barang belum tiba · Utilized − Realized ·
+            ${rows.length} company · saldo kumulatif${PERIOD.active ? ` · company aktif di ${PERIOD.label}` : ''}
+          </div>
+        </div>
+        <button onclick="document.getElementById('pendShipDrillModal').style.display='none'"
+          style="background:var(--border);border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:var(--txt3)">✕</button>
+      </div>
+      <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap;background:var(--bg2)">
+        ${[['Pending Shipment', fmtMt(p.mt), 'var(--navy)', '#eef2ff', '#c7d2fe'],
+           ['Utilized', fmtMt(p.utilized), 'var(--blue)', 'var(--blue-bg)', 'var(--blue-bd)'],
+           ['Realized', p.realized.toLocaleString(MT_LOCALE), 'var(--green)', 'var(--green-bg)', 'var(--green-bd)']]
+          .map(([l, v, c, bg, bd]) => `
+            <div style="text-align:center;padding:6px 14px;background:${bg};border-radius:6px;border:1px solid ${bd}">
+              <div style="font-size:10px;font-weight:700;color:${c};text-transform:uppercase;letter-spacing:.8px">${l}</div>
+              <div style="font-size:20px;font-weight:700;color:${c};line-height:1.2">${v} <span style="font-size:12px">MT</span></div>
+            </div>`).join('')}
+      </div>
+      <div style="overflow-y:auto;flex:1">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="position:sticky;top:0;background:var(--bg2);z-index:20">
+            ${['Company', 'Grp', 'Utilized (MT)', 'Realized (MT)', 'Pending (MT)', '% Belum Tiba']
+              .map((h, i) => `<th style="padding:9px 12px;text-align:${i < 2 ? 'left' : 'right'};font-weight:700;color:var(--txt3);font-size:10.5px;border-bottom:2px solid var(--border)">${h}</th>`).join('')}
+          </tr></thead>
+          <tbody>
+            ${rows.length ? rows.map(x => `
+              <tr style="border-bottom:1px solid var(--border);cursor:pointer"
+                  onclick="document.getElementById('pendShipDrillModal').style.display='none';setTimeout(()=>openDrawer('${x.code}'),100)">
+                <td style="padding:8px 12px;font-weight:700;color:var(--navy)">${x.code}</td>
+                <td style="padding:8px 12px;font-size:11px;color:var(--txt3)">${x.group}</td>
+                <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(x.util)}</td>
+                <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${x.real.toLocaleString(MT_LOCALE)}</td>
+                <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--navy)">${fmtMt(x.pend)}</td>
+                <td style="padding:8px 12px;text-align:right;font-size:11px;color:var(--txt3)">${pct(x)}</td>
+              </tr>`).join('')
+              : `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--txt3)">Tidak ada yang menunggu kedatangan</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  el.style.display = 'block';
 }
 
 function openSubmitDrill() {
