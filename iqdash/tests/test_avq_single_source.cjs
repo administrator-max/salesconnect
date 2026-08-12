@@ -238,16 +238,62 @@ function badan(src, nama) {
   return src.slice(m.index, i);
 }
 
+/* Tiga permukaan PER PRODUK boleh merender dari productTotals() — helper
+   kanonik yang menjumlah obtained/utilized atas SELURUH pemegang produk
+   sementara available-nya tetap dari availableQuotaRows(). Populasi keduanya
+   memang beda dan itu disengaja; yang dijaga adalah NILAI-nya, di blok
+   "productTotals" di bawah. */
+const PER_PRODUK = ['buildAvqProdGrid', 'buildAvqProdChart', 'openProdCoPopup'];
 AVQ_FN.forEach(([f, fn]) => {
   const b = badan(kode(f), fn);
   ok(b != null, `${f}: ${fn}() ditemukan`);
   if (!b) return;
-  ok(/availableQuotaRows\s*\(/.test(b), `${fn}() merender dari availableQuotaRows()`);
+  const perProduk = PER_PRODUK.includes(fn);
+  ok(/availableQuotaRows\s*\(/.test(b)
+     || (perProduk && /(productTotals|cumulativeAvailForProd)\s*\(/.test(b)),
+     `${fn}() merender dari sumber kanonik (availableQuotaRows / productTotals / cumulativeAvailForProd)`);
   ok(!/scopedAvailByProd\s*\(/.test(b), `${fn}() tidak memakai scopedAvailByProd() — saldo periode ≠ saldo kumulatif`);
-  ok(!/\bkpiPool\s*\(/.test(b),         `${fn}() tidak menyusun kolamnya sendiri lewat kpiPool()`);
+  /* openProdCoPopup HARUS memakai kpiPool: populasinya wajib sama dengan badge
+     "N co." yang membukanya, yaitu seluruh pemegang produk. */
+  if (fn !== 'openProdCoPopup')
+    ok(!/\bkpiPool\s*\(/.test(b),       `${fn}() tidak menyusun kolamnya sendiri lewat kpiPool()`);
   ok(!/\bfilteredSPI\s*\(/.test(b),     `${fn}() tidak memakai filteredSPI() — kolam itu membuang PENDING`);
   ok(!/\bavailableByProd\b/.test(b),    `${fn}() tidak membaca availableByProd mentah — kolom stats yang bisa basi`);
 });
+
+console.log('\n-- productTotals(): kartu per produk tidak boleh memotong Obtained --');
+/* Dilaporkan tim 2026-08-12: kartu GI ALLOY berbunyi "obtained 4.270" untuk
+   produk yang sebenarnya pernah memperoleh 9.681 MT, karena obtained/utilized
+   ikut disaring ke company yang masih bersisa saja. Available-nya benar; dua
+   kolom di sebelahnya yang salah. */
+[['All Time', null, null], ['H1 2026', '2026-01-01', '2026-06-30'],
+ ['Q1 2026', '2026-01-01', '2026-03-31']].forEach(([label, f, t]) => {
+  setP(f, t);
+  const pt = call('productTotals()');
+  const kartu = call('reportAvailableTotal()');
+  const sigma = Object.values(pt).reduce((s, d) => s + d.avail, 0);
+  ok(near(sigma, kartu.mt),
+     `${label}: Σ available kartu produk = angka kartu Total Available`,
+     `kartu ${kartu.mt} · Σ ${sigma}`);
+  /* Identitas tetap utuh meski kolam obtained/utilized lebih luas: company
+     bersaldo nol menyumbang obtained dan utilized dalam jumlah SAMA. */
+  Object.entries(pt).forEach(([p, d]) => {
+    ok(near(d.obtained - d.util, d.avail),
+       `${label} · ${p}: obtained − utilized = available`,
+       `${d.obtained} − ${d.util} = ${d.obtained - d.util}, available ${d.avail}`);
+  });
+  /* Obtained per produk tidak boleh lebih kecil dari yang dipegang company
+     bersisa saja — itu gejala persis dari bug yang dilaporkan. */
+  const rows = call('availableQuotaRows()');
+  const hanyaBersisa = {};
+  rows.forEach(r => { hanyaBersisa[r.product] = (hanyaBersisa[r.product] || 0) + r.obtained; });
+  Object.entries(hanyaBersisa).forEach(([p, o]) => {
+    ok((pt[p] ? pt[p].obtained : 0) >= o - 1e-6,
+       `${label} · ${p}: obtained kartu ≥ obtained company bersisa`,
+       `kartu ${pt[p] ? pt[p].obtained : 0} vs bersisa-saja ${o}`);
+  });
+});
+setP(null, null);
 
 console.log('\n-- Gerbang periode berlaku juga di luar halaman AVQ --');
 /* Ditemukan saat audit dashboard live 2026-08-12: memfilter "2025 saja"

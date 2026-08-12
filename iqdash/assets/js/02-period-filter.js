@@ -955,13 +955,31 @@ const AVQ_EPS = 0.001;
 /* Kolam Available Quota — company yang masih PUNYA saldo, dengan syarat
    periode yang sama persis seperti dijelaskan di docblock reportAvailableTotal
    di atas (aktif di periode DAN kuotanya sudah terbit s/d akhir periode). */
-function availablePool() {
-  const bersisa = co => cumulativeAvailable(co) > AVQ_EPS;
-  if (!PERIOD.active) return allCompaniesPool().filter(bersisa);
+/* CAKUPAN periode untuk Available Quota — company yang aktif di periode DAN
+   kuotanya sudah terbit s/d akhir periode, TANPA menyaring apakah saldonya
+   masih ada.
+
+   Dipisah dari availablePool() karena dua pertanyaan yang berbeda:
+     · "berapa saldo tersisa?"        -> availablePool() (perlu saringan saldo)
+     · "produk ini totalnya berapa?"  -> cakupan ini (butuh SEMUA pemegangnya,
+                                        termasuk yang kuotanya sudah habis)
+
+   Memakai cakupan yang sama untuk keduanya menjaga identitas
+   `obtained − utilized = available` tetap utuh: company bersaldo nol menyumbang
+   obtained dan utilized dalam jumlah SAMA, jadi selisihnya tidak bergeser.
+   Kalau obtained diambil dari kolam yang LEBIH LUAS dari ini, identitasnya
+   pecah — company yang kuotanya belum terbit di akhir periode akan menambah
+   obtained tanpa menambah available (kasus SNSD di H1). */
+function availableScopePool() {
+  if (!PERIOD.active) return allCompaniesPool();
   const aktif = kpiPool();
   const EPOCH = new Date(1900, 0, 1);
   return _asOfPeriod(EPOCH, PERIOD.to, () =>
-    aktif.filter(co => canonicalObtainedFiltered(co) > 0)).filter(bersisa);
+    aktif.filter(co => canonicalObtainedFiltered(co) > 0));
+}
+
+function availablePool() {
+  return availableScopePool().filter(co => cumulativeAvailable(co) > AVQ_EPS);
 }
 
 /* Saldo KUMULATIF per produk, dinormalkan supaya jumlahnya PERSIS
@@ -1071,6 +1089,55 @@ function cumulativeAvailForProd(co, prod) {
   if (m[c] != null) return Number(m[c]) || 0;
   const hit = Object.keys(m).find(k => _canonProd(k) === c);
   return hit ? (Number(m[hit]) || 0) : 0;
+}
+
+/* Total per PRODUK — untuk kartu/chart "By Product" di halaman Available Quota.
+
+   Kenapa terpisah dari availableQuotaRows(): kolam keduanya memang berbeda,
+   dan itu disengaja.
+
+     · AVAILABLE  → hanya company yang MASIH bersaldo (availablePool).
+       Aturan 2026-08-10: halaman Available Quota tidak mendaftar PT bersaldo
+       nol.
+     · OBTAINED & UTILIZED → SELURUH company pemegang produk itu.
+
+   Dilaporkan tim 2026-08-12: kartu GI ALLOY berbunyi "obtained 4.270" padahal
+   produk itu sebenarnya pernah memperoleh 9.681 MT. Sebabnya kartu menjumlah
+   obtained/utilized hanya dari company yang masih bersisa — jadi seluruh
+   riwayat 13 company yang kuotanya sudah habis lenyap dari angkanya, dan
+   "% available" ikut melonjak dari 20% jadi 46%. Angka available-nya benar;
+   yang salah dua kolom di sebelahnya.
+
+   Identitas `obtained − utilized = available` TETAP utuh meski kolamnya beda,
+   dan itu bukan kebetulan: company bersaldo nol menyumbang obtained dan
+   utilized dalam jumlah yang SAMA, jadi selisihnya tidak bergeser. Dijaga
+   test_avq_single_source.cjs. */
+function productTotals() {
+  const out = {};
+  const ambil = p => out[p] || (out[p] = { obtained: 0, util: 0, avail: 0, cos: [], holders: [] });
+
+  /* Obtained & utilized: seluruh company dalam cakupan halaman ini. */
+  availableScopePool().forEach(co => {
+    const obt  = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
+    const util = (typeof allTimeUtilByProd    === 'function') ? allTimeUtilByProd(co)    : (co.utilizationByProd || {});
+    new Set([...Object.keys(obt), ...Object.keys(util)]).forEach(p => {
+      const o = Number(obt[p]) || 0, u = Number(util[p]) || 0;
+      if (o <= 0 && u <= 0) return;
+      const e = ambil(p);
+      e.obtained += o; e.util += u;
+      if (o > 0 && !e.holders.includes(co.code)) e.holders.push(co.code);
+    });
+  });
+
+  /* Available: dari rincian kanonik, supaya Σ kartu produk tidak mungkin
+     berbeda dari kartu Total Available di atasnya. */
+  availableQuotaRows().forEach(r => {
+    const e = ambil(r.product);
+    e.avail += r.avq;
+    if (r.avq > AVQ_EPS && !e.cos.includes(r.code)) e.cos.push(r.code);
+  });
+
+  return out;
 }
 
 /* SATU rincian Available Quota — dipakai oleh SEMUA permukaan AVQ.
@@ -1352,7 +1419,7 @@ if (typeof module !== 'undefined' && module.exports) {
     companiesWithLotsInPeriod, utilizationPool,
     scopedUtilByProd, scopedUtilTotal, scopedAvailByProd, scopedObtainedByProd,
     scopedObtainedDetailByProd,
-    availablePool, availablePoolCodes, availableInPeriod,
+    availablePool, availableScopePool, availablePoolCodes, availableInPeriod, productTotals,
     cumulativeAvailByProd, cumulativeAvailForProd, availableQuotaRows,
     reportAvailableTotal, kpiPool, allCompaniesPool,
   };

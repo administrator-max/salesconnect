@@ -275,17 +275,12 @@ function buildAvqPageKPIs() {
 function buildAvqProdGrid() {
   const grid = document.getElementById('avqProdGrid');
   if (!grid) return;
-  /* Agregasi dari rincian KANONIK, sama seperti tabel dan chart di halaman ini
-     — bukan campuran obtained all-time dengan utilisasi periode seperti dulu. */
-  const prodMap = {}; // product → { obtained, util, avail, companies[] }
-  availableQuotaRows().forEach(r => {
-    if (!prodMap[r.product]) prodMap[r.product] = { obtained:0, util:0, avail:0, cos:[] };
-    const d = prodMap[r.product];
-    d.obtained += r.obtained;
-    d.util     += r.utilMT;
-    d.avail    += r.avq;
-    if (!d.cos.includes(r.code)) d.cos.push(r.code);
-  });
+  /* productTotals(): obtained & utilized dari SELURUH pemegang produk, available
+     dari rincian kanonik. Sebelumnya ketiganya diambil dari availableQuotaRows()
+     saja — hanya company yang masih bersisa — sehingga kartu GI ALLOY menulis
+     "obtained 4.270" untuk produk yang sebenarnya pernah memperoleh 9.681 MT
+     (dilaporkan tim 2026-08-12). */
+  const prodMap = productTotals();
   /* Produk yang saldonya sudah habis dibuang — disaring SESUDAH penjumlahan,
      karena satu produk bisa nol di satu PT tapi masih bersisa di PT lain
      (2026-08-10). */
@@ -317,8 +312,8 @@ function buildAvqProdGrid() {
           cursor:pointer;border:1px solid rgba(255,255,255,.35);transition:background .15s;user-select:none"
           onmouseover="this.style.background='rgba(255,255,255,.38)'"
           onmouseout="this.style.background='rgba(255,255,255,.22)'"
-          title="Click to see company breakdown">
-          ${d.cos.length} co. ▾
+          title="Klik untuk rincian per company">
+          ${d.holders.length} co. ▾
         </span>
       </div>
       <div style="padding:10px 14px">
@@ -332,7 +327,11 @@ function buildAvqProdGrid() {
         </div>
         <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txt3)">
           <span>${avqPct}% available</span>
-          <span style="font-size:9.5px;color:var(--txt3)">${d.cos.slice(0,4).join(', ')}${d.cos.length>4?'…':''}</span>
+          <!-- Badge di atas = SELURUH pemegang produk (sepadan dengan Obtained);
+               daftar di sini = yang masih PUNYA SISA, yaitu yang bisa dijual. -->
+          <span style="font-size:9.5px;color:var(--txt3)" title="Company yang masih punya sisa">
+            sisa di ${d.cos.slice(0,3).join(', ')}${d.cos.length>3?' +'+(d.cos.length-3):''}
+          </span>
         </div>
       </div>
     </div>`;
@@ -376,22 +375,40 @@ function openProdCoPopup(event, prodName, anchorEl) {
   document.getElementById('prodCoPopupHdr').style.background = col;
   document.getElementById('prodCoPopupTitle').textContent = prodName;
 
-  /* Rincian kanonik — kolamnya kini SAMA dengan kartu produk yang membuka
-     popup ini. Sebelumnya kartu memakai kpiPool() (SPI + PENDING) sementara
-     popup memakai filteredSPI() saja, jadi kartu bisa menulis "N co." lalu
-     popup-nya mendaftar lebih sedikit; company PENDING (mis. SNSD) hilang.
-     Kelas bug yang sama sudah dua kali diperbaiki di permukaan AVQ lain. */
-  const coRows = availableQuotaRows()
-    .filter(r => r.product === prodName && r.avq > 0.001)
-    .map(r => ({ code: r.code, group: r.group, obt: r.obtained, util: r.utilMT, avq: r.avq }));
-  coRows.sort((a, b) => b.avq - a.avq);
+  /* Populasi popup HARUS sama dengan badge "N co." yang membukanya — yaitu
+     SELURUH pemegang produk, bukan hanya yang masih bersisa. Kalau tidak,
+     kartunya menulis "15 co." lalu popup-nya mendaftar 2; kelas bug "kartu
+     bilang N, drill-nya bilang lain" yang sudah berkali-kali diperbaiki.
+
+     Yang bersaldo nol tetap ditampilkan karena merekalah penjelasan ke mana
+     Utilized-nya pergi — tapi diletakkan di bawah dan diberi tanda, supaya
+     tidak terbaca sebagai peluang jual (aturan 2026-08-10). */
+  const _pool = availableScopePool();
+  const coRows = [];
+  _pool.forEach(co => {
+    const obt = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
+    const o = Number(obt[prodName]) || 0;
+    if (o <= 0) return;
+    const util = (typeof allTimeUtilByProd === 'function') ? allTimeUtilByProd(co) : (co.utilizationByProd || {});
+    const spi = getSPI(co.code);
+    coRows.push({
+      code: co.code, group: co.group || (spi && spi.group) || '',
+      obt: o, util: Number(util[prodName]) || 0,
+      avq: (typeof availableInPeriod === 'function' && availableInPeriod(co) <= 0)
+             ? 0 : cumulativeAvailForProd(co, prodName),
+    });
+  });
+  // Yang masih bersisa di atas (urut terbesar), yang sudah habis di bawah.
+  coRows.sort((a, b) => (b.avq > 0.001) - (a.avq > 0.001) || b.avq - a.avq || b.obt - a.obt);
 
   const totalObt  = coRows.reduce((s, r) => s + r.obt,  0);
   const totalUtil = coRows.reduce((s, r) => s + r.util, 0);
   const totalAvq  = coRows.reduce((s, r) => s + r.avq,  0);
 
+  const _bersisa = coRows.filter(r => r.avq > 0.001).length;
   document.getElementById('prodCoPopupSub').textContent =
-    `${coRows.length} compan${coRows.length !== 1 ? 'ies' : 'y'} · ${fmtMt(totalAvq)} MT available`;
+    `${coRows.length} compan${coRows.length !== 1 ? 'ies' : 'y'} pemegang · `
+    + `${_bersisa} masih bersisa · ${fmtMt(totalAvq)} MT available`;
 
   // Summary strip
   document.getElementById('prodCoPopupStrip').innerHTML = [
@@ -573,14 +590,9 @@ function buildAvqTable() {
 function buildAvqProdChart() {
   const el = document.getElementById('avqProdChart');
   if (!el) return;
-  /* Sumber yang sama dengan grid & tabel di halaman ini (availableQuotaRows). */
-  const prodMap = {};
-  availableQuotaRows().forEach(r => {
-    if (!prodMap[r.product]) prodMap[r.product] = { obtained:0, util:0, avail:0 };
-    prodMap[r.product].obtained += r.obtained;
-    prodMap[r.product].util     += r.utilMT;
-    prodMap[r.product].avail    += r.avq;
-  });
+  /* Sumber yang sama dengan kartu By Product di atasnya — productTotals().
+     Chart dan kartu duduk di halaman yang sama, jadi tidak boleh beda basis. */
+  const prodMap = productTotals();
   // Produk bersaldo nol tidak ditampilkan (2026-08-10) — sama seperti grid.
   Object.keys(prodMap).forEach(p => { if ((prodMap[p].avail || 0) <= 0.001) delete prodMap[p]; });
   const sorted = Object.entries(prodMap).sort((a,b) => b[1].obtained - a[1].obtained);
