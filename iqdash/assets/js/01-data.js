@@ -463,6 +463,39 @@ const isEligible = r => r && r.realPct >= 0.6 && r.cargoArrived === true && !isR
    This eliminates the GKL/BHG/etc. double-counting bug (was inflating
    canonical obtained by ~12,350 MT vs XLSX truth).
    ═══════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   _RATIONALE_FROM_REV_REQ — kenapa `_fromRevReq` tidak lagi menggugurkan
+   siklus OBTAINED (tetap berlaku untuk SUBMIT).
+
+   Dilaporkan pemilik data 2026-08-12: "obtained quota re-apply yg seharusnya
+   otomatis masuk juga kedalam available quota". Dugaan itu BENAR, dan
+   penelusuran pertama saya keliru menyimpulkan tidak ada masalah — saya
+   memeriksa company yang siklusnya datang dari import master (di sana re-apply
+   memang terhitung), dan melewatkan siklus yang dibuat lewat UI Revision
+   Management.
+
+   Mekanismenya: rrApplyObtained() / rrMarkApproved() / rrSaveStatus() di
+   13-rev-mgmt.js MEMBUAT placeholder
+
+       { type:'Obtained #2', mt:null, releaseDate:'TBA', _fromRevReq:true }
+
+   lalu alur yang sama mengisi `mt`, `products`, dan tanggal SPI/PERTEK-nya
+   ketika kuotanya benar-benar terbit — tetapi TIDAK PERNAH membersihkan
+   penandanya. Karena `canonicalObtained` menggugurkan `_fromRevReq` tanpa
+   syarat, kuota re-apply yang dicatat lewat form itu jadi PERMANEN tidak
+   terlihat: tidak masuk Obtained, karena itu tidak pernah muncul di Available.
+
+   Penandanya menandai PLACEHOLDER, bukan "bukan obtained". Begitu siklusnya
+   punya MT nyata dan tanggal terbit nyata, ia obtained yang sah. Uji itu sudah
+   ada dan tidak perlu penanda: gerbang `mt <= 0` dan `_isObtainedTerbit()`.
+   Placeholder murni (mt null, tanggal TBA) tetap gugur di sana.
+
+   Tidak ada risiko hitung ganda: canonicalObtained hanya menjumlah tipe
+   /^obtained #/, sedangkan siklus "Revision Request — <produk>" bukan tipe itu.
+
+   Diperbaiki di sisi BACA, bukan sisi tulis — supaya seluruh data yang sudah
+   telanjur bertanda ikut pulih tanpa migrasi.
+   ═══════════════════════════════════════════════════════════════════ */
 function _isObtainedTerbit(c, allCycles) {
   if (!c) return false;
   // Obtained #1 → trust mt > 0 (no extra date gate). Matches XLSX.
@@ -553,7 +586,9 @@ function canonicalObtained(co) {
     const key = c.type.toLowerCase().trim();
     if (seen.has(key)) return;                         // dedup cycleType
     seen.add(key);
-    if (c._fromRevReq) return;                         // rule #4: revision-request artifact ≠ new obtained
+    /* `_fromRevReq` TIDAK lagi menggugurkan siklus obtained. Lihat
+       _RATIONALE_FROM_REV_REQ di bawah. Placeholder yang belum jadi apa-apa
+       tetap gugur — lewat gerbang mt<=0 dan gerbang TERBIT di baris berikut. */
     if (!_isObtainedTerbit(c, allCycles)) return;                // SKIP TBA / not-yet-terbit
     total += mt;
   });
@@ -640,7 +675,7 @@ function canonicalObtainedFiltered(co) {
     const key = c.type.toLowerCase().trim();
     if (seen.has(key)) return;
     seen.add(key);
-    if (c._fromRevReq) return;          // rule #4: revision-request artifact ≠ new obtained
+    // `_fromRevReq` tidak menggugurkan — lihat _RATIONALE_FROM_REV_REQ.
     if (!_isObtainedTerbit(c, allCycles)) return; // also gate by terbit status
     if (PERIOD.active) {
       // "Obtained" = quota granted = SPI Terbit. Anchor the period test on the
@@ -834,7 +869,9 @@ function getCycleBreakdown(co, mode, prod) {
     const key = c.type.toLowerCase().trim();
     if (seen.has(key)) return;
     seen.add(key);
-    if (c._fromRevReq) return;
+    /* Mode SUBMIT tetap menggugurkan artefak revision-request; mode OBTAINED
+       tidak — lihat _RATIONALE_FROM_REV_REQ. */
+    if (mode === 'submit' && c._fromRevReq) return;
     // Same gates as canonicalObtained/Submitted: skip empty (mt=0) and
     // — for obtained mode — skip not-yet-terbit (release TBA / invalid).
     const cycMt = typeof c.mt === 'number' ? c.mt : 0;

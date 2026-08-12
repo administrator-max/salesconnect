@@ -539,7 +539,7 @@ function scopedObtainedDetailByProd(co) {
     const k = String(c.type).toLowerCase().trim();
     if (seen.has(k)) return;
     seen.add(k);
-    if (c._fromRevReq) return;
+    // `_fromRevReq` tidak menggugurkan — lihat _RATIONALE_FROM_REV_REQ (01-data.js).
     if (typeof _isObtainedTerbit === 'function' && !_isObtainedTerbit(c, allCycles)) return;
     let anchor = (typeof getPertekTerbitForObtained === 'function') ? getPertekTerbitForObtained(c, allCycles) : null;
     if (!anchor && c.pertekDate) anchor = pDate(c.pertekDate);
