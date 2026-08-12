@@ -159,7 +159,7 @@ function openDrawer(code) {
             return `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
               <div style="padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);margin-bottom:7px">
                 <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--txt3);margin-bottom:2px">${f.label}</div>
-                <div style="font-weight:600">${f.prod}</div>
+                <div style="font-weight:600">${prodLabel(f.prod)}</div>
                 <div style="font-size:10.5px;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(f.mt)} MT</div>
               </div>
               <div style="display:flex;align-items:center;gap:5px;padding:0 4px 6px;font-size:10px;color:var(--orange);font-weight:700">↓ Split into:</div>
@@ -180,13 +180,13 @@ function openDrawer(code) {
             return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
               <div style="flex:1;padding:5px 9px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);font-size:11.5px">
                 <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--txt3);margin-bottom:2px">${f.label||'Before'}</div>
-                <div style="font-weight:600">${f.prod}</div>
+                <div style="font-weight:600">${prodLabel(f.prod)}</div>
                 <div style="font-size:10.5px;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(f.mt)} MT</div>
               </div>
               <div style="font-size:18px;color:var(--txt3)">→</div>
               <div style="flex:1;padding:5px 9px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:var(--r);font-size:11.5px">
                 <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--green);margin-bottom:2px">${t.label||'After'}</div>
-                <div style="font-weight:700;color:var(--green)">${t.prod||'?'}</div>
+                <div style="font-weight:700;color:var(--green)">${t.prod?prodLabel(t.prod):'?'}</div>
                 <div style="font-size:10.5px;font-family:'DM Mono',monospace;color:var(--green)">${fmtMt(t.mt||0)} MT</div>
               </div>
             </div>`;

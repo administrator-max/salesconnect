@@ -39,6 +39,32 @@ let PRODUCT_META = {};
 let PRODUCT_ALIASES = {};
 const canonicalProduct = p => (p && PRODUCT_ALIASES[p]) || p;
 
+/* Nama produk untuk DITAMPILKAN. Selalu bentuk kanonik.
+
+   Alasannya diminta langsung oleh pemilik data 2026-08-12: "GI Alloy dan GI
+   Boron itu SAMA artinya, tolong penamaan diseragamkan ke GI ALLOY."
+
+   Kenapa perlu helper terpisah padahal sudah ada canonicalProduct(): dua ejaan
+   itu hidup berdampingan di sumber yang berbeda — `cycles[].products` dan
+   `salesRevRequest` menyimpan ejaan ledger (GI BORON / SHEETPILE), sedangkan
+   company_product_stats sudah kanonik (GI ALLOY / SHEET PILE). Selama ini yang
+   dikanonikkan hanya jalur agregasi angka; jalur TAMPILAN dibiarkan mentah,
+   sehingga satu produk yang sama muncul dengan dua nama di layar — persis kelas
+   masalah "satu hal, dua tampilan" yang sedang dibereskan di seluruh dashboard.
+
+   Sengaja TIDAK menulis ulang data tersimpan: ejaan di DB adalah urusan
+   migrasi tersendiri, dan menormalkannya diam-diam lewat jalur simpan akan
+   mengubah data tanpa diminta. Ini murni lapisan tampilan. */
+const prodLabel = p => {
+  const s = (p == null ? '' : String(p)).trim();
+  if (!s) return s;
+  const c = canonicalProduct(s);
+  if (c && c !== s) return c;
+  // Ejaan yang tidak ada di peta alias tapi beda kapitalisasi/spasi saja.
+  const hit = Object.keys(PRODUCT_ALIASES || {}).find(k => k.toLowerCase() === s.toLowerCase());
+  return hit ? PRODUCT_ALIASES[hit] : s;
+};
+
 /* COMPANY_DIRECTORY — master list of companies from company.xlsx (DB-backed).
    Two derived maps for O(1) lookup:
      COMPANY_NAME_TO_CODE: lowercased fullName → 3-letter code
@@ -748,11 +774,18 @@ function getObtainedByProdAgg(co) {
      cycles do not. getCycleBreakdown() applies the same gates as
      canonicalObtained() (dedupe per cycle type, mt > 0, PERTEK/SPI terbit), so
      the fallback cannot admit quota the headline figure excludes. */
+  /* Kunci hasil cadangan ini DIKANONIKKAN. Stats (jalur utama di atas) sudah
+     memakai ejaan kanonik, tapi `cycles[].products` menyimpan ejaan ledger —
+     sehingga company yang jatuh ke cadangan ini muncul dengan nama produk yang
+     berbeda dari yang lain di layar yang sama. SNSD: "GI BORON" di seluruh
+     permukaan per-produk, sementara 40 company lain menulis "GI ALLOY" untuk
+     produk yang sama persis. Diminta pemilik data 2026-08-12 supaya seragam
+     ke GI ALLOY. */
   if (!Object.keys(result).length && typeof getCycleBreakdown === 'function') {
     getCycleBreakdown(co, 'obtained').forEach(cy => {
       Object.entries(cy.products || {}).forEach(([p, mt]) => {
         const v = Number(mt) || 0;
-        if (v > 0) result[p] = (result[p] || 0) + v;
+        if (v > 0) { const k = canonicalProduct(p); result[k] = (result[k] || 0) + v; }
       });
     });
   }

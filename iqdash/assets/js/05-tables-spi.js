@@ -31,9 +31,9 @@ function buildRevList() {
       const chgHtml = co.revFrom.length
         ? co.revFrom.map((f,i) => {
             const t = co.revTo[i]||{};
-            return `<span style="font-size:10px;font-weight:600;padding:1px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px">${f.prod}</span>
+            return `<span style="font-size:10px;font-weight:600;padding:1px 6px;background:var(--bg);border:1px solid var(--border);border-radius:3px">${prodLabel(f.prod)}</span>
                     <span style="color:var(--txt3);font-size:13px;margin:0 3px">→</span>
-                    <span style="font-size:10px;font-weight:700;padding:1px 6px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);border-radius:3px">${t.prod||'?'}</span>`;
+                    <span style="font-size:10px;font-weight:700;padding:1px 6px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);border-radius:3px">${t.prod?prodLabel(t.prod):'?'}</span>`;
           }).join('<br>')
         : '<span style="font-size:10.5px;color:var(--txt3)">See details</span>';
       const div = document.createElement('div');
@@ -51,9 +51,9 @@ function buildRevList() {
         const col = confCount === reqEntries.length ? 'var(--green)' : waitCount > 0 ? 'var(--amber)' : 'var(--red2)';
         salesReqMini = `<div style="margin-top:4px;font-size:9.5px;color:${col};font-weight:600">
           ${ico} Rev Request: ${reqEntries.map(([p,v]) => {
-            const newP = v.newProduct ? ` → ${v.newProduct}` : '';
+            const newP = v.newProduct ? ` → ${prodLabel(v.newProduct)}` : '';
             const mt   = v.confirmedMT != null ? fmtMt(v.confirmedMT) : v.requestedMT != null ? fmtMt(v.requestedMT) : '?';
-            return `${p}${newP} (${mt} MT)`;
+            return `${prodLabel(p)}${newP} (${mt} MT)`;
           }).join(' · ')}
         </div>`;
       }
@@ -128,7 +128,7 @@ function buildPendingQuick() {
                 font-weight:700;padding:1px 7px;border-radius:10px;
                 background:${dot}18;color:${dot};border:1px solid ${dot}40">
         <span style="width:5px;height:5px;border-radius:50%;background:${dot};display:inline-block;flex-shrink:0"></span>
-        ${pr}
+        ${prodLabel(pr)}
       </span>`;
     }).join('');
 
@@ -293,12 +293,12 @@ function buildRevNoteHtml(d) {
                     ? v.targetProducts
                     : (v.newProduct ? [{ product: v.newProduct, mt: v.requestedMT }] : []);
       const tDisp = targets.length > 1
-        ? targets.map(t => `${t.product||'—'}${t.mt!=null?' ('+fmtMt(Number(t.mt))+' MT)':''}`).join(' + ')
+        ? targets.map(t => `${t.product?prodLabel(t.product):'—'}${t.mt!=null?' ('+fmtMt(Number(t.mt))+' MT)':''}`).join(' + ')
         : targets.length === 1 && targets[0].product
-          ? ` → ${targets[0].product}${targets[0].mt!=null?' ('+fmtMt(Number(targets[0].mt))+' MT)':''}`
+          ? ` → ${prodLabel(targets[0].product)}${targets[0].mt!=null?' ('+fmtMt(Number(targets[0].mt))+' MT)':''}`
           : '';
       const confMT = v.confirmedMT != null ? fmtMt(v.confirmedMT) : null;
-      return `<span style="font-size:9.5px;color:var(--txt3)">${prod}${tDisp}${confMT?' [conf: '+confMT+' MT]':''}</span>`;
+      return `<span style="font-size:9.5px;color:var(--txt3)">${prodLabel(prod)}${tDisp}${confMT?' [conf: '+confMT+' MT]':''}</span>`;
     }).join(' · ');
     salesReqHtml = `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;align-items:center">
       <span style="font-size:9.5px;font-weight:700;color:var(--txt3)">📋 Rev Request:</span>
@@ -365,12 +365,12 @@ function buildRevChgHtml(co) {
           background:${isRetained?'var(--blue-bg)':'var(--green-bg)'};
           color:${isRetained?'var(--blue)':'var(--green)'};
           border:1px solid ${isRetained?'var(--blue-bd)':'var(--green-bd)'}">
-          ${t.label}: ${t.prod}</span>
+          ${t.label}: ${prodLabel(t.prod)}</span>
         <span style="font-size:10px;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(t.mt)} MT</span>
       </div>`;
     }).join('');
     return `<div style="display:flex;align-items:center;gap:4px;padding:2px 0 4px">
-        <span class="chg-from-lbl">${f.label}: ${f.prod}</span>
+        <span class="chg-from-lbl">${f.label}: ${prodLabel(f.prod)}</span>
         <span class="chg-mt">${fmtMt(f.mt)} MT</span>
         <span style="font-size:9.5px;color:var(--orange);font-weight:700;padding:1px 5px;background:var(--orange-bg);border:1px solid var(--orange-bd);border-radius:3px">SPLIT</span>
       </div>${toRows}`;
@@ -378,9 +378,9 @@ function buildRevChgHtml(co) {
   return co.revFrom.map((f,i) => {
     const t = co.revTo[i]||{};
     return `<div class="chg-row">
-      <span class="chg-from-lbl">${f.label||'Before'}: ${f.prod}</span>
+      <span class="chg-from-lbl">${f.label||'Before'}: ${prodLabel(f.prod)}</span>
       <span class="chg-arrow">→</span>
-      <span class="chg-to-lbl">${t.label||'After'}: ${t.prod||'?'}</span>
+      <span class="chg-to-lbl">${t.label||'After'}: ${t.prod?prodLabel(t.prod):'?'}</span>
       <span class="chg-mt">${fmtMt(f.mt)} MT</span>
     </div>`;
   }).join('');
