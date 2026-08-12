@@ -59,12 +59,49 @@ const TERLARANG = [
   ['cumulativeAvailableTotal', 'total Available diturunkan sendiri'],
   ['utilizationPool',          'kolam utilisasi disusun sendiri'],
 ];
+
+/* PENGECUALIAN yang disengaja, bukan pelonggaran.
+
+   Larangan di atas menyasar permukaan yang menyusun kolam sendiri lalu
+   MENJUMLAH sendiri. Sebuah DRILL berbeda: ia tidak menjumlah total apa pun —
+   ia merinci total yang sudah dihitung helper, jadi ia HARUS menyusuri kolam
+   yang PERSIS SAMA. Melarangnya justru melahirkan bug yang ditemukan audit
+   2026-08-12: refreshUtilDrill() memakai kpiPool() saja dan membaca 9.605 MT
+   terhadap kartu 12.525, karena company yang PERTEK-nya di luar jendela tapi
+   kargonya masuk hilang dari rinciannya.
+
+   Karena itu pengecualiannya sesempit mungkin: HANYA nama fungsi ini, dan hanya
+   untuk utilizationPool(). Selebihnya tetap terlarang. */
+const KECUALI = { utilizationPool: ['refreshUtilDrill'] };
+
+/* Potong badan sebuah fungsi supaya pengecualian bisa dibatasi per fungsi. */
+function badanFungsi(src, nama) {
+  const m = new RegExp('function\\s+' + nama + '\\s*\\([^)]*\\)\\s*\\{').exec(src);
+  if (!m) return '';
+  let i = m.index + m[0].length, d = 1;
+  while (i < src.length && d > 0) { const ch = src[i]; if (ch === '{') d++; else if (ch === '}') d--; i++; }
+  return src.slice(m.index, i);
+}
+
 PERMUKAAN.forEach(f => {
   const s = kode(f);
   TERLARANG.forEach(([nama, kenapa]) => {
-    ok(!new RegExp('\\b' + nama + '\\s*\\(').test(s), `${f} tidak memanggil ${nama}() — ${kenapa}`);
+    const re = new RegExp('\\b' + nama + '\\s*\\(');
+    let sisa = s;
+    (KECUALI[nama] || []).forEach(fn => {
+      const b = badanFungsi(s, fn);
+      if (b) sisa = sisa.split(b).join(' ');   // buang badan fungsi yang dikecualikan
+    });
+    ok(!re.test(sisa), `${f} tidak memanggil ${nama}() di luar drill — ${kenapa}`);
   });
 });
+
+/* Sisi lain dari pengecualian: drill utilisasi WAJIB memakai kolam itu. Tanpa
+   pasangan ini, pengecualian di atas cuma jadi lubang. */
+const bDrill = badanFungsi(kode('03-kpis.js'), 'refreshUtilDrill');
+ok(bDrill !== '', 'refreshUtilDrill() ditemukan di 03-kpis.js');
+ok(/utilizationPool\s*\(/.test(bDrill),
+   'refreshUtilDrill() MEMAKAI utilizationPool() — kolamnya wajib sama dengan reportUtilizedTotal()');
 
 console.log('\n-- Realized wajib bersumber dari PIB, bukan ra_records --');
 /* Kesenjangan 11.395,405 vs 15.438,208: strip U&R menjumlah ra_records.berat
