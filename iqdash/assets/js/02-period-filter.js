@@ -908,21 +908,139 @@ function _asOfPeriod(from, to, fn) {
    Hanya gabungan keduanya yang menghasilkan 11.693 (H1) sekaligus menjaga
    12.413 (All Time) dan tidak menggeser Q1/Q3. */
 function reportAvailableTotal() {
-  if (!PERIOD.active) {
-    const semua = allCompaniesPool();
-    return {
-      mt: cumulativeAvailableTotal(semua),
-      companies: semua.filter(co => cumulativeAvailable(co) > 0).length,
-    };
-  }
+  const pool = availablePool();
+  return { mt: cumulativeAvailableTotal(pool), companies: pool.length };
+}
+
+/* Ambang "masih bersisa". 0,001 dan bukan 0 supaya sisa pembulatan pecahan
+   tidak lolos sebagai saldo (keputusan 2026-08-10). */
+const AVQ_EPS = 0.001;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   AVAILABLE QUOTA — SATU KOLAM, SATU RINCIAN, SATU ANGKA
+   ─────────────────────────────────────────────────────────────────────────
+   Dilaporkan tim Sales 2026-08-11: dengan filter periode yang SAMA PERSIS
+   (01 Jan – 30 Jun 2026) halaman Overview memberi tiga angka "Available":
+
+     · kartu AVAILABLE QUOTA (Overview)   11.058 MT · tertulis "18 companies"
+     · modal "↗ detail" dari kartu itu    12.780 MT · 7 companies
+     · tab Available Quota -> Table       ±13.000 MT (dijumlah manual)
+
+   Subset 7 company lebih BESAR daripada set yang mengaku 18 company — mustahil
+   secara matematis, dan itulah yang membuat tim tidak bisa mengutip satu angka
+   pun ke BOD. Tiga sebab yang berbeda, semuanya nyata di kode:
+
+     1. Kartu memasangkan angka yang benar dengan JUMLAH COMPANY milik metrik
+        lain (`obtCoSet.size` — company yang PERTEK-nya terbit di periode ini).
+        Tidak pernah ada 18 company di balik 11.058 MT. Inilah "superset" palsu
+        yang bikin perbandingannya terlihat mustahil.
+     2. Modal & tabel memakai KOLAM yang berbeda dari kartu: `canonicalObtained`
+        sepanjang waktu, tanpa gerbang "kuota sudah terbit s/d akhir periode"
+        yang dipakai reportAvailableTotal(). Company yang PERTEK-nya baru terbit
+        SESUDAH jendela ikut terhitung (kelas bug SNSD, 2026-08-05).
+     3. Modal & tabel menurunkan saldo per produk sendiri dari
+        `scopedAvailByProd()` (obtained periode − utilisasi periode), sementara
+        kartu memakai saldo KUMULATIF. Dua definisi berbeda di bawah satu label.
+        Tabel malah mencampur keduanya: obtained ALL-TIME dikurangi utilisasi
+        PERIODE — itu sumber angka ±13.000 yang paling menggelembung.
+
+   Perbaikannya bukan menambal ketiganya, melainkan menghapus dua salinan:
+   pool + rincian per produk kini punya SATU implementasi di sini, dan kelima
+   permukaan (kartu, modal, chart, grid per produk, tabel, popup) merender dari
+   `availableQuotaRows()`. Σ baris === reportAvailableTotal().mt, dan jumlah
+   company unik === reportAvailableTotal().companies — dijaga
+   test_avq_single_source.cjs.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Kolam Available Quota — company yang masih PUNYA saldo, dengan syarat
+   periode yang sama persis seperti dijelaskan di docblock reportAvailableTotal
+   di atas (aktif di periode DAN kuotanya sudah terbit s/d akhir periode). */
+function availablePool() {
+  const bersisa = co => cumulativeAvailable(co) > AVQ_EPS;
+  if (!PERIOD.active) return allCompaniesPool().filter(bersisa);
   const aktif = kpiPool();
   const EPOCH = new Date(1900, 0, 1);
-  const pool = _asOfPeriod(EPOCH, PERIOD.to, () =>
-    aktif.filter(co => canonicalObtainedFiltered(co) > 0));
-  return {
-    mt: cumulativeAvailableTotal(pool),
-    companies: pool.filter(co => cumulativeAvailable(co) > 0).length,
-  };
+  return _asOfPeriod(EPOCH, PERIOD.to, () =>
+    aktif.filter(co => canonicalObtainedFiltered(co) > 0)).filter(bersisa);
+}
+
+/* Saldo KUMULATIF per produk, dinormalkan supaya jumlahnya PERSIS
+   cumulativeAvailable(co).
+
+   Kenapa dinormalkan dan bukan dipakai apa adanya: obtained per produk berasal
+   dari company_product_stats sementara total company berasal dari cycles, dan
+   keduanya boleh berbeda tipis (revisi produk, pembulatan manual di XLSX).
+   Tanpa normalisasi, Σ rincian ≠ angka kartu — persis keluhan yang sedang
+   diperbaiki. Sisa pembagian dibebankan ke produk terakhir supaya tepat, bukan
+   di-Math.round() per baris (yang meninggalkan selisih beberapa MT).
+
+   Basis pembagian = sisa per produk. Kalau seluruh sisa per produk nol padahal
+   company-nya masih bersaldo (stats belum diperbarui untuk kuota yang baru
+   terbit — kasus SNSD), basisnya jatuh ke obtained per produk. */
+function cumulativeAvailByProd(co) {
+  if (!co) return {};
+  const total = cumulativeAvailable(co);
+  const obt  = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
+  const util = (typeof allTimeUtilByProd    === 'function') ? allTimeUtilByProd(co)    : (co.utilizationByProd || {});
+  const keys = [...new Set([...Object.keys(obt), ...Object.keys(util)])];
+  if (!keys.length) return { [(co.products || [])[0] || '—']: total };
+
+  const out = {};
+  let basis = {}, basisSum = 0;
+  keys.forEach(p => {
+    const v = Math.max(0, (Number(obt[p]) || 0) - (Number(util[p]) || 0));
+    basis[p] = v; basisSum += v;
+  });
+  if (basisSum <= AVQ_EPS && total > AVQ_EPS) {
+    basis = {}; basisSum = 0;
+    keys.forEach(p => { const v = Math.max(0, Number(obt[p]) || 0); basis[p] = v; basisSum += v; });
+  }
+  if (basisSum <= 0) { keys.forEach(p => { out[p] = 0; }); return out; }
+
+  const last = keys[keys.length - 1];
+  let sisa = total;
+  keys.forEach(p => {
+    if (p === last) { out[p] = sisa; return; }
+    const v = total * basis[p] / basisSum;
+    out[p] = v; sisa -= v;
+  });
+  return out;
+}
+
+/* SATU rincian Available Quota — dipakai oleh SEMUA permukaan AVQ.
+   Satu baris per (company, produk). Semua angkanya KUMULATIF: saldo adalah
+   stock, jadi obtained & utilized di baris ini juga harus all-time, kalau tidak
+   "Obtained − Utilized" pada baris/ringkasannya tidak akan pernah sama dengan
+   Available yang dicetak di sebelahnya.
+
+   Baris ber-saldo NOL sengaja IKUT selama company-nya masih bersaldo: itu yang
+   membuat total Obtained − Utilized = Available bisa diperiksa langsung oleh
+   tim. Penyaringan "hanya yang bersisa" berlaku di level COMPANY (availablePool)
+   dan — untuk agregasi per produk — SESUDAH dijumlahkan (2026-08-10). */
+function availableQuotaRows() {
+  const hsOf = p => (typeof prodHS === 'function' ? prodHS(p) : '—');
+  const rows = [];
+  availablePool().forEach(co => {
+    const obt  = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
+    const util = (typeof allTimeUtilByProd    === 'function') ? allTimeUtilByProd(co)    : (co.utilizationByProd || {});
+    const avq  = cumulativeAvailByProd(co);
+    const spi  = (typeof getSPI === 'function') ? getSPI(co.code) : null;
+    Object.keys(avq).forEach(p => {
+      rows.push({
+        code:        co.code,
+        group:       co.group || (spi && spi.group) || '',
+        product:     p,
+        hs:          hsOf(p),
+        obtained:    Number(obt[p])  || 0,
+        utilMT:      Number(util[p]) || 0,
+        avq:         Number(avq[p])  || 0,
+        updatedBy:   co.updatedBy   || '',
+        updatedDate: co.updatedDate || '',
+      });
+    });
+  });
+  rows.sort((a, b) => a.code.localeCompare(b.code) || a.product.localeCompare(b.product));
+  return rows;
 }
 
 /**
@@ -1168,5 +1286,7 @@ if (typeof module !== 'undefined' && module.exports) {
     companiesWithLotsInPeriod, utilizationPool,
     scopedUtilByProd, scopedUtilTotal, scopedAvailByProd, scopedObtainedByProd,
     scopedObtainedDetailByProd,
+    availablePool, cumulativeAvailByProd, availableQuotaRows,
+    reportAvailableTotal, kpiPool, allCompaniesPool,
   };
 }

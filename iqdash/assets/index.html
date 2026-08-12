@@ -949,7 +949,7 @@ window.ensureXLSX = function () {
       <div class="kpi-accent" style="background:#0891b2"></div>
       <div class="kpi-lbl">Total Available</div>
       <div class="kpi-val" id="avqKpi1">—</div>
-      <div class="kpi-unit">MT · remaining from obtained</div>
+      <div class="kpi-unit" id="avqKpiUnit1">MT · remaining from obtained</div>
       <div class="kpi-bar"><div class="kpi-fill" id="avqKpiFill1" style="width:0%;background:#0891b2"></div></div>
       <div class="kpi-tag" id="avqKpiTag1" style="background:#ecfeff;color:#0891b2;border:1px solid #a5f3fc">Obtained − Utilized</div>
     </div>
@@ -957,7 +957,7 @@ window.ensureXLSX = function () {
       <div class="kpi-accent" style="background:var(--teal)"></div>
       <div class="kpi-lbl">Total Obtained</div>
       <div class="kpi-val" id="avqKpi2">—</div>
-      <div class="kpi-unit">MT · SPI / PERTEK issued</div>
+      <div class="kpi-unit" id="avqKpiUnit2">MT · SPI / PERTEK issued</div>
       <div class="kpi-bar"><div class="kpi-fill" id="avqKpiFill2" style="width:100%;background:var(--teal)"></div></div>
       <div class="kpi-tag" style="background:var(--teal-bg);color:var(--teal)">All active permits</div>
     </div>
@@ -965,7 +965,7 @@ window.ensureXLSX = function () {
       <div class="kpi-accent" style="background:var(--green-lt)"></div>
       <div class="kpi-lbl">Total Utilized</div>
       <div class="kpi-val" id="avqKpi3">—</div>
-      <div class="kpi-unit">MT · allocated to customers</div>
+      <div class="kpi-unit" id="avqKpiUnit3">MT · allocated to customers</div>
       <div class="kpi-bar"><div class="kpi-fill" id="avqKpiFill3" style="width:0%;background:var(--green-lt)"></div></div>
       <div class="kpi-tag" id="avqKpiTag3" style="background:var(--green-bg);color:var(--green)">Utilization rate</div>
     </div>
@@ -973,18 +973,24 @@ window.ensureXLSX = function () {
       <div class="kpi-accent" style="background:var(--amber-lt)"></div>
       <div class="kpi-lbl">Companies w/ Quota</div>
       <div class="kpi-val" id="avqKpi4">—</div>
-      <div class="kpi-unit">companies with available balance</div>
+      <div class="kpi-unit" id="avqKpiUnit4">companies with available balance</div>
       <div class="kpi-bar"><div class="kpi-fill" id="avqKpiFill4" style="width:100%;background:var(--amber-lt)"></div></div>
       <div class="kpi-tag" style="background:var(--amber-bg);color:var(--amber)">Active SPI/PERTEK holders</div>
     </div>
   </div>
+
+  <!-- Basis metrik ditulis terang-terangan: Available adalah SALDO kumulatif,
+       Obtained & Utilized adalah AKTIVITAS di dalam periode. Tanpa keterangan
+       ini ketiganya terbaca seolah harus saling menutup, dan tim Sales wajar
+       menyimpulkan dashboard-nya bertentangan (laporan 2026-08-11). -->
+  <div id="avqBasisNote" style="font-size:10.5px;color:var(--txt3);margin:-6px 0 14px;padding:7px 11px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid #0891b2;border-radius:var(--r)"></div>
 
   <!-- AVQ BREAKDOWN TABS -->
   <div class="card mb14">
     <div class="ch" style="flex-wrap:wrap;gap:8px">
       <div style="flex:1;min-width:200px">
         <div class="ct">📊 Available Quota Breakdown</div>
-        <div class="cs">Obtained minus Utilized · per company and product type</div>
+        <div class="cs">Obtained minus Utilized (all-time balance) · per company and product type</div>
       </div>
       <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
         <!-- View tabs -->
@@ -1034,6 +1040,12 @@ window.ensureXLSX = function () {
             <th>Updated</th>
           </tr></thead>
           <tbody id="avqTableBody"></tbody>
+          <!-- Baris TOTAL: tim Sales sebelumnya menjumlah kolom Available
+               sendiri untuk laporan BOD, lalu membandingkannya dengan kartu di
+               atas. Angkanya kini dicetak langsung dari sumber yang sama
+               dengan kartu, jadi tidak ada lagi penjumlahan manual yang bisa
+               berbeda. -->
+          <tfoot id="avqTableFoot"></tfoot>
         </table>
       </div>
     </div>

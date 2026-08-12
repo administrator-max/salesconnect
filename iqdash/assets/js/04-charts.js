@@ -376,114 +376,14 @@ function buildAvailableQuota() {
     return '#64748b';
   };
 
-  // Build per-product rows using availableByProd / utilizationByProd (exact Excel values).
-  // Multi-product companies (e.g. BTS: BORDES 900 + AS STEEL 900 + SHEETPILE 3200 + SEAMLESS 1000)
-  // get ONE ROW PER PRODUCT so that product-filter pills show correct per-product MT.
-  const rows = [];
-  kpiPool().forEach(co => {
-    /* This breakdown is "remaining capacity by product" — a BALANCE, so every
-       figure is CUMULATIVE, matching the Overview card, the AVQ page cards and
-       the PDF (see cumulativeAvailable()'s docblock). The active period decides
-       WHICH companies appear, not how much of their balance is attributed to
-       the window. Slicing obtained/utilisation per period here made the chart
-       total (13,630 for H1 2026) disagree with both the card above it (11,693)
-       and the page KPIs (16,540). */
-    const obtained = canonicalObtained(co) || (typeof co.obtained === 'number' ? co.obtained : 0);
-    if (obtained <= 0) return;
-    const totalUtil = Number(co.utilizationMT) || 0;
-    const totalAvq  = cumulativeAvailable(co);
-    /* Halaman ini bernama Available Quota — yang saldonya HABIS tidak boleh
-       ikut terdaftar. Gerbangnya dulu `obtained > 0`, sehingga 24 dari 34 PT
-       tetap muncul dengan sisa 0. Dilaporkan tim 2026-08-10: "kan sudah
-       di-utilize, kenapa masih ada di available quota". */
-    if (totalAvq <= 0.001) return;
-
-    const aProd = co.availableByProd   || {};
-    const uProd = co.utilizationByProd || {};
-
-    // Build cycle-level obtained-per-product map (used for display only).
-    // Use the deduped helper — legacy DB has duplicate Obtained #N rows
-    // (one per product) which would otherwise multiply per-product MT and
-    // blow up the chart total (was producing 787,538 vs real 22,870 MT).
-    const cycleProds = (typeof getObtainedByProdAgg === 'function')
-      ? getObtainedByProdAgg(co)
-      : (() => {
-          const seen = new Set();
-          const out  = {};
-          (co.cycles || []).forEach(c => {
-            if (!/^obtained\s*#\d/i.test(c.type)) return;
-            if (c._fromRevReq) return;
-            const k = (c.type || '').toLowerCase().trim();
-            if (seen.has(k)) return;
-            seen.add(k);
-            Object.entries(c.products || {}).forEach(([p, v]) => {
-              if (typeof v === 'number' && v > 0) out[p] = (out[p] || 0) + v;
-            });
-          });
-          return out;
-        })();
-
-    if (Object.keys(aProd).length > 0) {
-      // Per-product breakdown available — use for display.
-      // BUT: normalise so that sum of per-product avq == totalAvq (company-level truth).
-      const rawSum = Object.values(aProd).reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0);
-
-      Object.entries(aProd).forEach(([prod, avqRaw]) => {
-        const utilForProd = uProd[prod] || 0;
-        const obtForProd  = cycleProds[prod] || (avqRaw + utilForProd);
-        // Normalise per-product avq proportionally to match company-level total
-        const avq = rawSum > 0 ? Math.round(totalAvq * avqRaw / rawSum) : 0;
-        rows.push({
-          code: co.code, product: prod,
-          obtained: obtForProd, utilMT: utilForProd, avq,
-          updatedBy: co.updatedBy || '', updatedDate: co.updatedDate || '',
-        });
-      });
-      // Correct last product's rounding so sum is exactly totalAvq
-      const pushed = rows.filter(r => r.code === co.code && Object.keys(aProd).includes(r.product));
-      if (pushed.length > 0) {
-        const sumSoFar = pushed.reduce((s, r) => s + r.avq, 0);
-        pushed[pushed.length - 1].avq += (totalAvq - sumSoFar);
-      }
-      // Also add fully-utilized products (avail=0 but had utilization, not in aProd)
-      Object.entries(uProd).forEach(([prod, util]) => {
-        if (aProd[prod] != null) return;
-        const obtForProd = cycleProds[prod] || util;
-        rows.push({
-          code: co.code, product: prod,
-          obtained: obtForProd, utilMT: util, avq: 0,
-          updatedBy: co.updatedBy || '', updatedDate: co.updatedDate || '',
-        });
-      });
-    } else {
-      // No per-product data — split totalAvq proportionally across cycle products
-      const prodEntries = Object.entries(cycleProds);
-      if (prodEntries.length > 0) {
-        const cycleTotal = prodEntries.reduce((s, [, v]) => s + v, 0);
-        let remaining = totalAvq;
-        prodEntries.forEach(([prod, mt], i) => {
-          const isLast = i === prodEntries.length - 1;
-          const share  = isLast ? remaining : (cycleTotal > 0 ? Math.round(totalAvq * mt / cycleTotal) : 0);
-          const uShare = cycleTotal > 0 ? Math.round(totalUtil * mt / cycleTotal) : 0;
-          remaining -= share;
-          rows.push({
-            code: co.code, product: prod,
-            obtained: mt, utilMT: uShare, avq: share,
-            updatedBy: co.updatedBy || '', updatedDate: co.updatedDate || '',
-          });
-        });
-      } else {
-        rows.push({
-          code: co.code, product: (co.products || [])[0] || '—',
-          obtained, utilMT: totalUtil, avq: totalAvq,
-          updatedBy: co.updatedBy || '', updatedDate: co.updatedDate || '',
-        });
-      }
-    }
-  });
-
-  // Sort A→Z by company code, then by product name
-  rows.sort((a, b) => a.code.localeCompare(b.code) || a.product.localeCompare(b.product));
+  /* Satu baris per (company, produk), dari rincian KANONIK di
+     02-period-filter.js. Chart ini dulu menyusun barisnya sendiri — matematika
+     saldonya sudah benar (kumulatif + dinormalkan ke total company), tapi
+     KOLAM-nya `kpiPool()` + `canonicalObtained > 0`, tanpa gerbang "kuota sudah
+     terbit s/d akhir periode" yang dipakai kartu. Jadi totalnya masih bisa
+     berbeda dari kartu di atasnya untuk periode tertentu. availableQuotaRows()
+     memakai kolam yang sama dengan kartu, jadi selisih itu tidak mungkin lagi. */
+  const rows = availableQuotaRows();
 
   /* The Available Quota KPI CARD is no longer written here — updateOverviewKPIs()
      owns it, as `Obtained − Utilized` off the very totals its own two cards
@@ -501,7 +401,7 @@ function buildAvailableQuota() {
 
   if (rows.length === 0) {
     el.innerHTML = `<div style="padding:30px;text-align:center;color:var(--txt3);font-size:12px">
-      No companies with PERTEK Terbit found in selected period.
+      No company still holds an available balance in the selected period.
     </div>`;
     return;
   }

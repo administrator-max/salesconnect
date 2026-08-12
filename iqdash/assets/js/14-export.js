@@ -393,26 +393,21 @@ function exportExecutivePDF() {
     </div>
 
     ${(() => {
-      // Build available quota breakdown by product
-      // Source: co.availableByProd — exact per-product values from Excel "Available (MT)" row
+      /* Rincian per produk untuk laporan BOD — dari rincian KANONIK yang sama
+         dengan kartu Available Quota, modal detail, dan tab Available Quota.
+
+         Ini SALINAN KEEMPAT yang ditemukan saat menelusuri laporan tim Sales
+         2026-08-11, dan yang paling berbahaya karena keluarannya langsung
+         dikutip ke BOD (SOMR/SOHR). Ia memakai `filteredSPI()` — tanpa PENDING
+         — dan membaca `co.availableByProd` MENTAH, kolom stats yang tidak ikut
+         diperbarui saat utilisasi bertambah (itulah kasus ADP 2026-08-10:
+         tertulis masih bersisa 100 MT padahal kuotanya sudah habis 350/350).
+         Jadi tabel per produk di PDF bisa menjumlah lebih besar daripada
+         headline Available di PDF yang sama, yang sudah memakai
+         reportAvailableTotal(). */
       const prodAvail = {};
-      filteredSPI().forEach(co => {
-        const obtained = typeof co.obtained === 'number' ? co.obtained : 0;
-        if (obtained <= 0) return;
-        if (co.availableByProd && Object.keys(co.availableByProd).length > 0) {
-          // Use Excel exact per-product available values
-          Object.entries(co.availableByProd).forEach(([p, v]) => {
-            const val = typeof v === 'number' ? v : 0;
-            if (val > 0) prodAvail[p] = (prodAvail[p] || 0) + val;
-          });
-        } else {
-          // Company has full quota available (util=0) — attribute to first product
-          const utilMT = co.utilizationMT != null ? co.utilizationMT : 0;
-          const avq = co.availableQuota != null ? co.availableQuota : (obtained - utilMT);
-          if (avq > 0 && co.products && co.products.length > 0) {
-            prodAvail[co.products[0]] = (prodAvail[co.products[0]] || 0) + avq;
-          }
-        }
+      availableQuotaRows().forEach(r => {
+        if (r.avq > 0) prodAvail[r.product] = (prodAvail[r.product] || 0) + r.avq;
       });
 
       const prodEntries = Object.entries(prodAvail)

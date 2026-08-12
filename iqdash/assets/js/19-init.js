@@ -242,36 +242,49 @@ function buildAvqPageKPIs() {
   if (t1) t1.textContent = avqPct + '% of obtained remaining';
   const t3 = document.getElementById('avqKpiTag3');
   if (t3) t3.textContent = utilPct + '% utilization rate';
+
+  /* Ketiga kartu ini TIDAK memakai basis yang sama, dan itu memang disengaja:
+     Available adalah SALDO (kumulatif), sedangkan Obtained & Utilized adalah
+     AKTIVITAS di dalam periode. Begitu periode aktif, "Available = Obtained −
+     Utilized" tidak lagi berlaku di baris kartu ini — dan sebelumnya tidak ada
+     satu pun tulisan yang mengatakannya, sehingga terbaca sebagai angka yang
+     saling bertentangan. Permintaan tim Sales 2026-08-11 poin 1: kalau memang
+     metrik berbeda, beri label yang jelas berbeda. */
+  const basis = (id, teks) => { const el = document.getElementById(id); if (el) el.textContent = teks; };
+  if (PERIOD.active) {
+    basis('avqKpiUnit1', 'MT · saldo kumulatif (all-time)');
+    basis('avqKpiUnit2', 'MT · terbit DI DALAM periode');
+    basis('avqKpiUnit3', 'MT · terpakai DI DALAM periode');
+    basis('avqKpiUnit4', 'companies with balance in period');
+  } else {
+    basis('avqKpiUnit1', 'MT · remaining from obtained');
+    basis('avqKpiUnit2', 'MT · SPI / PERTEK issued');
+    basis('avqKpiUnit3', 'MT · allocated to customers');
+    basis('avqKpiUnit4', 'companies with available balance');
+  }
+  const note = document.getElementById('avqBasisNote');
+  if (note) {
+    note.textContent = PERIOD.active
+      ? 'Available = saldo kumulatif; Obtained & Utilized = aktivitas di dalam periode. '
+        + 'Ketiganya sengaja beda basis, jadi Available ≠ Obtained − Utilized selama filter periode aktif.'
+      : 'Tanpa filter periode ketiganya satu basis: Available = Obtained − Utilized.';
+  }
 }
 
 /* ── By Product grid view ── */
 function buildAvqProdGrid() {
   const grid = document.getElementById('avqProdGrid');
   if (!grid) return;
+  /* Agregasi dari rincian KANONIK, sama seperti tabel dan chart di halaman ini
+     — bukan campuran obtained all-time dengan utilisasi periode seperti dulu. */
   const prodMap = {}; // product → { obtained, util, avail, companies[] }
-  kpiPool().forEach(co => {
-    const ap = scopedAvailByProd(co);   // period-aware (rule #3): util sliced by lot date
-    const up = scopedUtilByProd(co);
-    // Deduped per-product obtained map (legacy DB has duplicate Obtained
-    // cycle rows; without dedup totals multiply by the duplicate factor).
-    const cycleProds = (typeof getObtainedByProdAgg === 'function')
-      ? getObtainedByProdAgg(co) : {};
-    // Collect per-product data.
-    // β-1: iterate products that actually carry quota (util+avail from
-    // company_product_stats), NOT the stale co.products list, and use util+avail
-    // as obtained — no even-split fallback. Fixes mis-assignment after a
-    // product-change revision left co.products stale (e.g. GAS/MJU still listing
-    // BORDES ALLOY after moving to GI BORON / HOLLOW PIPE).
-    Object.keys(cycleProds).forEach(p => {
-      if (!prodMap[p]) prodMap[p] = { obtained:0, util:0, avail:0, cos:[] };
-      const obtForProd  = Number(cycleProds[p]) || 0;
-      const utilForProd = Number(up[p]) || 0;
-      const avqForProd  = ap[p] != null ? Number(ap[p]) : (obtForProd - utilForProd);
-      prodMap[p].obtained += obtForProd;
-      prodMap[p].util     += utilForProd;
-      prodMap[p].avail    += Number(avqForProd) || 0;
-      prodMap[p].cos.push(co.code);
-    });
+  availableQuotaRows().forEach(r => {
+    if (!prodMap[r.product]) prodMap[r.product] = { obtained:0, util:0, avail:0, cos:[] };
+    const d = prodMap[r.product];
+    d.obtained += r.obtained;
+    d.util     += r.utilMT;
+    d.avail    += r.avq;
+    if (!d.cos.includes(r.code)) d.cos.push(r.code);
   });
   /* Produk yang saldonya sudah habis dibuang — disaring SESUDAH penjumlahan,
      karena satu produk bisa nol di satu PT tapi masih bersisa di PT lain
@@ -284,8 +297,10 @@ function buildAvqProdGrid() {
     'SEAMLESS PIPE':'#0d6946','HRC/HRPO ALLOY':'#ca8a04',
   };
   const clr = p => { for (const k in PROD_CLR) if (p && p.toUpperCase().includes(k.toUpperCase())) return PROD_CLR[k]; return '#64748b'; };
-  // Store prodMap for popup use
-  grid._prodMap = prodMap;
+  /* `grid._prodMap` dulu disimpan di sini "untuk popup". Popup kini membaca
+     availableQuotaRows() langsung, jadi state itu tidak dibaca siapa pun —
+     dan state yang hanya ditulis persis yang membuat dua permukaan bisa
+     bergeser diam-diam. Dihapus. */
 
   const entries = Object.entries(prodMap).sort((a,b) => b[1].avail - a[1].avail);
   grid.innerHTML = entries.map(([prod, d]) => {
@@ -361,27 +376,14 @@ function openProdCoPopup(event, prodName, anchorEl) {
   document.getElementById('prodCoPopupHdr').style.background = col;
   document.getElementById('prodCoPopupTitle').textContent = prodName;
 
-  // Collect per-company data for this product
-  const coRows = [];
-  filteredSPI().forEach(co => {
-    const ap  = scopedAvailByProd(co);   // period-aware (rule #3)
-    const up  = scopedUtilByProd(co);
-    const cycleProds = (typeof getObtainedByProdAgg === 'function')
-      ? getObtainedByProdAgg(co) : {};
-    // β-1: include a company only if it actually holds quota (util+avail) for
-    // this product, sourced from company_product_stats — NOT the stale
-    // co.products list. obtForProd = util+avail; no even-split fallback (which
-    // used to assign a company's whole total to a product it no longer holds,
-    // e.g. GAS/MJU still appearing under Bordes after revising to GI/Hollow).
-    const obtForProd = Number(cycleProds[prodName]) || 0;
-    if (obtForProd <= 0) return;
-    const utilForProd = Number(up[prodName]) || 0;
-    const avqForProd  = ap[prodName] != null ? Number(ap[prodName]) : (obtForProd - utilForProd);
-    // Popup ini membuka dari kartu produk di halaman Available Quota — PT yang
-    // saldonya habis tidak ditampilkan (2026-08-10).
-    if (avqForProd <= 0.001) return;
-    coRows.push({ code: co.code, group: co.group, obt: obtForProd, util: utilForProd, avq: avqForProd });
-  });
+  /* Rincian kanonik — kolamnya kini SAMA dengan kartu produk yang membuka
+     popup ini. Sebelumnya kartu memakai kpiPool() (SPI + PENDING) sementara
+     popup memakai filteredSPI() saja, jadi kartu bisa menulis "N co." lalu
+     popup-nya mendaftar lebih sedikit; company PENDING (mis. SNSD) hilang.
+     Kelas bug yang sama sudah dua kali diperbaiki di permukaan AVQ lain. */
+  const coRows = availableQuotaRows()
+    .filter(r => r.product === prodName && r.avq > 0.001)
+    .map(r => ({ code: r.code, group: r.group, obt: r.obtained, util: r.utilMT, avq: r.avq }));
   coRows.sort((a, b) => b.avq - a.avq);
 
   const totalObt  = coRows.reduce((s, r) => s + r.obt,  0);
@@ -472,43 +474,19 @@ function buildAvqTable() {
   const tbody = document.getElementById('avqTableBody');
   if (!tbody) return;
 
-  // Build all rows with HS code
-  const allRows = [];
-  kpiPool().forEach(co => {
-    // Use canonical obtained — not raw co.obtained from DB
-    const obtained = canonicalObtained(co) || co.obtained || 0;
-    if (obtained <= 0) return;
-    // Saldo habis -> tidak ditampilkan di halaman Available Quota (2026-08-10).
-    if (cumulativeAvailable(co) <= 0.001) return;
-    const ap = scopedAvailByProd(co);   // period-aware (rule #3)
-    const up = scopedUtilByProd(co);
-    const spi = getSPI(co.code);
-    const grp = spi ? spi.group : '';
-    const getHS = p => (typeof PROD_HS_CODES !== 'undefined' ? (PROD_HS_CODES[p] || '—') : '—');
-    if (Object.keys(ap).length > 0) {
-      // Deduped per-product obtained — avoids multiplying when DB has
-      // duplicate Obtained cycle rows for the same cycle_type.
-      const cycleProds = (typeof getObtainedByProdAgg === 'function')
-        ? getObtainedByProdAgg(co) : {};
-      // rule #4: iterate the post-revision obtained product set (util+avail),
-      // NOT the stale co.products list, and use the actual per-product obtained
-      // (no even-split fallback that would mis-assign a revised-away product).
-      Object.keys(cycleProds).forEach(p => {
-        const obt  = Number(cycleProds[p]) || 0;
-        if (obt <= 0) return;
-        const util = up[p] || 0;
-        const avq  = ap[p] != null ? ap[p] : (obt - util);
-        allRows.push({ code:co.code, grp, prod:p, hs:getHS(p), obt, util, avq, updBy:co.updatedBy||'', updDate:co.updatedDate||'' });
-      });
-    } else {
-      const util = scopedUtilTotal(co);
-      const avq  = PERIOD.active ? Math.max(0, obtained - util)
-                                 : (co.availableQuota != null ? co.availableQuota : (obtained - util));
-      (co.products || [co.products[0] || '—']).forEach(p => {
-        allRows.push({ code:co.code, grp, prod:p, hs:getHS(p), obt:obtained/((co.products||[p]).length), util, avq, updBy:co.updatedBy||'', updDate:co.updatedDate||'' });
-      });
-    }
-  });
+  /* Rincian KANONIK — tabel ini tidak lagi menurunkan saldonya sendiri.
+     Versi sebelumnya MENCAMPUR dua basis dalam satu baris: obtained diambil
+     dari getObtainedByProdAgg() yang SEPANJANG WAKTU, sementara `ap`
+     (scopedAvailByProd) dan `up` (scopedUtilByProd) sudah diiris ke periode —
+     dan untuk produk yang tidak ada di `ap`, saldonya jatuh ke `obt - util`,
+     yaitu obtained all-time dikurangi utilisasi periode. Itulah yang membuat
+     kolom Available di tabel menjumlah ±13.000 MT terhadap kartu 11.058 MT
+     (tim Sales, 2026-08-11) — bukan sekadar "kurang beberapa perusahaan". */
+  const allRows = availableQuotaRows().map(r => ({
+    code: r.code, grp: r.group, prod: r.product, hs: r.hs,
+    obt: r.obtained, util: r.utilMT, avq: r.avq,
+    updBy: r.updatedBy, updDate: r.updatedDate,
+  }));
   allRows.sort((a,b) => b.avq - a.avq);
 
   // ── Build HS filter chip bar ──────────────────────────────────────
@@ -565,30 +543,43 @@ function buildAvqTable() {
       <td style="font-size:10px;color:var(--txt3)">${r.updDate || '—'}</td>
     </tr>`;
   }).join('');
+
+  /* Baris TOTAL — dicetak, bukan dijumlah manual oleh pembacanya.
+     Saat tidak ada filter HS aktif, Available di sini SAMA PERSIS dengan kartu
+     Total Available di atas dan dengan kartu Overview, karena keduanya berasal
+     dari availableQuotaRows() / reportAvailableTotal() yang satu kolam. */
+  const foot = document.getElementById('avqTableFoot');
+  if (foot) {
+    const tObt  = rows.reduce((s,r) => s + r.obt,  0);
+    const tUtil = rows.reduce((s,r) => s + r.util, 0);
+    const tAvq  = rows.reduce((s,r) => s + r.avq,  0);
+    const tCo   = new Set(rows.map(r => r.code)).size;
+    const tPct  = tObt > 0 ? (tUtil / tObt * 100) : 0;
+    const disaring = !!(_avqTableHsFilter || _avqTableHsSearch);
+    foot.innerHTML = `<tr style="background:var(--bg2);border-top:2px solid var(--navy);font-weight:700">
+      <td colspan="4" style="font-size:11px;color:var(--navy)">
+        TOTAL · ${tCo} compan${tCo !== 1 ? 'ies' : 'y'} · ${rows.length} product-rows${disaring ? ' <span style="font-weight:600;color:var(--txt3)">(HS filter aktif — bukan total halaman)</span>' : ''}
+      </td>
+      <td class="t-r t-mono">${fmtMt(tObt)}</td>
+      <td class="t-r t-mono" style="color:var(--green)">${fmtMt(tUtil)}</td>
+      <td class="t-r t-mono" style="color:#0891b2">${fmtMt(tAvq)}</td>
+      <td style="font-size:10.5px;color:var(--txt3)">${tPct.toFixed(0)}%</td>
+      <td style="font-size:9.5px;color:var(--txt3);font-weight:600">saldo kumulatif</td>
+    </tr>`;
+  }
 }
 
 /* ── By-Product bar chart (bottom of page) ── */
 function buildAvqProdChart() {
   const el = document.getElementById('avqProdChart');
   if (!el) return;
+  /* Sumber yang sama dengan grid & tabel di halaman ini (availableQuotaRows). */
   const prodMap = {};
-  kpiPool().forEach(co => {
-    const ap = scopedAvailByProd(co);   // period-aware (rule #3)
-    const up = scopedUtilByProd(co);
-    // Use deduped helper so legacy duplicate Obtained #N rows don't
-    // multiply the per-product obtained MT (was producing huge values
-    // like GL BORON ~600,000 MT vs real total of 22,870 MT).
-    const cycleProds = (typeof getObtainedByProdAgg === 'function')
-      ? getObtainedByProdAgg(co) : {};
-    // β-1: iterate products with actual quota (util+avail), not the stale
-    // co.products list; obtained = util+avail (no even-split fallback).
-    Object.keys(cycleProds).forEach(p => {
-      if (!prodMap[p]) prodMap[p] = { obtained:0, util:0, avail:0 };
-      const obt = Number(cycleProds[p]) || 0;
-      prodMap[p].obtained += obt;
-      prodMap[p].util     += Number(up[p]) || 0;
-      prodMap[p].avail    += ap[p] != null ? (Number(ap[p]) || 0) : Math.max(obt - (Number(up[p])||0), 0);
-    });
+  availableQuotaRows().forEach(r => {
+    if (!prodMap[r.product]) prodMap[r.product] = { obtained:0, util:0, avail:0 };
+    prodMap[r.product].obtained += r.obtained;
+    prodMap[r.product].util     += r.utilMT;
+    prodMap[r.product].avail    += r.avq;
   });
   // Produk bersaldo nol tidak ditampilkan (2026-08-10) — sama seperti grid.
   Object.keys(prodMap).forEach(p => { if ((prodMap[p].avail || 0) <= 0.001) delete prodMap[p]; });

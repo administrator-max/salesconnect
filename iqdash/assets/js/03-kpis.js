@@ -173,13 +173,28 @@ function updateOverviewKPIs() {
      docblock. A period filter narrows WHICH companies are counted, never how
      much of their balance "belongs to" the window. Same helper the PDF Summary
      uses, so the two surfaces cannot drift apart again. */
-  const totalAvailableMT = reportAvailableTotal().mt;
+  /* Nilai DAN jumlah company harus datang dari panggilan yang SAMA.
+     Sebelumnya baris unit memakai `obtCoSet.size` — jumlah company yang
+     PERTEK-nya terbit di periode ini, milik kartu Obtained, bukan kartu ini.
+     Kartu jadi berbunyi "11.058 MT · 18 companies" padahal 11.058 itu saldo
+     dari 7 company; modal detail-nya (7 company) lalu terlihat sebagai subset
+     yang lebih besar dari induknya. Dilaporkan tim Sales 2026-08-11 sebagai
+     "angka yang mustahil" — dan memang mustahil, karena kedua angka itu tidak
+     pernah berasal dari populasi yang sama. */
+  const _avqTot = reportAvailableTotal();
+  const totalAvailableMT = _avqTot.mt;
+  const avqCoCount = _avqTot.companies;
   const avqValEl  = document.getElementById('kpiAvqVal');
   const avqUnitEl = document.getElementById('kpiAvqUnit');
   const avqTagEl  = document.getElementById('kpiAvqTag');
   const avqFillEl = document.getElementById('kpiAvqFill');
   if (avqValEl)  avqValEl.textContent  = totalObtainedMT > 0 ? fmtMt(totalAvailableMT) : '—';
-  if (avqUnitEl) avqUnitEl.textContent = `MT · ${obtCoSet.size} compan${obtCoSet.size !== 1 ? 'ies' : 'y'} with PERTEK Terbit`;
+  if (avqUnitEl) {
+    avqUnitEl.textContent = `MT · ${avqCoCount} compan${avqCoCount !== 1 ? 'ies' : 'y'} with balance`;
+    avqUnitEl.title = 'Saldo KUMULATIF (all-time). Filter periode menentukan '
+      + 'company mana yang dihitung, bukan seberapa besar saldonya — sebuah '
+      + 'saldo adalah stock, bukan aktivitas di dalam jendela.';
+  }
   if (avqTagEl) {
     const pct = totalObtainedMT > 0 ? (totalAvailableMT / totalObtainedMT * 100).toFixed(1) + '% remaining of obtained' : 'Obtained − Utilized';
     const span = avqTagEl.querySelector('span');
@@ -476,65 +491,15 @@ function openAvqDrill()  { _avqHsFilter=''; _avqHsSearch=''; const m=document.ge
 function closeAvqDrill() { const m=document.getElementById('avqDrillModal'); if(m) m.style.display='none'; }
 
 function refreshAvqDrill() {
-  // Build ALL rows (unfiltered) — single source of truth.
-  // kpiPool() = SPI + PENDING, matching the Available Quota card itself.
-  const allRows = [];
-  kpiPool().forEach(co => {
-    // Recompute via canonicalObtained — co.obtained is overwritten by it
-    // in loadData() but be defensive in case helpers ran in odd order.
-    const obtained = (typeof canonicalObtained === 'function' ? canonicalObtained(co) : null)
-                     ?? (typeof co.obtained === 'number' ? co.obtained : 0);
-    if (obtained <= 0) return;
-    // Saldo habis -> tidak masuk rincian Available Quota (2026-08-10).
-    if (cumulativeAvailable(co) <= 0.001) return;
-    const totalUtil = scopedUtilTotal(co);   // period-aware (rule #3)
-    // Recompute fresh — stale DB-cached available_quota was inflated from
-    // pre-fix canonicalObtained (which included not-yet-terbit Obtained #2).
-    const totalAvq  = Math.max(0, obtained - totalUtil);
-
-    const aProd = scopedAvailByProd(co);     // period-aware (rule #3)
-    const uProd = scopedUtilByProd(co);
-
-    // Build cycle-level obtained-per-product map
-    const cycleProds = {};
-    (co.cycles||[]).forEach(c => {
-      if (!/^obtained/i.test(c.type) || (typeof c.mt==='number' && c.mt < 0)) return;
-      Object.entries(c.products||{}).forEach(([p,v]) => {
-        if (typeof v==='number' && v>0) cycleProds[p] = (cycleProds[p]||0) + v;
-      });
-    });
-
-    const push = (prod, obtP, utilP, avq) => {
-      const hs = (typeof PROD_HS_CODES !== 'undefined' ? (PROD_HS_CODES[prod] || '—') : '—');
-      allRows.push({ code:co.code, group:co.group, product:prod, hs, obtained:obtP, utilMT:utilP, avq });
-    };
-
-    if (Object.keys(aProd).length > 0) {
-      Object.entries(aProd).forEach(([prod, avq]) => {
-        const utilP = uProd[prod] || 0;
-        const obtP  = cycleProds[prod] || (avq + utilP);
-        push(prod, obtP, utilP, avq);
-      });
-      Object.entries(uProd).forEach(([prod, util]) => {
-        if (aProd[prod] != null) return;
-        push(prod, cycleProds[prod]||util, util, 0);
-      });
-    } else {
-      const prodEntries = Object.entries(cycleProds);
-      if (prodEntries.length > 0) {
-        const cycleTotal = prodEntries.reduce((s,[,v])=>s+v, 0);
-        prodEntries.forEach(([prod, mt]) => {
-          push(prod, mt,
-            cycleTotal>0 ? Math.round(totalUtil * mt/cycleTotal) : 0,
-            cycleTotal>0 ? Math.round(totalAvq  * mt/cycleTotal) : 0);
-        });
-      } else {
-        push((co.products||[])[0]||'—', obtained, totalUtil, totalAvq);
-      }
-    }
-  });
-
-  allRows.sort((a,b) => a.code.localeCompare(b.code) || a.product.localeCompare(b.product));
+  /* Modal ini membuka DARI kartu Available Quota dan ada untuk menjelaskan
+     angka kartu itu — jadi ia wajib merender rincian yang sama, bukan menyusun
+     kolam dan rumusnya sendiri. Versi sebelumnya melakukan keduanya: kolamnya
+     `kpiPool()` + `canonicalObtained > 0` (tanpa gerbang "terbit s/d akhir
+     periode" milik kartu), dan saldonya dari `scopedAvailByProd()` — obtained
+     PERIODE dikurangi utilisasi PERIODE, sementara kartu memakai saldo
+     KUMULATIF. Dua penyimpangan itu yang membuat modal membaca 12.780 MT / 7
+     company terhadap kartu 11.058 MT (tim Sales, 2026-08-11). */
+  const allRows = availableQuotaRows();
 
   // Populate the HS Code dropdown with unique codes from current data
   _populateAvqHsDropdown(allRows);
@@ -579,8 +544,18 @@ function refreshAvqDrill() {
   const avqRate   = totalObt > 0 ? (totalAvq /totalObt*100).toFixed(1) : '—';
 
   const activeHsLabel = _avqHsFilter ? ` · HS ${_avqHsFilter}` : (_avqHsSearch ? ` · "${_avqHsSearch}"` : '');
-  document.getElementById('avqDrillSubtitle').textContent =
-    `${uniqueCos} companies · ${rows.length} product-rows · Obtained − Utilized${activeHsLabel}`;
+  /* Basis dicantumkan terang-terangan. Header lama hanya menulis "Obtained −
+     Utilized" tanpa menyebut atas dasar apa, sehingga tim membandingkannya
+     dengan Obtained/Utilized periode di kartu sebelah dan wajar menyimpulkan
+     angkanya bertentangan. */
+  const sub = document.getElementById('avqDrillSubtitle');
+  if (sub) {
+    sub.textContent =
+      `${uniqueCos} companies · ${rows.length} product-rows · Obtained − Utilized (all-time)${activeHsLabel}`;
+    sub.title = 'Saldo kumulatif: obtained dan utilized di sini SEPANJANG WAKTU, '
+      + 'bukan aktivitas di dalam periode. Filter periode memilih company mana '
+      + 'yang muncul, bukan memotong saldonya.';
+  }
 
   document.getElementById('avqDrillSummary').innerHTML = [
     ['Available (MT)',  fmtMt(totalAvq)+' MT',  '#0891b2',       '#ecfeff',           '#a5f3fc'],
