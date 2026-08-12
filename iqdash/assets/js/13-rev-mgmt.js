@@ -76,6 +76,66 @@ function rrGetActiveCycle(co) {
   return submitCycles[submitCycles.length - 1] || null;
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   Siklus Obtained yang SEDANG dicatat oleh form ini.
+
+   BUG YANG DIPERBAIKI (ditemukan 2026-08-12 dari kasus CGK): ketiga penulis di
+   berkas ini — rrApplyObtained(), rrMarkApproved(), rrSaveStatus() — mencari
+   siklus sasarannya dengan
+
+       (co.cycles||[]).find(c => /^obtained\s*#2/i.test(c.type) || …)
+
+   yaitu SELALU "Obtained #2", berapa pun nomor pengajuan yang sedang dicatat.
+   Lalu `mt` dan `products`-nya ditimpa. Akibatnya, begitu sebuah company
+   mengajukan re-apply KETIGA, pencatatannya MENIMPA catatan re-apply KEDUA —
+   datanya hilang, bukan bertambah.
+
+   Persis itu yang terjadi pada CGK. Master mencatat:
+       Submit #2 2.200 (PERTEK Perubahan 17/04/26) → Obtained #2 220 MT GI ALLOY
+                                                     (SPI Perubahan 29/04/26)
+       Submit #3 3.000                            → Obtained #3 300 MT GL ALLOY
+   Di dashboard, Obtained #2 milik GI ALLOY 220 MT sudah tertimpa menjadi
+   "300 MT GL ALLOY" tanpa tanggal — sehingga 220 MT itu lenyap dari cycles
+   (tinggal tersisa di stats, dan itulah drift 220 MT yang tercium
+   __auditObtained()).
+
+   Nomor siklusnya kini diturunkan dari pengajuan yang SEDANG berjalan:
+   Submit #N → "Obtained #N", Revision #N → "Obtained (Revision #N)". Kalau
+   pengajuannya tidak terbaca, dipakai nomor obtained tertinggi + 1 — menambah,
+   tidak pernah menimpa.
+   ═══════════════════════════════════════════════════════════════════════ */
+function rrObtainedTypeFor(co) {
+  const act = rrGetActiveCycle(co);
+  const m = String((act && act.type) || '').match(/^(submit|revision)\s*#?\s*(\d+)/i);
+  if (m) return /^revision$/i.test(m[1]) ? `Obtained (Revision #${m[2]})` : `Obtained #${m[2]}`;
+  // Tidak terbaca — ambil nomor berikutnya yang belum dipakai (minimal #2).
+  let maks = 1;
+  (co.cycles || []).forEach(c => {
+    const mm = String(c.type || '').match(/^obtained\s*(?:\(revision\s*)?#?\s*(\d+)/i);
+    if (mm) maks = Math.max(maks, +mm[1]);
+  });
+  return `Obtained #${maks + 1}`;
+}
+
+/* Siklus Obtained sasaran form, dibuat bila belum ada. Dicocokkan TEPAT dengan
+   tipenya — bukan pola longgar /^obtained #2/ yang menyeret siklus lain. */
+function rrFindOrCreateObtained(co, seed) {
+  const tipe = rrObtainedTypeFor(co);
+  const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!co.cycles) co.cycles = [];
+  let cy = co.cycles.find(c => norm(c.type) === norm(tipe));
+  if (!cy) {
+    cy = Object.assign({
+      type: tipe, mt: null, products: {},
+      submitType: 'Submit MOT (Submit #2) Perubahan', submitDate: 'TBA',
+      releaseType: 'SPI Perubahan', releaseDate: 'TBA', status: '', _fromRevReq: true,
+    }, seed || {});
+    cy.type = tipe;
+    co.cycles.push(cy);
+  }
+  return cy;
+}
+
 /* "WELDED STAINLESS STEEL PIPE 325 MT + FABRICATED STEEL PAINTED FRAME 75 MT"
    — every target of a gated PERTEK Perubahan split, in one line. Falls back to
    the flat to/mt pair when the payload carries no `targets` list. */
@@ -330,7 +390,11 @@ function buildRevMgmtSection(co) {
     }
 
     // Load existing obtained #2 cycle values for pre-fill
-    const obt2Cy = (co.cycles||[]).find(c => /^obtained\s*#2/i.test(c.type) || /^obtained.*revision/i.test(c.type));
+    /* Baca siklus yang SAMA dengan yang akan ditulis form ini, kalau tidak
+       form menampilkan angka siklus lain daripada yang akan ditimpanya. */
+    const _tipeObt = (typeof rrObtainedTypeFor === 'function') ? rrObtainedTypeFor(co) : 'Obtained #2';
+    const _nrm = v => String(v || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const obt2Cy = (co.cycles || []).find(c => _nrm(c.type) === _nrm(_tipeObt));
     const obt2Prods = obt2Cy ? (obt2Cy.products || {}) : {};
     const obt2MT    = obt2Cy ? obt2Cy.mt : null;
     // Document NUMBERS come from co.spiNo / co.pertekNo — the company-level
@@ -636,17 +700,10 @@ function rrApplyObtained(code) {
     alert('Isi Obtained MT terlebih dahulu sebelum menerapkan.'); return;
   }
 
-  // Find or create Obtained #2 cycle
-  let obt2Cy = (co.cycles||[]).find(c => /^obtained\s*#2/i.test(c.type) || /^obtained.*revision/i.test(c.type));
-  if (!obt2Cy) {
-    if (!co.cycles) co.cycles = [];
-    obt2Cy = {
-      type: 'Obtained #2', mt: null, products: {},
-      submitType: 'Submit MOT (Submit #2) Perubahan', submitDate: 'TBA',
-      releaseType: 'SPI Perubahan', releaseDate: 'TBA', status: '', _fromRevReq: true
-    };
-    co.cycles.push(obt2Cy);
-  }
+  /* Siklus sasaran diturunkan dari pengajuan yang SEDANG berjalan — lihat
+     rrObtainedTypeFor(). Dulu selalu "Obtained #2", sehingga pencatatan
+     re-apply KETIGA menimpa catatan re-apply KEDUA (kasus CGK). */
+  const obt2Cy = rrFindOrCreateObtained(co);
 
   obt2Cy.mt       = obtTotal;
   obt2Cy.products = obtByProd;
@@ -665,7 +722,7 @@ function rrApplyObtained(code) {
   if (spiDateVal) { obt2Cy.spiDate = spiDateVal; obt2Cy.releaseDate = spiDateVal; co.spiDate = spiDateVal; }
   if (pkNoVal)    { co.pertekNo = pkNoVal; }
   if (pkDateVal)  { co.pertekDate = pkDateVal; }
-  obt2Cy.status = `Obtained #2 — ${obtTotal.toLocaleString(MT_LOCALE)} MT${spiNoVal ? ' · SPI: ' + spiNoVal : ''}${spiDateVal ? ' · ' + spiDateVal : ''}`;
+  obt2Cy.status = `${obt2Cy.type} — ${obtTotal.toLocaleString(MT_LOCALE)} MT${spiNoVal ? ' · SPI: ' + spiNoVal : ''}${spiDateVal ? ' · ' + spiDateVal : ''}`;
   co.revMT = obtTotal;
 
   // Visual feedback on button
@@ -782,12 +839,8 @@ function rrSaveStatus(code) {
 
   // Update / create the Obtained #2 cycle with new MT values
   const dateStr = new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'2-digit'});
-  let obt2Cy = (co.cycles||[]).find(c => /^obtained\s*#2/i.test(c.type) || /^obtained.*revision/i.test(c.type));
-  if (!obt2Cy) {
-    obt2Cy = { type: 'Obtained #2', mt: null, products: {}, submitType: 'Submit MOT (Submit #2) Perubahan', submitDate: 'TBA', releaseType: 'SPI Perubahan', releaseDate: 'TBA', status: '', _fromRevReq: true };
-    if (!co.cycles) co.cycles = [];
-    co.cycles.push(obt2Cy);
-  }
+  // Sasaran mengikuti pengajuan yang berjalan — lihat rrObtainedTypeFor().
+  const obt2Cy = rrFindOrCreateObtained(co);
   if (obtTotal > 0) { obt2Cy.mt = obtTotal; co.revMT = obtTotal; }
   if (Object.keys(obtByProd).length) obt2Cy.products = obtByProd;
   // Number → co.spiNo (set above); DATE → the cycle's date columns. See
@@ -833,13 +886,9 @@ function rrMarkApproved(code) {
     activeCy.status = `APPROVED — ${stage}`;
   }
 
-  // Update / create Obtained #2 cycle
-  let obt2Cy = (co.cycles||[]).find(c => /^obtained\s*#2/i.test(c.type) || /^obtained.*revision/i.test(c.type));
-  if (!obt2Cy) {
-    obt2Cy = { type: 'Obtained #2', mt: null, products: {}, submitType: 'Submit MOT (Submit #2) Perubahan', submitDate: date || 'TBA', releaseType: 'SPI Perubahan', releaseDate: spiDate || 'TBA', spiDate: spiDate || '', status: '', _fromRevReq: true };
-    if (!co.cycles) co.cycles = [];
-    co.cycles.push(obt2Cy);
-  }
+  // Sasaran mengikuti pengajuan yang berjalan — lihat rrObtainedTypeFor().
+  const obt2Cy = rrFindOrCreateObtained(co,
+    { submitDate: date || 'TBA', releaseDate: spiDate || 'TBA', spiDate: spiDate || '' });
   if (obtTotal > 0) {
     obt2Cy.mt   = obtTotal;
     co.revMT    = obtTotal;
