@@ -1498,26 +1498,40 @@ function refreshObtainedDrill() {
   document.getElementById('drillSubtitle').textContent =
     `Period: ${periodLabel} · ${rows.length} product row${rows.length!==1?'s':''} · ${coCount} compan${coCount!==1?'ies':'y'} · hover Submit/Obtained for cycle breakdown`;
 
+  /* ── Ringkasan drill ini HANYA menampilkan Obtained ────────────────────
+     Dulu ada lima tile: Submit · Obtained · Utilized · Available · Companies,
+     semuanya dijumlah dari baris tabel silang di bawah. Itu tidak mungkin
+     benar: keempat metrik itu punya KOLAM KANONIK YANG BERBEDA —
+
+       Submitted  -> allCompaniesPool + gerbang tanggal Submit MOI per siklus
+       Obtained   -> allCompaniesPool + gerbang PERTEK terbit per siklus
+       Utilized   -> utilizationPool (dilebarkan: kargo masuk periode)
+       Available  -> availablePool (saldo kumulatif, gerbang terbit s/d akhir)
+
+     Satu tabel yang menyusuri SATU kolam tidak akan pernah mereproduksi
+     keempatnya sekaligus. Audit 2026-08-12 mengukurnya: untuk H1 tile-nya
+     membaca Submit 220.020 / Utilized 5.940 / Available 10.405 terhadap kartu
+     66.745 / 12.525 / 11.058.
+
+     Drill ini dibuka dari kartu OBTAINED, jadi tugasnya menjelaskan Obtained —
+     dan hanya itu yang ditampilkan, langsung dari reportObtainedTotal() supaya
+     tidak mungkin berbeda dari kartunya. Kolom Submit/Utilized/Available di
+     tabel tetap ada sebagai konteks PER BARIS; ketiganya punya kartu dan drill
+     sendiri untuk totalnya. */
+  const _obtKanonik = reportObtainedTotal();
   document.getElementById('drillSummary').innerHTML = `
-    <div style="text-align:center;padding:6px 14px;background:#eef2ff;border-radius:6px;border:1px solid #c3d3f9">
-      <div style="font-size:10px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.8px">Total Submit</div>
-      <div style="font-size:20px;font-weight:700;color:var(--navy);line-height:1.2">${fmtMt(totalSub)} <span style="font-size:12px">MT</span></div>
-    </div>
     <div style="text-align:center;padding:6px 14px;background:var(--teal-bg);border-radius:6px;border:1px solid var(--teal-bd)">
       <div style="font-size:10px;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.8px">Total Obtained</div>
-      <div style="font-size:20px;font-weight:700;color:var(--teal);line-height:1.2">${fmtMt(totalObt)} <span style="font-size:12px">MT</span></div>
-    </div>
-    <div style="text-align:center;padding:6px 14px;background:var(--blue-bg);border-radius:6px;border:1px solid var(--blue-bd)">
-      <div style="font-size:10px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px">Total Utilized</div>
-      <div style="font-size:20px;font-weight:700;color:var(--blue);line-height:1.2">${fmtMt(totalUtil)} <span style="font-size:12px">MT</span></div>
-    </div>
-    <div style="text-align:center;padding:6px 14px;background:#ecfeff;border-radius:6px;border:1px solid #a5f3fc">
-      <div style="font-size:10px;font-weight:700;color:#0891b2;text-transform:uppercase;letter-spacing:.8px">Total Available</div>
-      <div style="font-size:20px;font-weight:700;color:#0891b2;line-height:1.2">${fmtMt(totalAvq)} <span style="font-size:12px">MT</span></div>
+      <div style="font-size:20px;font-weight:700;color:var(--teal);line-height:1.2">${fmtMt(_obtKanonik.mt)} <span style="font-size:12px">MT</span></div>
     </div>
     <div style="text-align:center;padding:6px 14px;background:var(--green-bg);border-radius:6px;border:1px solid var(--green-bd)">
       <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.8px">Companies</div>
-      <div style="font-size:20px;font-weight:700;color:var(--green);line-height:1.2">${coCount}</div>
+      <div style="font-size:20px;font-weight:700;color:var(--green);line-height:1.2">${_obtKanonik.companies}</div>
+    </div>
+    <div style="flex:1;min-width:180px;display:flex;align-items:center;padding:6px 12px;font-size:10.5px;color:var(--txt3);line-height:1.45">
+      Kolom Submit · Utilized · Available di tabel adalah konteks per baris.
+      Totalnya ada di kartunya masing-masing — cakupan periodenya berbeda-beda,
+      jadi kolomnya sengaja tidak dijumlahkan di sini.
     </div>`;
 
   const body = document.getElementById('drillBody');
