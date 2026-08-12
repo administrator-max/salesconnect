@@ -11,7 +11,7 @@ function renderMain() {
      · Submit/Obtained  → SPI.cycles  (same as PERTEK & SPI page)
      · Utilization      → SPI.utilizationByProd/utilizationMT (same as Available Quota page)
      · Realization      → SPI.realizationByProd + RA.berat (same as Realization Monitoring)
-     · Available Quota  → SPI.availableByProd/availableQuota (same as Available Quota page)
+     · Available Quota  → cumulativeAvailable[ByProd]() (same as Available Quota page)
   ══════════════════════════════════════════════════════════════════ */
   const buildCompanyRow = (d) => {
     const ra  = getRA(d.code);
@@ -22,15 +22,28 @@ function renderMain() {
                   : _rs==='revpending' ? 'REV' : 'SPI';
 
     const utilMT  = scopedUtilTotal(d);   // period-aware (rule #3): util sliced by lot date
-    const availMT = PERIOD.active ? Math.max(0, (d.obtained || 0) - utilMT)
-                                  : ((d.availableQuota != null) ? d.availableQuota : Math.max(0, (d.obtained || 0) - utilMT));
+    /* Available = saldo KUMULATIF, satu sumber dengan kartu Overview dan
+       halaman Available Quota.
+
+       Dua penyimpangan yang dibereskan di sini, keduanya kelas yang sama
+       dengan laporan tim Sales 2026-08-11:
+         · dengan periode aktif, baris ini mengurangi `d.obtained` (ALL-TIME,
+           ditimpa canonicalObtained saat loadData) dengan utilisasi PERIODE —
+           dua basis dalam satu pengurangan, jadi kolom Available di tabel ini
+           bisa berbeda dari kartu untuk company yang sama.
+         · tanpa periode, ia membaca `d.availableQuota` mentah — kolom server
+           yang tidak ikut diperbarui saat utilisasi bertambah (kasus ADP
+           2026-08-10: tertulis sisa 100 MT padahal 350/350 sudah terpakai).
+       Hari ini kolom itu kebetulan cocok untuk semua company, jadi ini bukan
+       koreksi angka melainkan menutup celahnya. */
+    const availMT = cumulativeAvailable(d);
     const realMT  = (ra && ra.cargoArrived) ? ra.berat   : 0;
     const realPct = (ra && ra.cargoArrived) ? ra.realPct : null;
     const utilPct = (ra && !ra.cargoArrived) ? ra.utilPct : null;
 
     // Per-product data
     const ubp = scopedUtilByProd(d);   // period-aware (rule #3): util sliced by lot date
-    const abp = scopedAvailByProd(d);
+    const abp = cumulativeAvailByProd(d);   // saldo kumulatif, sepasang dengan availMT di atas
     const rbp = d.realizationByProd  || {};
     const arb = d.arrivedByProd      || {};
     const obtByProd = getObtainedByProd(d);
@@ -57,7 +70,7 @@ function renderMain() {
         const obtP  = obtByProd[prod]  || 0;
         const subP  = submitByProd[prod] || 0;
         const utilP = ubp[prod]  || 0;
-        const avqP  = abp[prod] != null ? abp[prod] : Math.max(0, obtP - utilP);
+        const avqP  = cumulativeAvailForProd(d, prod);
         const realP   = rbp[prod] != null ? rbp[prod]
                       : (arb[prod] === true && ra && ra.obtained > 0)
                         ? Math.round(ra.berat * (obtP / (ra.obtained||1)) * 100) / 100
@@ -74,13 +87,27 @@ function renderMain() {
 
   const all = [
     ...filteredSPI().map(buildCompanyRow),
-    ...filteredPending().map(d => ({
-      code:d.code, group:d.group, products:d.products,
-      submit1:d.mt, obtained:0, utilMT:0, berat:0,
-      realPct:null, utilPct:null, availMT:0,
-      revType:'none', revNote:'', spiRef:d.status, remarks:d.remarks,
-      rowType:'PENDING', subRows:[],
-    }))
+    /* Baris PENDING dulu dipaku obtained:0 / availMT:0. Itu benar untuk company
+       yang memang belum dapat apa-apa, tapi PENDING juga memuat company yang
+       PERTEK-nya SUDAH terbit dan tinggal menunggu langkah berikutnya — SNSD
+       (Obtained #1 = 120 MT, PERTEK 04/08/2026). Kartu Available Quota dan
+       halaman Available Quota menghitungnya (kpiPool = SPI + PENDING), tabel
+       ini menuliskannya nol. Satu company, dua angka — kelas yang sama dengan
+       laporan tim Sales 2026-08-11.
+
+       Dipakai helper kanonik yang sama; company PENDING yang benar-benar belum
+       terbit tetap keluar 0, jadi tampilan lamanya tidak berubah untuk mereka. */
+    ...filteredPending().map(d => {
+      const obt  = (typeof canonicalObtained === 'function') ? canonicalObtained(d) : 0;
+      const util = scopedUtilTotal(d);
+      return {
+        code:d.code, group:d.group, products:d.products,
+        submit1:d.mt, obtained:obt, utilMT:util, berat:0,
+        realPct:null, utilPct:null, availMT:cumulativeAvailable(d),
+        revType:'none', revNote:'', spiRef:d.status, remarks:d.remarks,
+        rowType:'PENDING', subRows:[],
+      };
+    })
   ];
 
   /* ── Filter ────────────────────────────────────────────────────── */

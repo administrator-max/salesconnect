@@ -118,7 +118,23 @@ function openDrawer(code) {
     ${co.spiNo?`<div class="dl-r"><div class="dl-k">SPI No.</div><div class="dl-v" style="font-family:'DM Mono',monospace;color:var(--teal)">${co.spiNo}</div></div>`:''}
     ${co.statusUpdate?`<div class="dl-r"><div class="dl-k" style="color:var(--violet)">📋 Status Update<br><span style="font-size:9px;font-weight:400;color:var(--txt3);font-style:italic">Submission-level</span></div><div class="dl-v" style="font-size:11.5px;white-space:pre-wrap;line-height:1.5;color:var(--txt2)">${co.statusUpdate}</div></div>`:''}
     ${co.utilizationMT!=null?`<div class="dl-r"><div class="dl-k">Utilization MT</div><div class="dl-v" style="font-family:'DM Mono',monospace">${fmtMt(co.utilizationMT)} MT</div></div>`:''}
-    ${co.availableQuota!=null?`<div class="dl-r"><div class="dl-k">Available Quota</div><div class="dl-v" style="font-weight:700;color:${co.availableQuota>0?'var(--teal)':co.availableQuota===0?'var(--txt3)':'var(--red2)'};font-family:'DM Mono',monospace">${fmtMt(co.availableQuota)} MT${co.revType==='active'?' <span style="font-size:9.5px;font-weight:400;color:var(--amber2)">(original PERTEK − revision TBA)</span>':''}</div></div>`:''}
+    ${(() => {
+      /* Saldo dari helper kanonik, bukan dari kolom server `availableQuota`.
+         Kolom itu tidak ikut diperbarui ketika utilisasi bertambah — persis
+         yang membuat form Sales ADP menulis "sisa 100 MT" padahal kuotanya
+         sudah habis 350/350 (dilaporkan 2026-08-10). Drawer ini yang dibuka
+         Sales sebelum menjual, jadi angkanya harus sama dengan kartu dan
+         halaman Available Quota, bukan snapshot yang bisa tertinggal. */
+      if (co.availableQuota == null && typeof canonicalObtained === 'function'
+          && canonicalObtained(co) <= 0) return '';
+      const avq = (typeof cumulativeAvailable === 'function')
+        ? cumulativeAvailable(co) : co.availableQuota;
+      if (avq == null) return '';
+      const warna = avq > 0 ? 'var(--teal)' : avq === 0 ? 'var(--txt3)' : 'var(--red2)';
+      const catatan = co.revType === 'active'
+        ? ' <span style="font-size:9.5px;font-weight:400;color:var(--amber2)">(original PERTEK − revision TBA)</span>' : '';
+      return `<div class="dl-r"><div class="dl-k">Available Quota</div><div class="dl-v" style="font-weight:700;color:${warna};font-family:'DM Mono',monospace">${fmtMt(avq)} MT${catatan}</div></div>`;
+    })()}
     ${co.updatedBy?`<div class="dl-r"><div class="dl-k">Last Updated By</div><div class="dl-v"><span class="upd-tag upd-${co.updatedBy.toLowerCase()}">${co.updatedBy}</span>${co.updatedDate?' · '+co.updatedDate:''}</div></div>`:''}
     <div class="dl-r"><div class="dl-k">Submit Date</div><div class="dl-v">${co.remarks}</div></div>
   </div>`;

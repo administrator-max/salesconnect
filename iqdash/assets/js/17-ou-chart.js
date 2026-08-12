@@ -81,7 +81,6 @@ function buildOUData() {
     const pertekDate = getFirstPertekDateForCo(co);
     const obtByProd  = getObtainedByProd(co);
     const _su = scopedUtilByProd(co);   // period-aware (rule #3): util sliced by lot date
-    const _sa = scopedAvailByProd(co);
 
     Object.entries(obtByProd).forEach(([prod, obtMT]) => {
       if (!obtMT || obtMT <= 0) return;
@@ -89,12 +88,12 @@ function buildOUData() {
       // Utilized MT — from utilizationByProd[prod], the single source of truth
       const utilMT = _su[prod] || 0;
 
-      // Remaining: use availableByProd[prod] when available (same source of truth
-      // as availableQuota company-level). Fall back to obtMT - utilMT.
-      const aProd = _sa;
-      const remaining = aProd[prod] != null
-        ? Math.max(0, Number(aProd[prod]))
-        : Math.max(0, obtMT - utilMT);
+      /* Sisa = saldo KUMULATIF per produk, satu sumber dengan kartu Available
+         Quota. Sebelumnya dari scopedAvailByProd() (saldo PERIODE) dengan
+         cadangan `obtMT − utilMT` yang mencampur obtained all-time dengan
+         utilisasi periode — chart ini lalu bisa menyebut sisa yang berbeda
+         dari halaman Available Quota untuk company-produk yang sama. */
+      const remaining = cumulativeAvailForProd(co, prod);
 
       // First utilization date: earliest ETA/PIB date with utilMT > 0
       const firstUtilDate = getFirstUtilDate(co, prod);
@@ -313,7 +312,9 @@ function buildOUChart() {
     <div style="padding:11px 16px;border-right:1px solid var(--border)">
       <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--txt3);margin-bottom:3px">Remaining</div>
       <div style="font-size:22px;font-weight:700;color:var(--teal);line-height:1">${fmtMt(totalRemain)}</div>
-      <div style="font-size:10px;color:var(--txt3);margin-top:2px">MT · unallocated quota</div>
+      <div style="font-size:10px;color:var(--txt3);margin-top:2px" title="${PERIOD.active
+        ? 'Remaining = saldo kumulatif (all-time), sumber yang sama dengan kartu Available Quota. Utilized di sebelahnya adalah pemakaian DI DALAM periode, jadi Obtained − Utilized tidak sama dengan Remaining selama filter aktif.'
+        : 'Remaining = Obtained − Utilized.'}">MT · unallocated quota${PERIOD.active ? ' · saldo kumulatif' : ''}</div>
     </div>
     <div style="padding:11px 16px">
       <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--red2);margin-bottom:3px">Lead Time Status</div>

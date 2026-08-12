@@ -249,6 +249,64 @@ AVQ_FN.forEach(([f, fn]) => {
   ok(!/\bavailableByProd\b/.test(b),    `${fn}() tidak membaca availableByProd mentah — kolom stats yang bisa basi`);
 });
 
+console.log('\n-- Permukaan NON-AVQ tidak boleh membaca kolom saldo mentah --');
+/* Keempat berkas ini bukan halaman Available Quota, jadi tidak perlu memakai
+   availableQuotaRows(). Tapi saldonya wajib dari helper kanonik, bukan dari
+   `co.availableByProd` / `co.availableQuota` (kolom company_product_stats yang
+   TIDAK ikut diperbarui saat utilisasi bertambah — kasus ADP 2026-08-10) dan
+   bukan pula turunan sendiri dari obtained − utilisasi periode.
+
+   18-sales-priority.js yang paling berbahaya: di sana sisa MEN-GATE apakah
+   sebuah produk muncul sebagai peluang jual, jadi kolom basi berarti Sales
+   ditawari kuota yang sudah habis. */
+const NON_AVQ = [
+  ['07-tables-main.js',    'renderMain'],
+  ['17-ou-chart.js',       'buildOUData'],
+  ['18-sales-priority.js', 'buildSalesPriorityData'],
+  ['18-sales-priority.js', 'buildExcludedList'],
+];
+NON_AVQ.forEach(([f, fn]) => {
+  const b = badan(kode(f), fn);
+  if (b == null) { ok(false, `${f}: ${fn}() ditemukan`); return; }
+  ok(true, `${f}: ${fn}() ditemukan`);
+  ok(/cumulativeAvail(able|ByProd|ForProd)\s*\(/.test(b),
+     `${fn}() memakai helper saldo kanonik`);
+  ok(!/\bavailableByProd\b/.test(b),
+     `${fn}() tidak membaca co.availableByProd mentah`);
+  ok(!/scopedAvailByProd\s*\(/.test(b),
+     `${fn}() tidak memakai scopedAvailByProd() — saldo periode ≠ saldo kumulatif`);
+});
+
+/* Drawer: potongannya bukan fungsi bernama, jadi diperiksa di tingkat berkas. */
+const drawer = kode('08-drawer.js');
+ok(/cumulativeAvailable\s*\(/.test(drawer),
+   '08-drawer.js: Available Quota ditampilkan lewat cumulativeAvailable()');
+ok(!/fmtMt\(\s*co\.availableQuota\s*\)/.test(drawer),
+   '08-drawer.js: tidak lagi mencetak co.availableQuota mentah');
+
+console.log('\n-- cumulativeAvailForProd: pencarian tahan beda ejaan produk --');
+setP(null, null);
+ctx._bts = FIXTURE.SPI.find(c => c.code === 'BTS');
+ok(near(call('cumulativeAvailForProd(this._bts, "SHEETPILE")'), 2000),
+   'produk yang ada di peta ditemukan');
+ok(near(call('cumulativeAvailForProd(this._bts, "PRODUK TIDAK ADA")'), 0),
+   'produk asing -> 0, bukan NaN/undefined');
+/* Cadangan tanpa stats harus dibagi ke SELURUH co.products, bukan cuma yang
+   pertama: pemanggil yang menyusuri getObtainedByProd() akan mendapat 0 untuk
+   produk kedua, dan di Sales Priority 0 berarti produknya hilang dari daftar. */
+ctx._nostats = { code: 'XX', cycles: [], products: ['A', 'B'],
+                 utilizationMT: 0, utilizationByProd: {}, availableByProd: {},
+                 _forceAvail: true };
+ctx._nostats.cycles = [
+  { type: 'Submit #1', mt: 400, products: {}, submitDate: '01/02/2026', releaseDate: '01/03/2026' },
+  { type: 'Obtained #1', mt: 400, products: {}, submitDate: '05/03/2026', releaseDate: '10/03/2026' },
+];
+const nsMap = call('cumulativeAvailByProd(this._nostats)');
+ok(Object.keys(nsMap).length === 2, 'tanpa stats: saldo dibagi ke SEMUA co.products',
+   `dapat ${JSON.stringify(nsMap)}`);
+ok(near(Object.values(nsMap).reduce((s, v) => s + v, 0), call('cumulativeAvailable(this._nostats)')),
+   'tanpa stats: Σ pembagian tetap = saldo company');
+
 console.log('\n-- Kolam & rincian hanya terdefinisi di 02-period-filter.js --');
 ['availablePool', 'cumulativeAvailByProd', 'availableQuotaRows'].forEach(h => {
   ok(new RegExp('function\\s+' + h + '\\s*\\(').test(kode('02-period-filter.js')),

@@ -983,7 +983,27 @@ function cumulativeAvailByProd(co) {
   const obt  = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
   const util = (typeof allTimeUtilByProd    === 'function') ? allTimeUtilByProd(co)    : (co.utilizationByProd || {});
   const keys = [...new Set([...Object.keys(obt), ...Object.keys(util)])];
-  if (!keys.length) return { [(co.products || [])[0] || '—']: total };
+
+  /* Tidak ada stats per produk sama sekali (kuota baru terbit, master belum
+     di-refresh). Saldonya dibagi RATA ke seluruh co.products — sengaja meniru
+     cadangan getObtainedByProd() di 10-edit-form.js, supaya kunci kedua peta
+     itu selalu sama. Versi pertama menaruh seluruh saldo di produk PERTAMA
+     saja; pemanggil yang menyusuri getObtainedByProd() lalu mendapat 0 untuk
+     produk kedua dan seterusnya, dan pada halaman Sales Priority angka 0 itu
+     berarti "tidak ada yang bisa dijual" — produknya hilang dari daftar
+     peluang. Cadangan yang tidak sinkron persis cara bug ini lahir. */
+  if (!keys.length) {
+    const ps = (co.products || []).filter(Boolean);
+    if (!ps.length) return { '—': total };
+    const out0 = {};
+    let sisa0 = total;
+    ps.forEach((p, i) => {
+      const v = (i === ps.length - 1) ? sisa0 : total / ps.length;
+      out0[p] = (out0[p] || 0) + v;
+      sisa0 -= v;
+    });
+    return out0;
+  }
 
   const out = {};
   let basis = {}, basisSum = 0;
@@ -1005,6 +1025,26 @@ function cumulativeAvailByProd(co) {
     out[p] = v; sisa -= v;
   });
   return out;
+}
+
+/* Saldo kumulatif SATU produk milik satu company.
+
+   Ada supaya pemanggil tidak menulis sendiri pola
+   `peta[prod] != null ? peta[prod] : Math.max(0, obt - util)`. Pola itu terlihat
+   tak berbahaya, tapi `obt` di sisi pemanggil hampir selalu ALL-TIME sementara
+   `util`-nya period-scoped — dan campuran itulah yang melahirkan angka
+   Available ketiga pada laporan tim Sales 2026-08-11. Satu pintu, satu basis.
+
+   Ejaan produk ditoleransi (ledger `GI ALLOY` vs stats `GI BORON`) lewat
+   canonicalProduct, karena pemanggil datang dari peta yang berbeda-beda. */
+function cumulativeAvailForProd(co, prod) {
+  if (!co || !prod) return 0;
+  const m = cumulativeAvailByProd(co);
+  if (m[prod] != null) return Number(m[prod]) || 0;
+  const c = _canonProd(prod);
+  if (m[c] != null) return Number(m[c]) || 0;
+  const hit = Object.keys(m).find(k => _canonProd(k) === c);
+  return hit ? (Number(m[hit]) || 0) : 0;
 }
 
 /* SATU rincian Available Quota — dipakai oleh SEMUA permukaan AVQ.
@@ -1286,7 +1326,7 @@ if (typeof module !== 'undefined' && module.exports) {
     companiesWithLotsInPeriod, utilizationPool,
     scopedUtilByProd, scopedUtilTotal, scopedAvailByProd, scopedObtainedByProd,
     scopedObtainedDetailByProd,
-    availablePool, cumulativeAvailByProd, availableQuotaRows,
+    availablePool, cumulativeAvailByProd, cumulativeAvailForProd, availableQuotaRows,
     reportAvailableTotal, kpiPool, allCompaniesPool,
   };
 }

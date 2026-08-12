@@ -128,7 +128,8 @@ function buildExcludedList() {
         revStatus:  co.revStatus || '',
         revNote:    co.revNote  || '',
         obtained:   co.obtained || 0,
-        remainMT:   co.availableQuota || 0,
+        remainMT:   (typeof cumulativeAvailable === 'function')
+                      ? cumulativeAvailable(co) : (co.availableQuota || 0),
         reasonType: co.revType === 'active'
           ? 'revision'
           : e.reason.includes('PERTEK Perubahan belum TERBIT')
@@ -139,20 +140,19 @@ function buildExcludedList() {
     }
 
     // Case B: passed eligibility but ALL products have remainMT = 0
-    const obtByProd   = getObtainedByProd(co);
-    const utilByProd  = co.utilizationByProd  || {};
-    const availByProd = co.availableByProd    || {};
+    const obtByProd = getObtainedByProd(co);
 
+    /* Sisa per produk dari helper kanonik. Sebelumnya membaca
+       `co.availableByProd` MENTAH — kolom company_product_stats yang TIDAK ikut
+       diperbarui saat utilisasi bertambah. Di halaman ini konsekuensinya paling
+       nyata: sisa menentukan apakah sebuah produk muncul sebagai peluang jual.
+       Kolom yang basi berarti Sales bisa ditawari kuota yang sebenarnya sudah
+       habis (kasus ADP 2026-08-10: stats bilang sisa 100 MT, nyatanya 350/350
+       terpakai), atau sebaliknya kehilangan peluang yang masih ada. */
     const zeroProds = [];
     Object.entries(obtByProd).forEach(([prod, obtMT]) => {
       if (!obtMT || obtMT <= 0) return;
-      const utilMT   = utilByProd[prod] !== undefined
-        ? utilByProd[prod]
-        : (Object.keys(utilByProd).length === 0 ? (co.utilizationMT || 0) : 0);
-      const remainMT = availByProd[prod] !== undefined
-        ? availByProd[prod]
-        : Math.max(0, obtMT - utilMT);
-      if (remainMT <= 0) zeroProds.push(prod);
+      if (cumulativeAvailForProd(co, prod) <= 0) zeroProds.push(prod);
     });
 
     const allProds     = Object.keys(obtByProd).filter(p => obtByProd[p] > 0);
@@ -232,14 +232,14 @@ function buildSalesPriorityData() {
       if (!obtMT || obtMT <= 0) return;
 
       // ── Utilization & remaining ────────────────────────────────
-      const utilByProd  = co.utilizationByProd  || {};
-      const availByProd = co.availableByProd    || {};
+      /* Sisa dari helper kanonik — lihat catatan di buildExcludedList().
+         Utilisasi tetap dari kolom stats (dengan cadangan lama), karena yang
+         di-gate dan ditampilkan sebagai peluang adalah SISA-nya. */
+      const utilByProd = co.utilizationByProd || {};
       const utilMT = utilByProd[prod] !== undefined
         ? utilByProd[prod]
         : (Object.keys(utilByProd).length === 0 ? (co.utilizationMT || 0) : 0);
-      const remainMT = availByProd[prod] !== undefined
-        ? availByProd[prod]
-        : Math.max(0, obtMT - utilMT);
+      const remainMT = cumulativeAvailForProd(co, prod);
       const utilPct = obtMT > 0 ? utilMT / obtMT : 0;
 
       // ── GATE: Remaining = 0 → Not Eligible (nothing left to sell) ─
