@@ -605,8 +605,19 @@ function scopedAvailByProd(co) {
    All Time -> getSubmittedByProd() apa adanya. */
 function scopedSubmittedByProd(co) {
   if (!co) return {};
+  /* Kunci WAJIB dikanonikkan di KEDUA cabang. getSubmittedByProd() memakai
+     ejaan siklus mentah ("GL BORON") sementara jalur obtained sudah kanonik
+     ("GL ALLOY"). Pemanggil yang menggabungkan keduanya lalu melihat SATU
+     produk sebagai DUA, dan menghitungnya dua kali — drill Obtained sempat
+     membaca Available 14.553 terhadap kartu 11.178 gara-gara ini. */
   if (!PERIOD.active) {
-    return (typeof getSubmittedByProd === 'function') ? getSubmittedByProd(co) : {};
+    const src = (typeof getSubmittedByProd === 'function') ? getSubmittedByProd(co) : {};
+    const o = {};
+    Object.entries(src).forEach(([p, v]) => {
+      const k = _canonProd(p);
+      o[k] = (o[k] || 0) + (Number(v) || 0);
+    });
+    return o;
   }
   const out = {};
   const seen = new Set();

@@ -1438,7 +1438,13 @@ function refreshObtainedDrill() {
        difilter periode, sehingga tile-nya membaca Submit 220.020 / Obtained
        29.120 terhadap kartu 66.745 / 19.640 (audit 2026-08-12). */
     const subByProd = (typeof scopedSubmittedByProd === 'function') ? scopedSubmittedByProd(co) : {};
-    const obtByProd = (typeof scopedObtainedByProd  === 'function') ? scopedObtainedByProd(co)  : {};
+    /* scopedObtainedDetailByProd, BUKAN scopedObtainedByProd: yang kedua jatuh
+       ke stats (util+avail) saat All Time, dan stats bisa melenceng dari cycles
+       — drill sempat membaca Obtained 34.840 terhadap kartu 34.740. Yang ini
+       selalu dari CYCLES, aturan yang sama dengan canonicalObtained. */
+    const _obtDetail = (typeof scopedObtainedDetailByProd === 'function') ? scopedObtainedDetailByProd(co) : {};
+    const obtByProd = {};
+    Object.keys(_obtDetail).forEach(p => { obtByProd[p] = _obtDetail[p].mt; });
     const utilBy    = scopedUtilByProd(co);   // period-aware (rule #3)
 
     // Union of products across submit + obtained (some products only in re-apply cycle)
