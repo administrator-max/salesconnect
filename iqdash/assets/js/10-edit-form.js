@@ -457,7 +457,7 @@ function buildRoleHistory() {
     cycles.filter(c => /^submit/i.test(c.type) && !/obtained/i.test(c.type)).forEach(c => {
       if (c.submitDate) entries.push({
         date: c.submitDate, icon: '📤', section: 'Submission & PERTEK',
-        text: `<strong>${c.type}</strong> — Submit: ${fmtD(c.submitDate)}${c.mt ? ' · ' + c.mt.toLocaleString(MT_LOCALE) + ' MT' : ''}${c.submitType ? ' · ' + c.submitType : ''}`,
+        text: `<strong>${canonProdInText(c.type)}</strong> — Submit: ${fmtD(c.submitDate)}${c.mt ? ' · ' + c.mt.toLocaleString(MT_LOCALE) + ' MT' : ''}${c.submitType ? ' · ' + c.submitType : ''}`,
         color: 'var(--blue)'
       });
     });
@@ -466,7 +466,7 @@ function buildRoleHistory() {
     cycles.filter(c => /^obtained/i.test(c.type)).forEach(c => {
       if (c.submitDate || c.releaseDate) entries.push({
         date: cycleTerbitDate(c) || c.submitDate, icon: '📄', section: 'Submission & PERTEK',
-        text: `<strong>${c.type}</strong> — PERTEK/SPI: ${fmtD(cycleTerbitDate(c))}${c.mt ? ' · ' + c.mt.toLocaleString(MT_LOCALE) + ' MT' : ''}${c.status ? ' · <em>' + c.status + '</em>' : ''}`,
+        text: `<strong>${canonProdInText(c.type)}</strong> — PERTEK/SPI: ${fmtD(cycleTerbitDate(c))}${c.mt ? ' · ' + c.mt.toLocaleString(MT_LOCALE) + ' MT' : ''}${c.status ? ' · <em>' + c.status + '</em>' : ''}`,
         color: 'var(--teal)'
       });
     });

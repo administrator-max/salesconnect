@@ -65,6 +65,28 @@ const prodLabel = p => {
   return hit ? PRODUCT_ALIASES[hit] : s;
 };
 
+/* Kanonikkan nama produk yang TERTANAM di dalam label yang dibangun sistem —
+   mis. cycle type "Revision Request — GI BORON". Di situ nama produk bukan
+   field tersendiri melainkan bagian dari string, jadi prodLabel() tidak bisa
+   dipakai langsung.
+
+   HANYA untuk teks yang dibuat sistem. Catatan bebas yang DIKETIK orang
+   (remarks, status update, note) sengaja TIDAK disentuh: itu rekaman apa yang
+   ditulis seseorang pada satu waktu, dan menulis ulangnya berarti mengubah
+   arsip — bukan menyeragamkan tampilan. */
+const canonProdInText = s => {
+  let out = (s == null ? '' : String(s));
+  if (!out) return out;
+  Object.keys(PRODUCT_ALIASES || {})
+    .sort((a, b) => b.length - a.length)          // cocokkan yang terpanjang dulu
+    .forEach(k => {
+      const target = PRODUCT_ALIASES[k];
+      if (!target || target === k) return;
+      out = out.replace(new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), target);
+    });
+  return out;
+};
+
 /* COMPANY_DIRECTORY — master list of companies from company.xlsx (DB-backed).
    Two derived maps for O(1) lookup:
      COMPANY_NAME_TO_CODE: lowercased fullName → 3-letter code

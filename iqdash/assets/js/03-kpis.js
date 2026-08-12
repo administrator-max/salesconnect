@@ -593,7 +593,7 @@ function refreshAvqDrill() {
       : `color:var(--txt3)`;
     return `<tr style="border-bottom:1px solid var(--border);${rowBg};cursor:pointer" onclick="closeAvqDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
       <td style="padding:8px 14px;font-weight:700;color:var(--navy);${lBorder};padding-left:11px">${isFirst ? r.code : ''}</td>
-      <td style="padding:8px 10px;font-size:11px;color:var(--txt2)">${r.product}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--txt2)">${prodLabel(r.product)}</td>
       <td style="padding:8px 10px;font-size:10.5px;font-family:'DM Mono',monospace;${hsHl}">${r.hs}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(r.obtained)}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--blue)">${r.utilMT > 0 ? fmtMt(r.utilMT) : '—'}</td>
@@ -692,7 +692,7 @@ function refreshUtilDrill() {
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="closeUtilDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
       <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${r.code}</td>
       <td style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--txt2)">${r.group}</td>
-      <td style="padding:8px 10px;font-size:11px;color:var(--txt)">${r.product}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--txt)">${prodLabel(r.product)}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(r.obtained)}</td>
       <td style="padding:8px 10px;text-align:right">
         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
@@ -1228,7 +1228,7 @@ function refreshPendingDrill() {
         <div style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;margin-top:5px;z-index:1;position:relative"></div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-size:12px;font-weight:700;color:var(--txt)">${cy.type}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--txt)">${canonProdInText(cy.type)}</span>
             <span style="font-size:11px;font-weight:700;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(totPMT)} MT</span>
             ${ds !== null ? daysChip(ds) : ''}
           </div>
@@ -1518,7 +1518,7 @@ function refreshObtainedDrill() {
       <td style="padding:8px 8px;text-align:center;color:var(--txt3);font-family:'DM Mono',monospace;font-size:10.5px">${idx + 1}</td>
       <td style="padding:8px 12px;font-weight:700;color:var(--navy);white-space:nowrap">${isFirst ? r.code + groupBadge : '<span style=\"color:var(--txt3)\">' + r.code + '</span>'}</td>
       <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10.5px;color:var(--txt2)">${r.hs}</td>
-      <td style="padding:8px 10px;font-size:11px"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:${dot};display:inline-block"></span>${r.product}</span></td>
+      <td style="padding:8px 10px;font-size:11px"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:${dot};display:inline-block"></span>${prodLabel(r.product)}</span></td>
       <td style="padding:8px 10px;text-align:right">${buildMtCell(r.subMT, r.subBreakdown, 'var(--navy)')}</td>
       <td style="padding:8px 10px;text-align:right">${buildMtCell(r.obtMT, r.obtBreakdown, 'var(--teal)')}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:${r.utilMT > 0 ? 'var(--blue)' : 'var(--txt3)'};font-weight:${r.utilMT > 0 ? '700' : '400'}">${r.utilMT > 0 ? fmtMt(r.utilMT) : '—'}</td>

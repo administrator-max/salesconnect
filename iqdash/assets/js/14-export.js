@@ -187,7 +187,7 @@ function exportExecutivePDF() {
                                            : ['Below 60%',   '#fef3c7','#92400e'];
     return `<tr>`+
       `<td style="padding:4px 7px;font-size:7.5pt;font-weight:700;color:#1e293b">${r.code}</td>`+
-      `<td style="padding:4px 7px;font-size:7pt;color:#64748b">${r.product}</td>`+
+      `<td style="padding:4px 7px;font-size:7pt;color:#64748b">${prodLabel(r.product)}</td>`+
       `<td style="padding:4px 7px;font-size:7.5pt;text-align:right;font-variant-numeric:tabular-nums">${N(r.obtained)}</td>`+
       `<td style="padding:4px 7px;font-size:7.5pt;text-align:right;font-variant-numeric:tabular-nums">${N(Math.round(r.berat))}</td>`+
       `<td style="padding:4px 7px">`+
@@ -760,7 +760,7 @@ function exportExecutivePDF() {
       const overdueRows = overdue.map(r =>
         `<tr>
           <td style="padding:3px 7px;font-size:7pt;font-weight:700;color:#1e293b">${r.code}</td>
-          <td style="padding:3px 7px;font-size:7pt;color:#64748b">${r.product}</td>
+          <td style="padding:3px 7px;font-size:7pt;color:#64748b">${prodLabel(r.product)}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:right;font-variant-numeric:tabular-nums">${r.obtained.toLocaleString(MT_LOCALE)} MT</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:right">${r.utilized > 0 ? r.utilized.toLocaleString(MT_LOCALE) + ' MT' : '—'}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:center">${fmtD2(r.pertekDate)}</td>
@@ -772,7 +772,7 @@ function exportExecutivePDF() {
       const nearRows = nearLimit.map(r =>
         `<tr>
           <td style="padding:3px 7px;font-size:7pt;font-weight:700;color:#1e293b">${r.code}</td>
-          <td style="padding:3px 7px;font-size:7pt;color:#64748b">${r.product}</td>
+          <td style="padding:3px 7px;font-size:7pt;color:#64748b">${prodLabel(r.product)}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:right;font-variant-numeric:tabular-nums">${r.obtained.toLocaleString(MT_LOCALE)} MT</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:right">${r.utilized > 0 ? r.utilized.toLocaleString(MT_LOCALE) + ' MT' : '—'}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:center">${fmtD2(r.pertekDate)}</td>

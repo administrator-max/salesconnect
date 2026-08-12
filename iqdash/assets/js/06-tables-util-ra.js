@@ -201,8 +201,8 @@ function renderUtilTable() {
     // Product cell — indented for sub-products
     const dot = `<span style="width:7px;height:7px;border-radius:50%;background:${pc(r.product).solid};flex-shrink:0"></span>`;
     const prodCell = isSub
-      ? `<div style="padding-left:20px;display:flex;align-items:center;gap:5px">${dot}<span style="font-size:11.5px;color:var(--txt2)">${r.product}</span></div>`
-      : `<div style="display:flex;align-items:center;gap:5px">${dot}<span style="font-size:11.5px;font-weight:${isMulti?'600':'400'}">${r.product}</span></div>`;
+      ? `<div style="padding-left:20px;display:flex;align-items:center;gap:5px">${dot}<span style="font-size:11.5px;color:var(--txt2)">${prodLabel(r.product)}</span></div>`
+      : `<div style="display:flex;align-items:center;gap:5px">${dot}<span style="font-size:11.5px;font-weight:${isMulti?'600':'400'}">${prodLabel(r.product)}</span></div>`;
 
     // Obtained
     const obtCell = `<span class="t-mono" style="font-size:11.5px;font-weight:700;color:${isSub?'var(--txt2)':'var(--txt)'}">${(r.obtained||0).toLocaleString(MT_LOCALE)}</span>`;
@@ -343,7 +343,7 @@ function renderUtilTable() {
         const sp = phaseOf(r);
         tbody.innerHTML += `<tr class="uph-sub-${c.code}" style="display:none;background:var(--bg2)">
           <td style="padding:5px 10px"></td>
-          <td style="padding:5px 10px 5px 20px;font-size:11px;color:var(--txt2)">↳ ${r.product}</td>
+          <td style="padding:5px 10px 5px 20px;font-size:11px;color:var(--txt2)">↳ ${prodLabel(r.product)}</td>
           <td style="padding:5px 10px">${phaseBadge(sp)}</td>
           <td class="t-r" style="padding:5px 10px;font-size:11px">${(r.obtained || 0).toLocaleString(MT_LOCALE)}</td>
           <td class="t-r" style="padding:5px 10px;font-size:11px">${r.utilMT > 0 ? r.utilMT.toLocaleString(MT_LOCALE) : '—'}</td>
@@ -490,7 +490,7 @@ function renderRATable() {
       ? `<div style='display:flex;flex-direction:column;gap:2px'>
            ${prodKeys.map(p => `<span style='display:inline-flex;align-items:center;gap:4px;font-size:10.5px'>
              <span style='width:6px;height:6px;border-radius:2px;background:${pc(p).solid};flex-shrink:0'></span>
-             <span style='font-weight:600'>${p}</span>
+             <span style='font-weight:600'>${prodLabel(p)}</span>
            </span>`).join('')}
            <span style='font-size:9px;color:var(--txt3);margin-top:1px'>${prodKeys.length} products</span>
          </div>`
@@ -583,7 +583,7 @@ function renderRATable() {
         <td style='padding:4px 8px 4px 20px'>
           <span style='display:inline-flex;align-items:center;gap:5px'>
             <span style='width:7px;height:7px;border-radius:50%;background:${pc(prod).solid};flex-shrink:0'></span>
-            <span style='font-size:11.5px;color:var(--txt2);font-weight:500'>${prod}</span>
+            <span style='font-size:11.5px;color:var(--txt2);font-weight:500'>${prodLabel(prod)}</span>
           </span>
           <div style='font-size:9.5px;color:var(--txt3);margin-top:1px;padding-left:12px'>
             Obtained: <strong style='color:var(--txt2)'>${prodObt.toLocaleString(MT_LOCALE)}</strong> MT

@@ -178,7 +178,7 @@ function buildPendingQuick() {
         <div class="pq-sub-dot"></div>
         <div class="pq-sub-body">
           <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-            <span class="pq-sub-title">${cy.type}</span>
+            <span class="pq-sub-title">${canonProdInText(cy.type)}</span>
             <span style="font-size:10px;font-weight:700;font-family:'DM Mono',monospace;
                          color:var(--txt3)">${fmtMt(totalProdMT)} MT</span>
             ${ds !== null ? daysChip(ds) : ''}
@@ -320,7 +320,7 @@ function buildRevNoteHtml(d) {
         background:${isRet?'var(--blue-bg)':'var(--green-bg)'};
         color:${isRet?'var(--blue)':'var(--green)'};
         border:1px solid ${isRet?'var(--blue-bd)':'var(--green-bd)'}">
-        ${t.label}: ${t.prod}
+        ${t.label}: ${prodLabel(t.prod)}
       </span>
       <span style="font-size:10px;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(t.mt)} MT</span>
     </div>`;
@@ -328,7 +328,7 @@ function buildRevNoteHtml(d) {
   return `<div>
     <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
       <span style="font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-bd)">SPLIT</span>
-      <span style="font-size:10.5px;font-weight:600">${f.label}: ${f.prod} ${fmtMt(f.mt)} MT</span>
+      <span style="font-size:10.5px;font-weight:600">${f.label}: ${prodLabel(f.prod)} ${fmtMt(f.mt)} MT</span>
     </div>
     ${toLines}
     ${salesReqHtml}

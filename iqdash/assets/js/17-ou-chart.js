@@ -22,9 +22,31 @@ const OU_PROD_COLORS = {
   'HOLLOW PIPE':            { solid: '#64748b', light: '#f1f5f9', border: '#cbd5e1', label: 'Hollow Pipe',       hex: '#64748b' },
   'HRC/HRPO ALLOY':         { solid: '#dc2626', light: '#fef2f2', border: '#fecaca', label: 'HRC/HRPO Alloy',   hex: '#dc2626' },
 };
-/** Get OU color for a product — fallback to a neutral grey */
+/** Get OU color for a product — fallback to a neutral grey.
+
+   Peta di atas dikunci dengan ejaan LEDGER ("GI BORON") dan menyimpan label
+   tampilannya sendiri ("GI Boron"). Dua-duanya bikin masalah setelah pemilik
+   data meminta penamaan seragam ke GI ALLOY (2026-08-12):
+
+     · pencarian gagal begitu pemanggil mengirim nama kanonik ("GI ALLOY"),
+       sehingga produk yang warnanya sudah diatur jatuh ke abu-abu;
+     · `label` yang di-hardcode memunculkan kembali ejaan lama di legenda,
+       padahal seluruh permukaan lain sudah kanonik.
+
+   Diselesaikan sekali di sini, bukan dengan menulis ulang petanya: kunci
+   dicocokkan lewat bentuk kanonik (jadi ejaan lama MAUPUN baru sama-sama
+   ketemu, warnanya utuh), dan labelnya selalu dari prodLabel(). */
 function ouPC(prod) {
-  return OU_PROD_COLORS[prod] || { solid: '#94a3b8', light: '#f1f5f9', border: '#e2e8f0', label: prod, hex: '#94a3b8' };
+  let hit = OU_PROD_COLORS[prod];
+  if (!hit) {
+    const c = (typeof canonicalProduct === 'function') ? canonicalProduct(prod) : prod;
+    hit = OU_PROD_COLORS[c]
+       || OU_PROD_COLORS[Object.keys(OU_PROD_COLORS).find(k =>
+            ((typeof canonicalProduct === 'function') ? canonicalProduct(k) : k) === c)];
+  }
+  const label = (typeof prodLabel === 'function') ? prodLabel(prod) : prod;
+  return hit ? Object.assign({}, hit, { label })
+             : { solid: '#94a3b8', light: '#f1f5f9', border: '#e2e8f0', label, hex: '#94a3b8' };
 }
 
 /** Build the color legend HTML for the OU chart */
@@ -356,7 +378,7 @@ function buildOUChart() {
       if (a.product !== b.product) return a.product.localeCompare(b.product);
       return b.obtained - a.obtained; // within same product: largest first
     });
-    labels      = sorted.map(r => `${r.code} · ${r.product}`);
+    labels      = sorted.map(r => `${r.code} · ${prodLabel(r.product)}`);
     obtData     = sorted.map(r => r.obtained);
     utilData    = sorted.map(r => r.utilized);
     remainData  = sorted.map(r => r.remaining);
@@ -522,7 +544,7 @@ function buildOUChart() {
     const prodSummary = isMulti
       ? `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
            ${prods.map(r => `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600">
-             <span style="width:7px;height:7px;border-radius:2px;background:${ouPC(r.product).solid};flex-shrink:0"></span>${r.product}
+             <span style="width:7px;height:7px;border-radius:2px;background:${ouPC(r.product).solid};flex-shrink:0"></span>${prodLabel(r.product)}
            </span>`).join('<span style="color:var(--border2);margin:0 2px">·</span>')}
            <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)">${prods.length} products</span>
          </div>`
@@ -578,7 +600,7 @@ function buildOUChart() {
           <td style="padding:3px 8px">
             <span style="display:inline-flex;align-items:center;gap:5px;padding-left:14px">
               <span style="width:7px;height:7px;border-radius:50%;background:${ouPC(r.product).solid};flex-shrink:0"></span>
-              <span style="font-size:11.5px;color:var(--txt2)">${r.product}</span>
+              <span style="font-size:11.5px;color:var(--txt2)">${prodLabel(r.product)}</span>
             </span>
           </td>
           <td class="t-r t-mono" style="font-size:11.5px;color:var(--txt2)">${Nmt(r.obtained)}</td>
@@ -671,7 +693,7 @@ function buildOUChartOverview() {
           callbacks: {
             title: ctx => {
               const r = tooltipSource[ctx[0].dataIndex];
-              return r ? (r.code ? `${r.code} · ${r.product}` : r.label) : labels[ctx[0].dataIndex];
+              return r ? (r.code ? `${r.code} · ${prodLabel(r.product)}` : r.label) : labels[ctx[0].dataIndex];
             },
             label: ctx => {
               const i = ctx.dataIndex;

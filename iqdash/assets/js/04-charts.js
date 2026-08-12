@@ -491,7 +491,7 @@ function buildAvailableQuota() {
         </div>
       </div>
       <div class="avq-mt" style="color:${avqColor}">${dispAvq >= 0 ? fmtMt(dispAvq) : '('+fmtMt(Math.abs(dispAvq))+')'}  MT</div>
-      <div class="avq-prod">${r.product}</div>
+      <div class="avq-prod">${prodLabel(r.product)}</div>
     </div>`;
   }).join('');
 

@@ -265,7 +265,7 @@ function buildRevMgmtSection(co) {
       <div class="rr-cycle-dot" style="background:${dotColor}"></div>
       <div class="rr-cycle-body">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <div class="rr-cycle-type">${c.type}${isActive ? ' <span style="font-size:9px;font-weight:700;padding:1px 5px;background:var(--amber-lt);color:#fff;border-radius:3px;margin-left:4px">ACTIVE</span>' : ''}</div>
+          <div class="rr-cycle-type">${canonProdInText(c.type)}${isActive ? ' <span style="font-size:9px;font-weight:700;padding:1px 5px;background:var(--amber-lt);color:#fff;border-radius:3px;margin-left:4px">ACTIVE</span>' : ''}</div>
           ${isObt2TBA ? `<button onclick="document.getElementById('rrObtTotal')?.scrollIntoView({behavior:'smooth',block:'center'}); document.querySelector('.rr-obt-prod-inp')?.focus()"
             style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid var(--teal-bd);background:var(--teal-bg);color:var(--teal);cursor:pointer;white-space:nowrap;flex-shrink:0">
             ✏️ Isi Obtained MT
@@ -297,9 +297,9 @@ function buildRevMgmtSection(co) {
       co.revFrom.forEach((f, i) => {
         const t = (co.revTo || [])[i] || {};
         changeHtml += `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px">
-          <span style="padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-weight:600">${f.prod} — ${(f.mt||'').toLocaleString ? (typeof f.mt==='number'?f.mt.toLocaleString(MT_LOCALE):f.mt) : f.mt} MT</span>
+          <span style="padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-weight:600">${prodLabel(f.prod)} — ${(f.mt||'').toLocaleString ? (typeof f.mt==='number'?f.mt.toLocaleString(MT_LOCALE):f.mt) : f.mt} MT</span>
           <span style="color:var(--txt3)">→</span>
-          <span style="padding:2px 8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:3px;font-weight:700;color:var(--green)">${t.prod||'?'} — ${(typeof t.mt==='number'?t.mt.toLocaleString(MT_LOCALE):t.mt)||'TBA'} MT</span>
+          <span style="padding:2px 8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:3px;font-weight:700;color:var(--green)">${t.prod?prodLabel(t.prod):'?'} — ${(typeof t.mt==='number'?t.mt.toLocaleString(MT_LOCALE):t.mt)||'TBA'} MT</span>
         </div>`;
       });
       changeHtml += `</div></div>`;
@@ -982,7 +982,7 @@ function saveEdit() {
     if (missingDates.length) {
       if (typeof flagMissingUtilDates === 'function') flagMissingUtilDates(missingDates);
       alert('Ada ' + missingDates.length + ' lot utilisasi dengan MT tapi tanpa tanggal '
-        + '(' + missingDates.map(m => `${m.prod} Lot ${m.idx + 1}`).join(', ') + ').\n\n'
+        + '(' + missingDates.map(m => `${prodLabel(m.prod)} Lot ${m.idx + 1}`).join(', ') + ').\n\n'
         + 'Isi ETA JKT (atau PIB Date) dulu — tanpa tanggal, MT tersebut tidak akan '
         + 'muncul di filter periode manapun.');
       return;

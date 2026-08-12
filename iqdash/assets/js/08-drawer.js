@@ -41,7 +41,7 @@ function buildCycleTimeline(co) {
           const mtTxt = v !== 'TBA' && typeof v === 'number' ? fmtMt(v) + ' MT' : (v || 'TBA');
           return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 6px;border-radius:3px;background:${bg};border:1px solid ${col}33;color:${col}">
             <span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:${col};flex-shrink:0"></span>
-            <span style="font-weight:600">${k}</span>
+            <span style="font-weight:600">${prodLabel(k)}</span>
             <span style="font-family:'DM Mono',monospace;opacity:.8">${mtTxt}</span>
           </span>`;
         }).join(' ')
@@ -53,7 +53,7 @@ function buildCycleTimeline(co) {
       </div>
       <div style="flex:1;padding:0 0 0 8px;margin-bottom:2px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px">
-          <span style="font-size:11px;font-weight:700;color:${col.tx}">${c.type}</span>
+          <span style="font-size:11px;font-weight:700;color:${col.tx}">${canonProdInText(c.type)}</span>
           ${c.mt!==undefined&&c.mt!==0?`<span style="font-size:10.5px;font-family:'DM Mono',monospace;color:var(--txt2);font-weight:600">${c.mt==='TBA'?'TBA MT':fmtMt(Math.abs(typeof c.mt==='number'?c.mt:0))+' MT'}</span>`:''}
         </div>
         <div style="display:flex;gap:10px;margin:3px 0;flex-wrap:wrap">
@@ -111,7 +111,7 @@ function openDrawer(code) {
   </div>`;
 
   const spiInfo = `<div class="d-sec">SPI / Permit Details</div><div class="dl">
-    <div class="dl-r"><div class="dl-k">Products</div><div class="dl-v">${co.products.join(' · ')}</div></div>
+    <div class="dl-r"><div class="dl-k">Products</div><div class="dl-v">${co.products.map(prodLabel).join(' · ')}</div></div>
     <div class="dl-r"><div class="dl-k">Status</div><div class="dl-v">${statusBadge(co)}</div></div>
     <div class="dl-r"><div class="dl-k">SPI / Pertek</div><div class="dl-v" style="font-size:11.5px;font-family:'DM Mono',monospace;line-height:1.5">${co.spiRef}</div></div>
     ${co.pertekNo?`<div class="dl-r"><div class="dl-k">PERTEK No.</div><div class="dl-v" style="font-family:'DM Mono',monospace;color:var(--blue)">${co.pertekNo}</div></div>`:''}
@@ -168,7 +168,7 @@ function openDrawer(code) {
                 return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
                   <div style="flex:1;padding:5px 9px;background:${isRet?'var(--blue-bg)':'var(--green-bg)'};border:1px solid ${isRet?'var(--blue-bd)':'var(--green-bd)'};border-radius:var(--r)">
                     <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:${isRet?'var(--blue)':'var(--green)'};margin-bottom:2px">${t.label}</div>
-                    <div style="font-weight:700;color:${isRet?'var(--blue)':'var(--green)'}">${t.prod}</div>
+                    <div style="font-weight:700;color:${isRet?'var(--blue)':'var(--green)'}">${prodLabel(t.prod)}</div>
                     <div style="font-size:10.5px;font-family:'DM Mono',monospace;color:${isRet?'var(--blue)':'var(--green)'}">${fmtMt(t.mt)} MT</div>
                   </div>
                 </div>`;
@@ -213,7 +213,7 @@ function openDrawer(code) {
     const drDispReal = ra.cargoArrived ? ra.realPct  : null;
     const drDispUtil = ra.cargoArrived ? null        : ra.utilPct;
     utilInfo = `<div class="d-sec">Import Status, Utilization &amp; Realization</div><div class="dl">
-      <div class="dl-r"><div class="dl-k">Product</div><div class="dl-v">${ra.product}</div></div>
+      <div class="dl-r"><div class="dl-k">Product</div><div class="dl-v">${canonProdInText(ra.product)}</div></div>
       <div class="dl-r"><div class="dl-k">Obtained Quota</div><div class="dl-v t-mono">${fmtMt(ra.obtained)} MT</div></div>
       <div class="dl-r"><div class="dl-k">Import Volume</div><div class="dl-v t-mono" style="color:var(--txt2)">${ra.berat.toLocaleString(MT_LOCALE)} MT <span style="font-size:10px;color:var(--txt3)">(allocated/sold)</span></div></div>
       <div class="dl-r"><div class="dl-k">Utilization %</div><div class="dl-v">${drDispUtil!=null?`<strong style='color:var(--blue)'>${(drDispUtil*100).toFixed(1)}%</strong> <span style='font-size:10px;color:var(--txt3)'>(cargo in shipment — moves to Realization upon JKT arrival)</span>`:'<span style="font-size:11px;color:var(--txt3);font-style:italic">— Cargo arrived, see Realization %</span>'}</div></div>
@@ -240,7 +240,7 @@ function openDrawer(code) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
         <div style="padding:7px 10px;background:#fff;border:1px solid #e9d5ff;border-radius:var(--r)">
           <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--txt3);margin-bottom:2px">Product</div>
-          <div style="font-weight:700;color:#5b21b6">${ra.reapplyProduct}</div>
+          <div style="font-weight:700;color:#5b21b6">${canonProdInText(ra.reapplyProduct)}</div>
         </div>
         <div style="padding:7px 10px;background:#fff;border:1px solid #e9d5ff;border-radius:var(--r)">
           <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--txt3);margin-bottom:2px">Submitted On</div>
@@ -321,7 +321,7 @@ function openDrawer(code) {
         lotRealTotal += rm;
         const arrived = l.cargoArrived || l.arrived;
         lotRealRows += `<tr>
-          <td style="padding:4px 8px;font-size:11px">${product}</td>
+          <td style="padding:4px 8px;font-size:11px">${prodLabel(product)}</td>
           <td style="padding:4px 8px;font-size:11px;text-align:center">${l.lotNo != null ? l.lotNo : '-'}</td>
           <td style="padding:4px 8px;font-size:11px;text-align:right;font-family:'DM Mono',monospace;font-weight:700">${rm.toLocaleString(MT_LOCALE)}</td>
           <td style="padding:4px 8px;font-size:11px;text-align:center">${l.pibDate || '—'}</td>
@@ -380,7 +380,7 @@ function openDrawerPending(code) {
       </div>` : ''}
     </div>
     <div class="dl">
-      <div class="dl-r"><div class="dl-k">Products</div><div class="dl-v">${chips(co.products)}</div></div>
+      <div class="dl-r"><div class="dl-k">Products</div><div class="dl-v">${chips((co.products||[]).map(prodLabel))}</div></div>
       <div class="dl-r"><div class="dl-k">Submitted</div><div class="dl-v t-mono">${fmtMt(co.mt||0)} MT</div></div>
       <div class="dl-r"><div class="dl-k">Submit Date</div><div class="dl-v">${co.remarks||'—'}</div></div>
       <div class="dl-r"><div class="dl-k">Last Update</div><div class="dl-v">${co.date||'—'}</div></div>
@@ -422,7 +422,7 @@ function handleSearch(q) {
     const div = document.createElement('div'); div.className = 'sd-row';
     div.innerHTML = `<div class="sd-code">${co.code}</div>
       <div class="sd-meta">
-        <div class="sd-name">${(co.products||[]).join(' · ')} ${badge}</div>
+        <div class="sd-name">${(co.products||[]).map(prodLabel).join(' · ')} ${badge}</div>
         <div class="sd-detail">${r.type==='PENDING'?co.status:(co.spiRef||'').slice(0,60)}${ra?` · Realization: ${(ra.realPct*100).toFixed(0)}%`:''}</div>
       </div>`;
     div.onclick = () => { dd.classList.remove('open'); document.getElementById('gSearch').value=''; r.type==='PENDING'?openDrawerPending(co.code):openDrawer(co.code); };
@@ -524,7 +524,7 @@ async function openRealizationDetail(code) {
               'Source':      'Operations (lot)',
             });
             lotRows += `<tr>
-              <td style="padding:6px 10px;font-size:12px">${esc(product)}</td>
+              <td style="padding:6px 10px;font-size:12px">${esc(prodLabel(product))}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:center">${esc(l.lotNo != null ? l.lotNo : '-')}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;font-weight:700">${rm.toLocaleString(MT_LOCALE)}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:center">${esc(l.pibDate || '—')}</td>

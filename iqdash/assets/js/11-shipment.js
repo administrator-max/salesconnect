@@ -45,7 +45,7 @@ function buildSalesOpsForm(co) {
       <div class="sprod-hdr">
         <div class="sprod-hdr-left">
           <div class="sprod-hdr-dot" style="background:${dot}"></div>
-          <span class="sprod-hdr-name">${prod}</span>
+          <span class="sprod-hdr-name">${prodLabel(prod)}</span>
           <span class="sprod-quota-badge">PERTEK: ${obtMT.toLocaleString(MT_LOCALE)} MT</span>
         </div>
         <span class="sprod-avail-badge${availMT < 0 ? ' warn' : ''}" id="sales-avail-${prod.replace(/[^a-zA-Z0-9]/g,'_')}">
@@ -113,7 +113,7 @@ function buildSalesOpsForm(co) {
       <div class="sprod-hdr">
         <div class="sprod-hdr-left">
           <div class="sprod-hdr-dot" style="background:${dot}"></div>
-          <span class="sprod-hdr-name">${prod}</span>
+          <span class="sprod-hdr-name">${prodLabel(prod)}</span>
           <span class="sprod-quota-badge">PERTEK: ${obtMT.toLocaleString(MT_LOCALE)} MT</span>
         </div>
         <span class="sprod-avail-badge" id="ops-real-${prod.replace(/[^a-zA-Z0-9]/g,'_')}">
