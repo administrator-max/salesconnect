@@ -594,6 +594,39 @@ function scopedAvailByProd(co) {
   return out;
 }
 
+/* Submitted per produk, diiris ke periode aktif — pasangan per-produk dari
+   reportSubmittedTotal(). Aturan per siklusnya SAMA: hanya `Submit #N` (bukan
+   Revision), dedup per tipe, lewati mt<=0 dan artefak revision-request, lalu
+   digerbang tanggal Submit MOI.
+
+   Ada karena drill Obtained memakai getSubmittedByProd() yang SEPANJANG WAKTU
+   di atas kolam yang sudah difilter periode — sehingga tile "Total Submit"-nya
+   membaca 220.020 MT terhadap kartu 66.745 (temuan audit 2026-08-12).
+   All Time -> getSubmittedByProd() apa adanya. */
+function scopedSubmittedByProd(co) {
+  if (!co) return {};
+  if (!PERIOD.active) {
+    return (typeof getSubmittedByProd === 'function') ? getSubmittedByProd(co) : {};
+  }
+  const out = {};
+  const seen = new Set();
+  (co.cycles || []).forEach(c => {
+    if (!/^submit\s*#\d/i.test(c.type || '')) return;
+    const mt = typeof c.mt === 'number' ? c.mt : 0;
+    if (mt <= 0) return;
+    const k = String(c.type).toLowerCase().trim();
+    if (seen.has(k)) return;
+    seen.add(k);
+    if (c._fromRevReq) return;
+    if (!inPd(pDate(c.submitDate))) return;
+    Object.entries(c.products || {}).forEach(([p, v]) => {
+      const n = Number(v) || 0;
+      if (n > 0) { const key = _canonProd(p); out[key] = (out[key] || 0) + n; }
+    });
+  });
+  return out;
+}
+
 /**
  * Extract all key dates from a single cycle object.
  *

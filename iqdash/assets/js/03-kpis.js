@@ -649,9 +649,12 @@ function refreshUtilDrill() {
   const utilColor  = u => u >= 0.8 ? 'var(--green)' : u >= 0.5 ? 'var(--blue)' : 'var(--amber)';
   const periodLabel = PERIOD.active ? PERIOD.label : 'All Time';
 
-  // Per-product rows over kpiPool() — SPI + PENDING, same set the card counts.
+  /* Kolam WAJIB sama dengan reportUtilizedTotal(): utilizationPool() melebarkan
+     kpiPool dengan company yang PERTEK-nya di luar jendela tapi KARGONYA masuk.
+     Tanpa itu drill ini membaca 9.605 MT terhadap kartu 12.525 — company yang
+     memakai kuota di dalam periode hilang dari rinciannya (audit 2026-08-12). */
   const rows = [];
-  kpiPool().forEach(co => {
+  (PERIOD.active ? utilizationPool(kpiPool()) : allCompaniesPool()).forEach(co => {
     const obtained = typeof co.obtained === 'number' ? co.obtained : 0;
     if (obtained <= 0) return;
     const ubp = scopedUtilByProd(co);    // period-aware (rule #3)
@@ -683,7 +686,7 @@ function refreshUtilDrill() {
 
   const totalUtil  = rows.reduce((s,r) => s+r.utilMT, 0);
   const totalAvail = rows.reduce((s,r) => s+r.availMT, 0);
-  const totalObt   = filteredSPI().reduce((s,co) => s+(co.obtained||0), 0);
+  const totalObt   = reportObtainedTotal().mt;   // kanonik, bukan obtained all-time
   const avgUtil    = totalObt > 0 ? (totalUtil/totalObt*100).toFixed(1) : '—';
 
   document.getElementById('utilDrillSubtitle').textContent =
@@ -1430,10 +1433,13 @@ function refreshObtainedDrill() {
   // ── Build per-(company, product) rows ───────────────────────────────
   const rows = [];
   pool.forEach(co => {
-    const subByProd = (typeof getSubmittedByProd === 'function') ? getSubmittedByProd(co) : {};
-    const obtByProd = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
+    /* Keempatnya WAJIB satu basis dengan kartu yang membuka drill ini. Dulu
+       Submit & Obtained diambil SEPANJANG WAKTU di atas kolam yang sudah
+       difilter periode, sehingga tile-nya membaca Submit 220.020 / Obtained
+       29.120 terhadap kartu 66.745 / 19.640 (audit 2026-08-12). */
+    const subByProd = (typeof scopedSubmittedByProd === 'function') ? scopedSubmittedByProd(co) : {};
+    const obtByProd = (typeof scopedObtainedByProd  === 'function') ? scopedObtainedByProd(co)  : {};
     const utilBy    = scopedUtilByProd(co);   // period-aware (rule #3)
-    const availBy   = scopedAvailByProd(co);
 
     // Union of products across submit + obtained (some products only in re-apply cycle)
     const allProds = [...new Set([...Object.keys(subByProd), ...Object.keys(obtByProd)])];
@@ -1443,7 +1449,7 @@ function refreshObtainedDrill() {
       const subMT = subByProd[prod] || 0;
       const obtMT = obtByProd[prod] || 0;
       const utilMT = utilBy[prod] || 0;
-      const avqMT = availBy[prod] != null ? availBy[prod] : Math.max(0, obtMT - utilMT);
+      const avqMT = (typeof cumulativeAvailForProd === 'function') ? cumulativeAvailForProd(co, prod) : Math.max(0, obtMT - utilMT);
       // ETA JKT — the expected JKT arrival(s) Sales filled on this product's
       // shipment lots. Show the latest ETA (raw string as entered); tooltip
       // lists every distinct ETA when a product has multiple lots.
