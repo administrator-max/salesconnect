@@ -1084,10 +1084,18 @@ async function doExportXLSX() {
     if (v > 0) { kpi2_mt += v; kpi2_co.add(co.code); }
   });
 
-  // KPI 3: Total Realized (cargoArrived=true in filtered RA)
-  const arrivedRA = fRA.filter(r => r.cargoArrived);
-  const kpi3_mt   = arrivedRA.reduce((s,r) => s + (r.berat||0), 0);
-  const kpi3_co   = arrivedRA.length;
+  /* KPI 3: Total Realized — dari baris PIB (REALIZATIONS.volume @ pib_date),
+     sumber yang dinyatakan spesifikasi laporan dan yang dipakai kartu Realized.
+
+     Dulu menjumlah `ra_records.berat` untuk record cargoArrived — ringkasan
+     satu-baris-per-company yang dijaga manual, artefak BERBEDA yang bisa (dan
+     memang) melenceng: untuk H1 2026 Excel menulis 10.412,217 MT terhadap
+     kartu 15.438,208 MT. Ini persis penyimpangan yang sudah dibereskan di
+     halaman U&R 2026-08-05; salinannya di Excel terlewat waktu itu dan baru
+     ketahuan saat pengecekan menjelang laporan direktur 2026-08-12. */
+  const _real3    = reportRealizedTotal();
+  const kpi3_mt   = _real3.mt;
+  const kpi3_co   = _real3.companies;
   const kpi3_avg  = fRA.length > 0
     ? (fRA.reduce((s,r) => s + (r.cargoArrived ? r.realPct : (r.utilPct||0)), 0) / fRA.length * 100)
     : 0;
@@ -1121,7 +1129,9 @@ async function doExportXLSX() {
     ['KPI', 'MT / Count', 'Companies', 'Notes'],
     ['Total Submitted (Submit MOI)',   kpi1_mt, kpi1_co.size,  'Sum of all Submit #N cycle MTs where Submit MOI date is in period'],
     ['SPI / Pertek Obtained',          kpi2_mt, kpi2_co.size,  'Sum of Obtained #N cycle MTs where Submit MOT date is in period (SPI companies only)'],
-    ['Total Realized (Arrived Cargo)', kpi3_mt, kpi3_co,       'cargoArrived=true records in filtered RA'],
+    ['Total Realized',                 kpi3_mt, kpi3_co,       'Σ REALISASI volume @ PIB date — sumber yang sama dengan kartu Total Realized'],
+    ['Total Utilized',                 reportUtilizedTotal().mt,  reportUtilizedTotal().companies,  'Σ utilisasi diiris tanggal lot — sama dengan kartu Total Utilized'],
+    ['Available Quota',                reportAvailableTotal().mt, reportAvailableTotal().companies, 'Saldo kumulatif — sama dengan kartu Available Quota'],
     ['Avg Realization Rate',           parseFloat(kpi3_avg.toFixed(1)) + '%', '—', 'Avg of realPct (arrived) and utilPct (in shipment) across all filtered RA'],
     ['Re-Apply Target',                kpi4_mt, kpi4_co,       'Eligible = cargoArrived=true AND realPct ≥ 60%'],
     ['New Submission',                 kpi5_mt, kpi5_co.size,  'Sum of Submit #N cycle MTs in PENDING where Submit MOI date is in period'],
