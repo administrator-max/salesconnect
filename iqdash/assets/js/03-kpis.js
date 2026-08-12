@@ -114,6 +114,31 @@ function updateOverviewKPIs() {
     if (sFill) sFill.style.width = _pend.utilized > 0
       ? Math.min(100, _pend.mt / _pend.utilized * 100).toFixed(1) + '%' : '0%';
   }
+
+  /* ── Total Submitted ─────────────────────────────────────────────────
+     Diminta tampil kembali 2026-08-12, di kartu paling kanan sesudah
+     Available Quota. Angkanya dari `_sub` (= reportSubmittedTotal()) yang
+     SUDAH dihitung di atas untuk Approval Rate — bukan hitungan baru, jadi
+     kartu ini tidak mungkin berbeda dari Approval Rate di kartu Obtained
+     maupun dari PDF Summary dan drill-down Submission.
+     Dialamatkan lewat ID, bukan indeks kpis[], supaya penambahan/pengurangan
+     kartu lain tidak menggeser sasarannya. */
+  const subValEl = document.getElementById('kpiSubVal');
+  if (subValEl) {
+    subValEl.textContent = totalSubmitMT > 0 ? fmtMt(totalSubmitMT) : '—';
+    const u = document.getElementById('kpiSubUnit');
+    if (u) u.textContent = _sub.companies > 0
+      ? `MT · ${_sub.companies} compan${_sub.companies !== 1 ? 'ies' : 'y'} submitted` : 'MT';
+    const n = document.getElementById('kpiSubNote');
+    if (n) n.textContent = totalSubmitMT > 0
+      ? `${fmtMt(totalObtainedMT)} obtained dari ${fmtMt(totalSubmitMT)}`
+      : 'Σ Submit #N';
+    /* Bar = porsi yang sudah disetujui. Sengaja rasio yang SAMA dengan
+       Approval Rate, supaya dua kartu bersebelahan tidak bercerita beda. */
+    const f = document.getElementById('kpiSubFill');
+    if (f) f.style.width = totalSubmitMT > 0
+      ? Math.min(100, totalObtainedMT / totalSubmitMT * 100).toFixed(1) + '%' : '0%';
+  }
   if (kpis[1]) {
     kpis[1].querySelector('.kpi-val').textContent  = totalObtainedMT > 0 ? fmtMt(totalObtainedMT) : '—';
     kpis[1].querySelector('.kpi-unit').textContent = obtCoSet.size > 0 ? `MT · ${obtCoSet.size} companies` : 'MT';

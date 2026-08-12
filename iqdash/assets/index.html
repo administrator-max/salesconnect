@@ -531,12 +531,12 @@ window.ensureXLSX = function () {
 <div id="page-overview" class="page active">
 <div class="wrap">
 
-  <!-- 5 KPI CARDS (Target Re-Apply removed) -->
-  <div class="g5 mb14">
+  <!-- 6 KPI CARDS -->
+  <div class="g6 mb14">
     <!-- Total Pending Shipment = Utilized − Realized (permintaan tim 2026-08-10).
-         Menggantikan kartu Total Submitted; angka Submitted tetap dihitung
-         untuk Approval Rate pada kartu Obtained, dan tetap tampil di PDF
-         Summary serta drill-down Submission. -->
+         Sempat MENGGANTIKAN kartu Total Submitted; sejak 2026-08-12 Total
+         Submitted diminta tampil lagi dan kini berdiri sendiri di paling kanan,
+         sesudah Available Quota. -->
     <div class="kpi" onclick="openPendingShipDrill()" style="cursor:pointer" title="Klik untuk rincian per company">
       <div class="kpi-accent" style="background:var(--navy)"></div>
       <div class="kpi-lbl">Total Pending Shipment</div>
@@ -586,7 +586,20 @@ window.ensureXLSX = function () {
         <span>Obtained − Utilization</span><span style="font-size:9px;opacity:.5;margin-left:6px">↗ detail</span>
       </div>
     </div>
-    <!-- Target Re-Apply card removed per request -->
+    <!-- Total Submitted — diminta tampil kembali 2026-08-12, diletakkan PALING
+         KANAN sesudah Available Quota. Angkanya dari reportSubmittedTotal(),
+         sumber yang sama dengan Approval Rate di kartu Obtained dan dengan PDF
+         Summary — bukan hitungan baru. -->
+    <div class="kpi" onclick="openSubmitDrill()" style="cursor:pointer" title="Klik untuk rincian pengajuan per company">
+      <div class="kpi-accent" style="background:var(--violet)"></div>
+      <div class="kpi-lbl">Total Submitted</div>
+      <div class="kpi-val" id="kpiSubVal">—</div>
+      <div class="kpi-unit" id="kpiSubUnit">MT</div>
+      <div class="kpi-bar"><div class="kpi-fill" id="kpiSubFill" style="width:0%;background:var(--violet)"></div></div>
+      <div class="kpi-tag" id="kpiSubTag" style="background:#f5f3ff;color:#5b21b6;border:1px solid #c4b5fd;display:flex;align-items:center;justify-content:space-between">
+        <span id="kpiSubNote">Σ Submit #N</span><span style="font-size:9px;opacity:.5;margin-left:6px">↗ detail</span>
+      </div>
+    </div>
 
   </div>
 
