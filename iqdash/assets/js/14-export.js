@@ -471,12 +471,22 @@ function exportExecutivePDF() {
     </div>
 
     ${(() => {
-      // Build Obtain vs Utilization data from RA pool (same filter as dashboard)
-      const ouRows = filteredSPI().map(co => {
+      /* Obtained per company WAJIB memakai angka yang sama dengan blok KPI di
+         PDF ini dan dengan kartu Obtained di dashboard.
+
+         Dulu memakai `co.obtained` — canonicalObtained SEPANJANG WAKTU — di atas
+         filteredSPI(). Akibatnya SATU PDF memuat DUA "Total Obtained": 19.640 di
+         blok KPI (reportObtainedTotal) dan 29.120 di bagian ini, untuk filter
+         H1 2026 yang sama. Ditemukan saat pengecekan menjelang laporan direktur,
+         2026-08-12 — dan justru di dokumen yang dilaporkan itu sendiri. */
+      const _ouPool = (typeof allCompaniesPool === 'function') ? allCompaniesPool() : filteredSPI();
+      const ouRows = _ouPool.map(co => {
         // Sum across arrival waves — one ra_records row per arrival, so a
         // per-company row must total them, not take a single wave.
         const t = raTotals(co.code);
-        const obtained = typeof co.obtained === 'number' ? co.obtained : 0;
+        const obtained = PERIOD.active
+          ? ((typeof canonicalObtainedFiltered === 'function') ? canonicalObtainedFiltered(co) : 0)
+          : ((typeof canonicalObtained === 'function') ? canonicalObtained(co) : (co.obtained || 0));
         if (!obtained) return null;
         const utilMT = t.utilMT, realMT = t.realMT, isArrived = t.arrived;
         const utilPct = obtained > 0 ? utilMT / obtained : 0;
