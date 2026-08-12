@@ -11,8 +11,12 @@ function renderMain() {
      · Submit/Obtained  → SPI.cycles  (same as PERTEK & SPI page)
      · Utilization      → SPI.utilizationByProd/utilizationMT (same as Available Quota page)
      · Realization      → SPI.realizationByProd + RA.berat (same as Realization Monitoring)
-     · Available Quota  → cumulativeAvailable[ByProd]() (same as Available Quota page)
+     · Available Quota  → availableInPeriod() / cumulativeAvailByProd()
+                          (kolam + gerbang yang sama dengan kartu Available Quota)
   ══════════════════════════════════════════════════════════════════ */
+  /* Dihitung SEKALI untuk seluruh tabel, bukan per baris. */
+  const _avqCodes = (typeof availablePoolCodes === 'function') ? availablePoolCodes() : null;
+
   const buildCompanyRow = (d) => {
     const ra  = getRA(d.code);
     const _rs = revisionStatus(d);
@@ -35,15 +39,25 @@ function renderMain() {
            yang tidak ikut diperbarui saat utilisasi bertambah (kasus ADP
            2026-08-10: tertulis sisa 100 MT padahal 350/350 sudah terpakai).
        Hari ini kolom itu kebetulan cocok untuk semua company, jadi ini bukan
-       koreksi angka melainkan menutup celahnya. */
-    const availMT = cumulativeAvailable(d);
+       koreksi angka melainkan menutup celahnya.
+
+       Gerbang periode ikut dipakai (availableInPeriod): company yang kuotanya
+       BELUM terbit sampai akhir jendela menampilkan 0, sama seperti kartu.
+       Tanpa itu, filter "2025 saja" membuat kolom ini menjumlah 5.633 MT
+       terhadap kartu 853 — saldo 2026 dipamerkan di jendela 2025. */
+    const availMT = (typeof availableInPeriod === 'function')
+      ? availableInPeriod(d, _avqCodes) : cumulativeAvailable(d);
     const realMT  = (ra && ra.cargoArrived) ? ra.berat   : 0;
     const realPct = (ra && ra.cargoArrived) ? ra.realPct : null;
     const utilPct = (ra && !ra.cargoArrived) ? ra.utilPct : null;
 
     // Per-product data
     const ubp = scopedUtilByProd(d);   // period-aware (rule #3): util sliced by lot date
-    const abp = cumulativeAvailByProd(d);   // saldo kumulatif, sepasang dengan availMT di atas
+    /* Sub-baris per produk ikut gerbang yang sama dengan availMT di atas —
+       kalau company-nya di luar kolam periode ini, tidak boleh ada satu pun
+       produknya yang menampilkan sisa. */
+    const digate = availMT <= 0 && cumulativeAvailable(d) > 0;
+    const abp = digate ? {} : cumulativeAvailByProd(d);
     const rbp = d.realizationByProd  || {};
     const arb = d.arrivedByProd      || {};
     const obtByProd = getObtainedByProd(d);
@@ -70,7 +84,7 @@ function renderMain() {
         const obtP  = obtByProd[prod]  || 0;
         const subP  = submitByProd[prod] || 0;
         const utilP = ubp[prod]  || 0;
-        const avqP  = cumulativeAvailForProd(d, prod);
+        const avqP  = digate ? 0 : cumulativeAvailForProd(d, prod);
         const realP   = rbp[prod] != null ? rbp[prod]
                       : (arb[prod] === true && ra && ra.obtained > 0)
                         ? Math.round(ra.berat * (obtP / (ra.obtained||1)) * 100) / 100
@@ -103,7 +117,9 @@ function renderMain() {
       return {
         code:d.code, group:d.group, products:d.products,
         submit1:d.mt, obtained:obt, utilMT:util, berat:0,
-        realPct:null, utilPct:null, availMT:cumulativeAvailable(d),
+        realPct:null, utilPct:null,
+        availMT:(typeof availableInPeriod === 'function')
+                  ? availableInPeriod(d, _avqCodes) : cumulativeAvailable(d),
         revType:'none', revNote:'', spiRef:d.status, remarks:d.remarks,
         rowType:'PENDING', subRows:[],
       };
@@ -166,7 +182,12 @@ function renderMain() {
   };
 
   const mkAvqCell = (avq, isPending) => {
-    if (isPending) return '<span style="color:var(--txt3)">—</span>';
+    /* Baris PENDING dulu SELALU dicetak "—", berapa pun saldonya. Itu potongan
+       terakhir dari ketidaksesuaian SNSD: barisnya sudah benar menampilkan
+       Obtained 120 MT, tapi kolom Available-nya tetap strip — sementara kartu
+       dan halaman Available Quota menghitung 120 MT itu. Strip hanya untuk yang
+       memang belum punya saldo. */
+    if (isPending && !(avq > 0)) return '<span style="color:var(--txt3)">—</span>';
     const col = avq > 0 ? 'var(--teal)' : avq === 0 ? 'var(--txt3)' : 'var(--red2)';
     return `<span style="color:${col};font-weight:${avq>0?'700':'400'};font-family:'DM Mono',monospace">${fmtMt(avq)} MT</span>`;
   };

@@ -395,11 +395,26 @@ function buildAvailableQuota() {
      per-company clamping is right — a single company can never show negative
      availability. */
 
+  /* Badge diperbarui SEBELUM jalur kosong keluar lebih awal.
+
+     Dulu di bawah, sesudah `if (rows.length === 0) … return`. Akibatnya untuk
+     periode yang tidak punya saldo sama sekali (mis. Q4 2026) chart menulis
+     "No company still holds an available balance" sementara badge di sebelahnya
+     MASIH memampang angka periode sebelumnya — 11.178 MT. Dua pernyataan yang
+     bertentangan, berdampingan, di satu kartu yang sama.
+
+     Ini kelas bug yang berbeda dari yang lain: bukan salah hitung melainkan
+     RENDER TERTINGGAL. Setiap permukaan yang bisa keluar lebih awal harus
+     menulis keadaan kosongnya dulu, bukan membiarkan sisa render sebelumnya. */
+  const badge = document.getElementById('avqTotalBadge');
+  const setBadge = mt => { if (badge) badge.textContent = `Available: ${fmtMt(mt)} MT`; };
+
   // Render bar chart
   const el = document.getElementById('avqChart');
-  if (!el) return;
+  if (!el) { setBadge(rows.reduce((s, r) => s + r.avq, 0)); return; }
 
   if (rows.length === 0) {
+    setBadge(0);
     el.innerHTML = `<div style="padding:30px;text-align:center;color:var(--txt3);font-size:12px">
       No company still holds an available balance in the selected period.
     </div>`;
@@ -435,12 +450,8 @@ function buildAvailableQuota() {
 
   const maxObt = Math.max(...filtered.map(r => r.obtained), 1);
 
-  // Update total badge
-  const badge = document.getElementById('avqTotalBadge');
-  if (badge) {
-    const filtTotal = filtered.reduce((s,r)=>s+r.avq,0);
-    badge.textContent = `Available: ${fmtMt(filtTotal)} MT`;
-  }
+  // Update total badge (pill produk aktif ikut menyaringnya)
+  setBadge(filtered.reduce((s, r) => s + r.avq, 0));
 
   // Build HTML rows
   const hdr = `<div class="avq-hdr">

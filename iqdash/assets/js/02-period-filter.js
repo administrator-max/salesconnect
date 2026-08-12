@@ -1027,6 +1027,32 @@ function cumulativeAvailByProd(co) {
   return out;
 }
 
+/* Kode company yang ADA di kolam Available untuk periode aktif.
+
+   Dipakai permukaan yang mendaftar SEMUA company (tabel All Companies, drawer)
+   supaya kolom Available-nya tunduk pada gerbang yang sama dengan kartu.
+   Tanpa ini, memfilter "2025 saja" membuat tabel All Companies menjumlah 5.633
+   MT sementara kartu menyebut 853 — company yang kuotanya baru terbit di 2026
+   tetap memamerkan saldo penuhnya di jendela 2025, padahal saldo itu belum ada
+   di sana. Satu label, dua angka, di aplikasi yang sama.
+
+   Sengaja TIDAK di-cache: kolamnya berubah bukan cuma saat periode berubah,
+   tapi juga tiap kali data diedit. Cache di sini menukar satu kelas bug dengan
+   kelas lain (render tertinggal), dan dengan ~40 company biayanya tidak
+   terukur. Panggil SEKALI per render, bukan per baris. */
+function availablePoolCodes() {
+  return new Set(availablePool().map(co => co.code));
+}
+
+/* Saldo yang BOLEH ditampilkan untuk periode aktif: saldo kumulatif company,
+   atau 0 bila company itu di luar kolam periode ini. Lolos `codes` bila
+   pemanggil sudah menghitungnya sekali untuk seluruh daftar. */
+function availableInPeriod(co, codes) {
+  if (!co) return 0;
+  const set = codes || availablePoolCodes();
+  return set.has(co.code) ? cumulativeAvailable(co) : 0;
+}
+
 /* Saldo kumulatif SATU produk milik satu company.
 
    Ada supaya pemanggil tidak menulis sendiri pola
@@ -1326,7 +1352,8 @@ if (typeof module !== 'undefined' && module.exports) {
     companiesWithLotsInPeriod, utilizationPool,
     scopedUtilByProd, scopedUtilTotal, scopedAvailByProd, scopedObtainedByProd,
     scopedObtainedDetailByProd,
-    availablePool, cumulativeAvailByProd, cumulativeAvailForProd, availableQuotaRows,
+    availablePool, availablePoolCodes, availableInPeriod,
+    cumulativeAvailByProd, cumulativeAvailForProd, availableQuotaRows,
     reportAvailableTotal, kpiPool, allCompaniesPool,
   };
 }

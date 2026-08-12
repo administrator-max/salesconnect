@@ -249,6 +249,43 @@ AVQ_FN.forEach(([f, fn]) => {
   ok(!/\bavailableByProd\b/.test(b),    `${fn}() tidak membaca availableByProd mentah — kolom stats yang bisa basi`);
 });
 
+console.log('\n-- Gerbang periode berlaku juga di luar halaman AVQ --');
+/* Ditemukan saat audit dashboard live 2026-08-12: memfilter "2025 saja"
+   membuat kolom Available tabel All Companies menjumlah 5.633 MT sementara
+   kartu menyebut 853 — company yang kuotanya baru terbit di 2026 tetap
+   memamerkan saldo penuhnya di jendela 2025. Saldo tidak bisa ada sebelum
+   kuota yang melahirkannya (aturan 2026-08-05); gerbang itu kini dipakai
+   permukaan mana pun yang mencetak angka berlabel Available. */
+setP('2026-01-01', '2026-06-30');
+ctx._snsd = FIXTURE.PENDING[0];
+ok(near(call('availableInPeriod(this._snsd)'), 0),
+   'H1: SNSD (PERTEK 04/08) -> 0 lewat availableInPeriod()',
+   `dapat ${call('availableInPeriod(this._snsd)')}`);
+ok(near(call('cumulativeAvailable(this._snsd)'), 120),
+   'H1: saldo sepanjang waktunya TETAP 120 — yang digate cuma tampilan periodenya');
+setP(null, null);
+ok(near(call('availableInPeriod(this._snsd)'), 120),
+   'All Time: SNSD kembali 120');
+
+/* Σ availableInPeriod atas SELURUH company harus sama dengan angka kartu, di
+   periode mana pun. Inilah yang menjamin tabel All Companies (yang mendaftar
+   semua company) tidak bisa berbeda dari kartu. */
+[['All Time', null, null], ['H1 2026', '2026-01-01', '2026-06-30'],
+ ['Q1 2026', '2026-01-01', '2026-03-31'], ['2025 saja', '2025-01-01', '2025-12-31'],
+ ['Q4 2026', '2026-10-01', '2026-12-31']].forEach(([label, f, t]) => {
+  setP(f, t);
+  const codes = call('availablePoolCodes()');
+  ctx._all = [...FIXTURE.SPI, ...FIXTURE.PENDING];
+  const sigma = call('this._all.reduce((s,co) => s + availableInPeriod(co), 0)');
+  const kartu = call('reportAvailableTotal()');
+  ok(near(sigma, kartu.mt),
+     `${label}: Σ availableInPeriod(semua company) = angka kartu`,
+     `kartu ${kartu.mt} · Σ ${sigma}`);
+  ok(codes.size === kartu.companies,
+     `${label}: jumlah kode di kolam = jumlah company kartu`);
+});
+setP(null, null);
+
 console.log('\n-- Permukaan NON-AVQ tidak boleh membaca kolom saldo mentah --');
 /* Keempat berkas ini bukan halaman Available Quota, jadi tidak perlu memakai
    availableQuotaRows(). Tapi saldonya wajib dari helper kanonik, bukan dari
@@ -306,6 +343,34 @@ ok(Object.keys(nsMap).length === 2, 'tanpa stats: saldo dibagi ke SEMUA co.produ
    `dapat ${JSON.stringify(nsMap)}`);
 ok(near(Object.values(nsMap).reduce((s, v) => s + v, 0), call('cumulativeAvailable(this._nostats)')),
    'tanpa stats: Σ pembagian tetap = saldo company');
+
+console.log('\n-- Jalur KOSONG tidak boleh meninggalkan render periode sebelumnya --');
+/* Ditemukan di dashboard live 2026-08-12, Q4 2026: chart menulis "No company
+   still holds an available balance" sementara badge di sebelahnya MASIH
+   memampang 11.178 MT dari periode sebelumnya. Bukan salah hitung — render
+   tertinggal, karena badge diperbarui SESUDAH `if (rows.length===0) return`.
+   Dua pernyataan bertentangan, berdampingan, di satu kartu yang sama. */
+const chartsSrc = kode('04-charts.js');
+const bAvq = badan(chartsSrc, 'buildAvailableQuota');
+ok(bAvq != null, '04-charts.js: buildAvailableQuota() ditemukan');
+if (bAvq) {
+  const iKosong = bAvq.search(/rows\.length\s*===\s*0/);
+  const iBadge  = bAvq.search(/setBadge\s*\(/);
+  ok(iBadge !== -1 && iKosong !== -1 && iBadge < iKosong,
+     'badge ditulis SEBELUM cabang kosong keluar lebih awal',
+     `posisi setBadge ${iBadge} vs cabang kosong ${iKosong}`);
+  const cabang = bAvq.slice(iKosong, iKosong + 400);
+  ok(/setBadge\s*\(\s*0\s*\)/.test(cabang),
+     'cabang kosong menulis badge 0, bukan membiarkan angka lama');
+}
+
+/* Baris PENDING di tabel All Companies dulu SELALU dicetak "—" berapa pun
+   saldonya, sehingga SNSD tampil Obtained 120 MT tapi Available strip. */
+const mainSrc = kode('07-tables-main.js');
+ok(!/isPending\s*\)\s*return\s*'<span[^>]*>—/.test(mainSrc),
+   '07-tables-main.js: baris PENDING tidak lagi otomatis "—" tanpa melihat saldo');
+ok(/isPending\s*&&\s*!\(\s*avq\s*>\s*0\s*\)/.test(mainSrc),
+   '07-tables-main.js: strip hanya untuk PENDING yang memang bersaldo nol');
 
 console.log('\n-- Kolam & rincian hanya terdefinisi di 02-period-filter.js --');
 ['availablePool', 'cumulativeAvailByProd', 'availableQuotaRows'].forEach(h => {

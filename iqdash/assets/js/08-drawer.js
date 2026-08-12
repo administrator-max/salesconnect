@@ -127,12 +127,21 @@ function openDrawer(code) {
          halaman Available Quota, bukan snapshot yang bisa tertinggal. */
       if (co.availableQuota == null && typeof canonicalObtained === 'function'
           && canonicalObtained(co) <= 0) return '';
-      const avq = (typeof cumulativeAvailable === 'function')
-        ? cumulativeAvailable(co) : co.availableQuota;
+      /* Gerbang periode yang sama dengan kartu & tabel: company yang kuotanya
+         belum terbit sampai akhir jendela menampilkan 0 di jendela itu. */
+      const avq = (typeof availableInPeriod === 'function')
+        ? availableInPeriod(co)
+        : (typeof cumulativeAvailable === 'function' ? cumulativeAvailable(co) : co.availableQuota);
       if (avq == null) return '';
+      const penuh = (typeof cumulativeAvailable === 'function') ? cumulativeAvailable(co) : avq;
       const warna = avq > 0 ? 'var(--teal)' : avq === 0 ? 'var(--txt3)' : 'var(--red2)';
-      const catatan = co.revType === 'active'
+      let catatan = co.revType === 'active'
         ? ' <span style="font-size:9.5px;font-weight:400;color:var(--amber2)">(original PERTEK − revision TBA)</span>' : '';
+      /* Tanpa keterangan ini, 0 MT terbaca seperti data hilang padahal
+         maksudnya "belum ada saldo PADA periode yang sedang difilter". */
+      if (avq <= 0 && penuh > 0) {
+        catatan += ` <span style="font-size:9.5px;font-weight:400;color:var(--txt3)">(0 pada ${PERIOD.label || 'periode ini'}; ${fmtMt(penuh)} MT sepanjang waktu)</span>`;
+      }
       return `<div class="dl-r"><div class="dl-k">Available Quota</div><div class="dl-v" style="font-weight:700;color:${warna};font-family:'DM Mono',monospace">${fmtMt(avq)} MT${catatan}</div></div>`;
     })()}
     ${co.updatedBy?`<div class="dl-r"><div class="dl-k">Last Updated By</div><div class="dl-v"><span class="upd-tag upd-${co.updatedBy.toLowerCase()}">${co.updatedBy}</span>${co.updatedDate?' · '+co.updatedDate:''}</div></div>`:''}
