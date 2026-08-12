@@ -63,8 +63,13 @@ is_ignored() {
   return 1
 }
 
-# ── optional path filter from args ───────────────────────────────────────────
-FILTER=("$@")
+# ── optional path filter from args (plus --allow-dirty escape hatch) ─────────
+ALLOW_DIRTY=0
+ARGS=()
+for a in "$@"; do
+  if [ "$a" = "--allow-dirty" ]; then ALLOW_DIRTY=1; else ARGS+=("$a"); fi
+done
+FILTER=("${ARGS[@]+"${ARGS[@]}"}")
 in_filter() {
   local f="$1" pre
   [ ${#FILTER[@]} -eq 0 ] && return 0
@@ -85,6 +90,29 @@ while IFS= read -r f; do
 done < <(git ls-files)
 
 if [ ${#files[@]} -eq 0 ]; then echo "Nothing to deploy (check path filter / .git-ftp-ignore)."; exit 0; fi
+
+# ── clean-tree guard ─────────────────────────────────────────────────────────
+# This script uploads the WORKING TREE, not a commit. Without this check an
+# edit that is still in progress (e.g. another session mid-save) silently goes
+# live — it happened on 2026-08-12 with iqdash/assets/js/13-rev-mgmt.js, which
+# reached production as an untested half-written file. Deploy only what is
+# committed; use --allow-dirty to override deliberately.
+dirty=()
+for f in "${files[@]}"; do
+  git diff --quiet HEAD -- "$f" 2>/dev/null || dirty+=("$f")
+done
+if [ ${#dirty[@]} -gt 0 ]; then
+  echo "REFUSING TO DEPLOY — ${#dirty[@]} file(s) in this set differ from the last commit:"
+  printf '  ! %s\n' "${dirty[@]}"
+  if [ $ALLOW_DIRTY -eq 1 ]; then
+    echo "--allow-dirty given → continuing anyway."
+  else
+    echo "Commit them (or 'git stash') first, then re-run. To deploy uncommitted"
+    echo "work on purpose: ./deploy.sh ${FILTER[*]:-} --allow-dirty"
+    exit 1
+  fi
+fi
+
 echo "Deploying ${#files[@]} file(s) → $BASE"
 
 up=0; fail=0; failed=()
