@@ -1064,25 +1064,19 @@ async function doExportXLSX() {
      Mirrors updateOverviewKPIs() logic exactly
   ───────────────────────────────────────────────────── */
 
-  // KPI 1: Total Submitted — use canonicalSubmittedFiltered so the export matches
-  // the Overview exactly (dedup by cycle, per-cycle Submit MOI date gate, Revision
-  // cycles & _fromRevReq excluded → rule #1/#4/#6). The old inline loop double-counted
-  // duplicate cycles and revision submissions.
-  let kpi1_mt = 0, kpi1_co = new Set();
-  [...SPI, ...PENDING].forEach(co => {
-    const v = (typeof canonicalSubmittedFiltered === 'function') ? canonicalSubmittedFiltered(co) : 0;
-    if (v > 0) { kpi1_mt += v; kpi1_co.add(co.code); }
-  });
+  /* KPI 1 & 2 — DIPANGGIL, bukan diturunkan ulang.
 
-  // KPI 2: SPI Obtained — use canonicalObtainedFiltered (PERTEK-terbit gate, dedup,
-  // Revision/pending re-apply excluded → rule #2/#4/#5). The old inline loop used
-  // /^obtained/ (which also matched "Obtained (Revision #N)") with no dedup or terbit
-  // gate, inflating Total Obtained to ~47,415 vs the true 23,590.
-  let kpi2_mt = 0, kpi2_co = new Set();
-  fSPI.forEach(co => {
-    const v = (typeof canonicalObtainedFiltered === 'function') ? canonicalObtainedFiltered(co) : (co.obtained || 0);
-    if (v > 0) { kpi2_mt += v; kpi2_co.add(co.code); }
-  });
+     Keduanya sempat menyusun kolam sendiri. KPI 1 kebetulan cocok; KPI 2 TIDAK:
+     ia menyusuri `fSPI` (SPI saja), sehingga company PENDING yang kuotanya sudah
+     terbit hilang — SNSD 120 MT. Excel menulis 34.620 terhadap kartu 34.740
+     (All Time) dan 1.160 terhadap 1.280 (Q3). Persis kelas bug "kolam sendiri"
+     yang sudah berkali-kali dibereskan hari ini; ini salinan terakhirnya, di
+     file yang dikirim ke manajemen. */
+  const _sub1 = reportSubmittedTotal();
+  const kpi1_mt = _sub1.mt, kpi1_co = { size: _sub1.companies };
+
+  const _obt2 = reportObtainedTotal();
+  const kpi2_mt = _obt2.mt, kpi2_co = { size: _obt2.companies };
 
   /* KPI 3: Total Realized — dari baris PIB (REALIZATIONS.volume @ pib_date),
      sumber yang dinyatakan spesifikasi laporan dan yang dipakai kartu Realized.
@@ -1128,7 +1122,7 @@ async function doExportXLSX() {
     [],
     ['KPI', 'MT / Count', 'Companies', 'Notes'],
     ['Total Submitted (Submit MOI)',   kpi1_mt, kpi1_co.size,  'Sum of all Submit #N cycle MTs where Submit MOI date is in period'],
-    ['SPI / Pertek Obtained',          kpi2_mt, kpi2_co.size,  'Sum of Obtained #N cycle MTs where Submit MOT date is in period (SPI companies only)'],
+    ['SPI / Pertek Obtained',          kpi2_mt, kpi2_co.size,  'Sigma Obtained #N yang PERTEK/SPI-nya terbit di periode - sama dengan kartu SPI/Pertek Obtained (SPI + PENDING)'],
     ['Total Realized',                 kpi3_mt, kpi3_co,       'Σ REALISASI volume @ PIB date — sumber yang sama dengan kartu Total Realized'],
     ['Total Utilized',                 reportUtilizedTotal().mt,  reportUtilizedTotal().companies,  'Σ utilisasi diiris tanggal lot — sama dengan kartu Total Utilized'],
     ['Available Quota',                reportAvailableTotal().mt, reportAvailableTotal().companies, 'Saldo kumulatif — sama dengan kartu Available Quota'],
