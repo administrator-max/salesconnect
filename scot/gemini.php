@@ -3,18 +3,35 @@
 
 const SCOT_OCR_FIELD_KEYS = ['cargo_type','consignee','project_name','product','quantity_mt',
     'bl_number','shipping_line','vessel_name','voyage_number','pol','pod','shipment_route',
-    'etd','eta','shipment_type','vendor_trucking','warehouse_location','pib_billing','remarks','year'];
+    'etd','eta','shipment_type','vendor_trucking','warehouse_location','pib_billing',
+    'bpn','spjm','behandle','sppb','start_unloading','finish_unloading','cargo_status',
+    'start_delivery','enter_warehouse','status','remarks','year'];
+
+const SCOT_OCR_DOC_TYPES = ['BL','PIB','SPPB','BPN','SPJM','Behandle','SuratJalan','Invoice','Other'];
 
 const SCOT_OCR_SYSTEM_PROMPT =
-"You extract shipment data from logistics documents (Ocean Bill of Lading, PIB/customs declaration, Surat Jalan/delivery note, invoices).\n"
+"You extract shipment data from logistics documents (Ocean Bill of Lading, PIB/customs declaration,\n"
+."SPPB/SPJM/BPN customs releases, behandle notice, Surat Jalan/delivery note, warehouse receipts, invoices).\n"
+."The same shipment is updated many times, so a document may carry ONLY milestone dates - that is fine.\n"
 ."Return ONLY a JSON object, no prose, no markdown fences, with exactly this shape:\n"
-."{\"fields\": { ... }, \"confidence\": { ... }}\n"
+."{\"docType\": \"...\", \"fields\": { ... }, \"confidence\": { ... }}\n"
+."\"docType\" is one of: BL, PIB, SPPB, BPN, SPJM, Behandle, SuratJalan, Invoice, Other.\n"
 ."\"fields\" may contain only these keys (omit any you cannot find - do not guess):\n"
 ."  cargo_type Import or Domestic; consignee; project_name; product; quantity_mt (metric tons, number only);\n"
 ."  bl_number; shipping_line; vessel_name; voyage_number (strip leading V.); pol; pod;\n"
 ."  shipment_route Direct or Transit; etd (YYYY-MM-DD); eta (YYYY-MM-DD); shipment_type Container or Breakbulk;\n"
-."  vendor_trucking; warehouse_location; pib_billing (YYYY-MM-DD); remarks; year (4-digit number).\n"
-."\"confidence\" maps each field you returned to a number 0..1. Dates MUST be YYYY-MM-DD. Numbers MUST be plain.";
+."  vendor_trucking; warehouse_location; remarks; year (4-digit number);\n"
+."  pib_billing date the PIB/customs billing was issued;\n"
+."  bpn date on the Bukti Penerimaan Negara (state revenue receipt);\n"
+."  spjm date on the Surat Penetapan Jalur Merah (red-lane notice);\n"
+."  behandle date of the behandle / physical inspection;\n"
+."  sppb date on the Surat Persetujuan Pengeluaran Barang (release approval);\n"
+."  start_unloading / finish_unloading discharge start and finish dates;\n"
+."  start_delivery date goods left the port on a Surat Jalan / delivery note;\n"
+."  enter_warehouse date goods were received at the warehouse;\n"
+."  cargo_status Direct, Via Warehouse or Storage; status Contract, Booked, On Going or Done.\n"
+."\"confidence\" maps each field you returned to a number 0..1. Dates MUST be YYYY-MM-DD. Numbers MUST be plain.\n"
+."Only report a date field when the document really states that specific milestone - never reuse the print date.";
 
 const SCOT_GEMINI_MAX_BYTES = 12582912; // 12 MB inline cap
 
@@ -37,7 +54,9 @@ function scot_gemini_filter(array $obj): array {
         $c = is_numeric($csrc[$k] ?? null) ? (float)$csrc[$k] : null;
         $confidence[$k] = ($c === null) ? 0.5 : max(0.0, min(1.0, $c));
     }
-    return ['fields' => $fields, 'confidence' => $confidence];
+    $docType = is_string($obj['docType'] ?? null) ? trim($obj['docType']) : '';
+    if ($docType !== '' && !in_array($docType, SCOT_OCR_DOC_TYPES, true)) $docType = 'Other';
+    return ['fields' => $fields, 'confidence' => $confidence, 'docType' => $docType];
 }
 
 function scot_gemini_ocr(string $bytes, string $mime, string $name, array $cfg): array {
@@ -79,5 +98,6 @@ function scot_gemini_ocr(string $bytes, string $mime, string $name, array $cfg):
     foreach ($data['candidates'][0]['content']['parts'] ?? [] as $p) { if (!empty($p['text'])) $txt .= $p['text']; }
     $parsed = scot_gemini_filter(json_decode(scot_gemini_strip_json($txt), true) ?: []);
     return ['status'=>'done','method'=>'gemini-vision','source'=>'gemini',
-            'fields'=>$parsed['fields'],'confidence'=>$parsed['confidence'],'textPreview'=>''];
+            'fields'=>$parsed['fields'],'confidence'=>$parsed['confidence'],
+            'docType'=>$parsed['docType'],'textPreview'=>''];
 }

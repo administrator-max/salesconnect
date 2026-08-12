@@ -193,6 +193,10 @@
     <div id="frm-og" class="ch-sec hid" style="margin-bottom:16px">
       <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">✏️ Update Active Shipment</h3>
       <div style="margin-bottom:10px"><label style="font-size:11px;font-weight:600;color:var(--muted)">Select Shipment</label><select id="sel-og" class="sbox" style="margin-top:4px;width:100%"></select></div>
+      <div style="margin-bottom:12px">
+        <div class="upl" id="oz-og" style="padding:14px"><div style="font-size:26px;margin-bottom:4px">📄</div><p style="font-size:13px;font-weight:700;margin-bottom:2px">Scan dokumen update — boleh berkali-kali</p><p style="font-size:11px;color:var(--muted)">SPPB, BPN, SPJM, Behandle, Surat Jalan, B/L revisi — bisa pilih beberapa file sekaligus. Kolom di bawah terisi otomatis.</p><input type="file" id="ofi-og" accept=".pdf,image/*" multiple style="display:none"></div>
+        <div id="ocr-og-status"></div>
+      </div>
       <div id="frm-og-fields"></div>
       <div style="display:flex;gap:8px;margin-top:12px"><button class="abtn" id="btn-upd-og">💾 Save Update</button><button class="cbtn" id="btn-can-og">Cancel</button></div>
       <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
@@ -205,12 +209,12 @@
       <div style="display:flex;gap:8px;margin-top:12px"><button class="abtn" id="btn-add-new">💾 Save New Shipment</button><button class="cbtn" id="btn-can-new">Cancel</button></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
-      <div class="ch-sec" style="cursor:pointer" id="tab-ocr"><div style="text-align:center;padding:10px"><div style="font-size:28px;margin-bottom:6px">📄</div><div style="font-size:13px;font-weight:700">Scan Document (OCR)</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Upload B/L, PIB, Surat Jalan → auto-fill new shipment</div></div></div>
+      <div class="ch-sec" style="cursor:pointer" id="tab-ocr"><div style="text-align:center;padding:10px"><div style="font-size:28px;margin-bottom:6px">📄</div><div style="font-size:13px;font-weight:700">Scan Document (OCR)</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Upload B/L, PIB, SPPB, Surat Jalan → isi otomatis (baru / update)</div></div></div>
       <div class="ch-sec" style="cursor:pointer" id="tab-upl"><div style="text-align:center;padding:10px"><div style="font-size:28px;margin-bottom:6px">📎</div><div style="font-size:13px;font-weight:700">Upload Excel File</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Bulk update from Excel template</div></div></div>
       <div class="ch-sec" style="cursor:pointer" id="tab-exp"><div style="text-align:center;padding:10px"><div style="font-size:28px;margin-bottom:6px">📊</div><div style="font-size:13px;font-weight:700">Export to Excel</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Download full database as .xlsx</div></div></div>
     </div>
     <div id="sec-ocr" class="hid">
-      <div class="upl" id="oz"><div style="font-size:36px;margin-bottom:8px">📄</div><p style="font-size:14px;font-weight:700;margin-bottom:4px">Select or drag & drop a PDF / image</p><p style="font-size:11px;color:var(--muted)">Ocean B/L, PIB, Surat Jalan — fields are extracted for you to review before saving</p><input type="file" id="ofi" accept=".pdf,image/*" style="display:none"></div>
+      <div class="upl" id="oz"><div style="font-size:36px;margin-bottom:8px">📄</div><p style="font-size:14px;font-weight:700;margin-bottom:4px">Select or drag & drop PDF / image (bisa banyak file)</p><p style="font-size:11px;color:var(--muted)">Ocean B/L, PIB, SPPB, Surat Jalan — kalau dokumennya milik shipment yang sudah ada, sistem menawarkan update, bukan bikin baru</p><input type="file" id="ofi" accept=".pdf,image/*" multiple style="display:none"></div>
       <div id="ocr-status"></div>
     </div>
     <div id="sec-upl" class="hid">
