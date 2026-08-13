@@ -192,6 +192,37 @@ async function loadData() {
     (data.products || []).forEach(p => { if (p && p.name) PRODUCT_META[p.name] = p; });
     // Variant → canonical map (e.g. 'GI Boron' → 'GI BORON')
     PRODUCT_ALIASES = data.productAliases || {};
+
+    /* ── Kanonikkan nama produk di SIKLUS, sekali di sini ────────────────
+       `company_product_stats` sudah kanonik ("GI ALLOY"), tapi
+       `cycles[].products` menyimpan ejaan ledger ("GI BORON", "SHEETPILE",
+       "GL BORON"). Setiap permukaan yang menampilkan produk siklus lalu
+       memunculkan ejaan lama: breakdown Obtained, tooltip siklus, kolom
+       Products di PDF, sheet "Submission Cycles" di Excel, tabel Realization.
+
+       Diperbaiki di SATU tempat, bukan di belasan titik render. Empat putaran
+       tambal per-titik sebelumnya membuktikan pendekatan itu selalu menyisakan
+       satu yang terlewat — dan yang terlewat terakhir justru muncul di PDF dan
+       Excel yang dikirim ke manajemen.
+
+       Ini normalisasi DI MEMORI. Baris DB baru ikut kanonik kalau company itu
+       memang di-save; tidak ada penulisan massal. Idempoten — memanggilnya
+       ulang atas data yang sudah kanonik tidak mengubah apa pun. */
+    [SPI, PENDING].forEach(arr => arr.forEach(co => {
+      (co.cycles || []).forEach(c => {
+        if (!c || !c.products) return;
+        const rapi = {};
+        Object.entries(c.products).forEach(([p, v]) => {
+          const k = canonicalProduct(String(p).trim());
+          rapi[k] = (typeof rapi[k] === 'number' && typeof v === 'number') ? rapi[k] + v : v;
+        });
+        c.products = rapi;
+      });
+      if (Array.isArray(co.products)) {
+        co.products = [...new Set(co.products.map(p => canonicalProduct(String(p).trim())))];
+      }
+    }));
+
     // Company directory from DB (fed by company.xlsx)
     COMPANY_DIRECTORY    = data.companyDirectory || [];
     COMPANY_NAME_TO_CODE = {};
