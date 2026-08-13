@@ -223,12 +223,18 @@ async function loadData() {
       }
     }));
 
-    /* `ra_records.product` juga menyimpan ejaan ledger. Ia muncul di tabel
-       Realization Monitoring dan di tabel RA pada PDF — dua permukaan yang
-       tidak menyentuh cycles sama sekali, jadi normalisasi di atas tidak
-       menjangkaunya. */
+    /* `ra_records` juga menyimpan ejaan ledger, di DUA field. Ia muncul di
+       tabel Realization Monitoring, tabel RA pada PDF, dan kolom "Re-Apply
+       Product" di Excel — permukaan yang tidak menyentuh cycles sama sekali,
+       jadi normalisasi di atas tidak menjangkaunya.
+
+       `product` dipakai canonProdInText(), bukan canonicalProduct(): sebagian
+       baris berisi GABUNGAN produk dalam satu sel — "GI BORON + ERW PIPE" —
+       yang tidak akan pernah cocok sebagai kunci alias utuh. */
     (RA || []).forEach(r => {
-      if (r && r.product) r.product = canonicalProduct(String(r.product).trim());
+      if (!r) return;
+      if (r.product)        r.product        = canonProdInText(String(r.product).trim());
+      if (r.reapplyProduct) r.reapplyProduct = canonProdInText(String(r.reapplyProduct).trim());
     });
 
     // Company directory from DB (fed by company.xlsx)
