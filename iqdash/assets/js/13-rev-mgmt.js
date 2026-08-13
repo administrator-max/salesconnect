@@ -301,7 +301,7 @@ function buildRevMgmtSection(co) {
                      ? req.targetProducts
                      : (req.newProduct ? [{ product: req.newProduct, mt: req.requestedMT }] : []);
       const newP     = targets.length > 0 && targets.some(t => t.product)
-        ? targets.map(t => t.product ? ` → <strong style="color:var(--blue)">${t.product}</strong>${t.mt ? ` <span style="font-size:9.5px;color:var(--txt3)">(${Number(t.mt).toLocaleString(MT_LOCALE)} MT)</span>` : ''}` : '').filter(Boolean).join(', ')
+        ? targets.map(t => t.product ? ` → <strong style="color:var(--blue)">${prodLabel(t.product)}</strong>${t.mt ? ` <span style="font-size:9.5px;color:var(--txt3)">(${Number(t.mt).toLocaleString(MT_LOCALE)} MT)</span>` : ''}` : '').filter(Boolean).join(', ')
         : '';
       const note     = req.note || '';
       const isConf   = req.status === 'confirmed';
@@ -351,7 +351,7 @@ function buildRevMgmtSection(co) {
         <td style="padding:8px 10px">
           <div class="pmt-prod-chip">
             <div class="pmt-prod-dot" style="background:${dot}"></div>
-            <span style="font-weight:700">${prod}</span>
+            <span style="font-weight:700">${prodLabel(prod)}</span>
           </div>
           ${newP ? `<div style="font-size:10px;color:var(--txt3);margin-top:2px">${newP}</div>` : ''}
           ${note ? `<div style="font-size:9.5px;color:var(--txt3);margin-top:2px;font-style:italic">💬 ${note}</div>` : ''}
@@ -359,7 +359,7 @@ function buildRevMgmtSection(co) {
         <td style="padding:8px 10px;text-align:right;vertical-align:top">
           ${targets.length > 1
             ? targets.map(t => `<div style="font-size:10px;color:var(--amber);font-family:'DM Mono',monospace;white-space:nowrap">
-                ${t.product||'(sama)'}: <strong>${t.mt!=null?Number(t.mt).toLocaleString(MT_LOCALE):'—'} MT</strong>
+                ${t.product?prodLabel(t.product):'(sama)'}: <strong>${t.mt!=null?Number(t.mt).toLocaleString(MT_LOCALE):'—'} MT</strong>
               </div>`).join('')
             : `<span style="font-weight:700;color:var(--amber);font-family:'DM Mono',monospace">${reqMT}</span>`
           }
