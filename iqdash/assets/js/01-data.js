@@ -223,6 +223,14 @@ async function loadData() {
       }
     }));
 
+    /* `ra_records.product` juga menyimpan ejaan ledger. Ia muncul di tabel
+       Realization Monitoring dan di tabel RA pada PDF — dua permukaan yang
+       tidak menyentuh cycles sama sekali, jadi normalisasi di atas tidak
+       menjangkaunya. */
+    (RA || []).forEach(r => {
+      if (r && r.product) r.product = canonicalProduct(String(r.product).trim());
+    });
+
     // Company directory from DB (fed by company.xlsx)
     COMPANY_DIRECTORY    = data.companyDirectory || [];
     COMPANY_NAME_TO_CODE = {};

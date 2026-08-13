@@ -1050,8 +1050,8 @@ async function doExportXLSX() {
   /* ── helper: products obj → string ── */
   function prodsStr(prods) {
     if (!prods) return '';
-    if (Array.isArray(prods)) return prods.join('; ');
-    return Object.entries(prods).map(([k,v]) => v === 'TBA' ? `${k}: TBA` : `${k}: ${Number(v).toLocaleString(MT_LOCALE)} MT`).join('; ');
+    if (Array.isArray(prods)) return prods.map(prodLabel).join('; ');
+    return Object.entries(prods).map(([k,v]) => v === 'TBA' ? `${prodLabel(k)}: TBA` : `${prodLabel(k)}: ${Number(v).toLocaleString(MT_LOCALE)} MT`).join('; ');
   }
 
   /* ── collect filtered data (same logic as dashboard) ── */
@@ -1173,7 +1173,7 @@ async function doExportXLSX() {
         co.code,
         co.group,
         status,
-        c.type,
+        canonProdInText(c.type),   // "Revision Request — GL BORON" -> GL ALLOY
         prodsStr(c.products),
         mtVal,
         c.submitType  || '',
