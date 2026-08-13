@@ -1231,9 +1231,12 @@ function buildRevisionRequestTable(co) {
     _revReqPidMap[p] = `${base}_${idx}`;
   });
 
-  const ALL_PRODS = Object.keys(PROD_COLORS).concat(
-    Object.keys(obtByProd).filter(k => !PROD_COLORS[k])
-  );
+  /* Dari MASTER PRODUK, bukan peta warna — lihat selectableProducts() di
+     01-data.js. `obtByProd` disertakan supaya produk yang sedang dipegang
+     company ini tetap bisa dipilih walau belum terdaftar di master. */
+  const ALL_PRODS = (typeof selectableProducts === 'function')
+    ? selectableProducts(Object.keys(obtByProd))
+    : Object.keys(PROD_COLORS).concat(Object.keys(obtByProd).filter(k => !PROD_COLORS[k]));
 
   function buildTargetRows(sourceProd, targets, disabled) {
     // targets = [{product:'', mt:null}, ...]
@@ -1387,7 +1390,9 @@ function addRevReqTarget(sourceProd) {
   const wrap = document.getElementById('revreq-targets-wrap-' + pid);
   if (!wrap) return;
   const idx  = wrap.querySelectorAll('.revreq-target-row').length;
-  const ALL_PRODS = Object.keys(PROD_COLORS);
+  // Sumber yang sama dengan buildTargetRows() — master produk, bukan peta warna.
+  const ALL_PRODS = (typeof selectableProducts === 'function')
+    ? selectableProducts() : Object.keys(PROD_COLORS);
   const opts = `<option value="">— Tetap sama —</option>` +
     ALL_PRODS.map(op => `<option value="${op}">${op}</option>`).join('');
   const newRow = document.createElement('div');

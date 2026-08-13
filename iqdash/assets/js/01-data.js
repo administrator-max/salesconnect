@@ -65,6 +65,38 @@ const prodLabel = p => {
   return hit ? PRODUCT_ALIASES[hit] : s;
 };
 
+/* Daftar produk untuk DIPILIH di form (dropdown produk tujuan revisi, dll).
+
+   Sumbernya MASTER PRODUK (`PRODUCT_META`, dari tabel products di DB) — bukan
+   `PROD_COLORS`, yang cuma peta warna tampilan.
+
+   Dilaporkan tim 2026-08-13: CorpSec mau input revisi ke CRC ALLOY /
+   FABRICATED STEEL PAINTED FRAME tapi keduanya tidak ada di dropdown. Padahal
+   keduanya SUDAH terdaftar di master produk lengkap dengan HS code-nya. Yang
+   kurang cuma satu: warnanya belum pernah didaftarkan di PROD_COLORS — dan
+   dropdown-nya dibangun dari peta warna itu. Jadi sebuah produk bisa sah ada di
+   master tapi mustahil dipilih, hanya karena belum diberi warna.
+
+   Ejaan lama (GI BORON, SHEETPILE, ERW PIPE OD≤140mm, HRC/HRPO ALLOY) sengaja
+   TIDAK ikut: master produk sudah kanonik, dan menampilkan dua ejaan untuk satu
+   produk persis keluhan yang dibereskan 2026-08-12 (GI ALLOY vs GI BORON
+   muncul sebagai dua kartu).
+
+   `extra` untuk produk yang sedang DIPEGANG company tapi belum ada di master —
+   supaya tidak ada nilai tersimpan yang mendadak tak bisa dipilih. */
+const selectableProducts = (extra) => {
+  const out = new Map();                       // kanonik -> nama tampil
+  const tambah = p => {
+    const s = String(p == null ? '' : p).trim();
+    if (!s) return;
+    const k = canonicalProduct(s);
+    if (!out.has(k)) out.set(k, k);
+  };
+  Object.keys(PRODUCT_META || {}).forEach(tambah);
+  (extra || []).forEach(tambah);
+  return [...out.values()].sort((a, b) => a.localeCompare(b));
+};
+
 /* Kanonikkan nama produk yang TERTANAM di dalam label yang dibangun sistem —
    mis. cycle type "Revision Request — GI BORON". Di situ nama produk bukan
    field tersendiri melainkan bagian dari string, jadi prodLabel() tidak bisa
@@ -379,6 +411,15 @@ const PROD_COLORS = {
   'PPGL CARBON':        {solid:'#7c3aed', light:'#ede9fe', text:'#5b21b6'},
   'HOLLOW PIPE':        {solid:'#78716c', light:'#f5f5f4', text:'#57534e'},
   'SEAMLESS PIPE':      {solid:'#0d6946', light:'#d1fae5', text:'#065f46'},
+  /* Tiga produk ini sudah lama ada di master produk (lengkap dengan HS code)
+     tapi belum pernah didaftarkan di sini. Peta ini hanya WARNA — tapi dulu
+     dropdown "Produk Tujuan" dibangun darinya, sehingga ketiganya mustahil
+     dipilih meski sah. Dropdown-nya kini bersumber dari master produk
+     (selectableProducts()); warnanya ditambahkan supaya tampilannya seragam,
+     bukan lagi sebagai syarat agar produknya bisa dipakai. */
+  'CRC ALLOY':                     {solid:'#0e7490', light:'#cffafe', text:'#155e75'},
+  'WELDED STAINLESS STEEL PIPE':   {solid:'#4338ca', light:'#e0e7ff', text:'#3730a3'},
+  'FABRICATED STEEL PAINTED FRAME':{solid:'#b45309', light:'#fef3c7', text:'#92400e'},
 };
 const _PC_DEFAULT_GRAY = '#64748b';
 /* Single source of truth for product colors. Resolves aliases first
