@@ -494,7 +494,7 @@ function renderRATable() {
            </span>`).join('')}
            <span style='font-size:9px;color:var(--txt3);margin-top:1px'>${prodKeys.length} products</span>
          </div>`
-      : `<span style='font-size:11.5px'>${d.product}</span>`;
+      : `<span style='font-size:11.5px'>${prodLabel(d.product)}</span>`;
 
     // ── Parent row (company-level totals) ────────────────────────────
     tbody.innerHTML += `<tr style='cursor:pointer;${rowBg};border-top:2px solid var(--border2)' onclick="openDrawer('${d.code}')">

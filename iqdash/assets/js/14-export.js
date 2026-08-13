@@ -440,7 +440,7 @@ function exportExecutivePDF() {
       }).join('');
 
       const topProd = prodEntries[0];
-      const top2 = prodEntries.slice(0, 2).map(([p, v]) => `<strong>${p}</strong> (${N(v)} MT)`).join(' and ');
+      const top2 = prodEntries.slice(0, 2).map(([p, v]) => `<strong>${prodLabel(p)}</strong> (${N(v)} MT)`).join(' and ');
 
       return `<div class="mkov" style="margin-top:8px;border-left-color:#0f766e">
         <div class="mkov-ttl" style="color:#0f766e">Available Quota — Remaining Capacity by Product</div>
@@ -1020,7 +1020,7 @@ ${p2}
   win.document.close();
 }
 
-function doExportCSV() { const hd=['Code','Group','Products','Submit_MT','Obtained_MT','Realized_MT','Realization_Pct','RevType','Status','SPI_Ref','Eligible']; const fSpi=filteredSPI(); const rows=[...fSpi.map(d=>{const ra=getRA(d.code);return[d.code,d.group,d.products.join(';'),d.submit1,d.obtained,ra?ra.berat:'',ra?(ra.realPct*100).toFixed(1)+'%':'',d.revType,statusBadge(d).replace(/<[^>]+>/g,''),d.spiRef,ra?isEligible(ra)?'Yes':'No':''];}), ...filteredPending().map(d=>[d.code,d.group,d.products.join(';'),d.mt,0,'','','pending',d.status,'',''])]; const csv=[hd,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='quota_monitoring_2026.csv';a.click(); }
+function doExportCSV() { const hd=['Code','Group','Products','Submit_MT','Obtained_MT','Realized_MT','Realization_Pct','RevType','Status','SPI_Ref','Eligible']; const fSpi=filteredSPI(); const rows=[...fSpi.map(d=>{const ra=getRA(d.code);return[d.code,d.group,d.products.map(prodLabel).join(';'),d.submit1,d.obtained,ra?ra.berat:'',ra?(ra.realPct*100).toFixed(1)+'%':'',d.revType,statusBadge(d).replace(/<[^>]+>/g,''),d.spiRef,ra?isEligible(ra)?'Yes':'No':''];}), ...filteredPending().map(d=>[d.code,d.group,d.products.map(prodLabel).join(';'),d.mt,0,'','','pending',d.status,'',''])]; const csv=[hd,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='quota_monitoring_2026.csv';a.click(); }
 function doExportJSON() { const d={metadata:{date:'2026-02-26',note:'Realization% = berat/obtained. Eligibility: Realization >= 60%'},spi:filteredSPI(),pending:filteredPending(),reapply:filteredRA()}; const a=document.createElement('a');a.href='data:application/json,'+encodeURIComponent(JSON.stringify(d,null,2));a.download='quota_data_2026.json';a.click(); }
 
 /* ══════════════════════════════════════════════════
@@ -1216,7 +1216,7 @@ async function doExportXLSX() {
     spiRows.push([
       co.code,
       co.group,
-      co.products.join('; '),
+      co.products.map(prodLabel).join('; '),
       status,
       typeof co.submit1 === 'number' ? co.submit1 : '',
       typeof co.obtained === 'number' ? co.obtained : '',
@@ -1266,7 +1266,7 @@ async function doExportXLSX() {
     pendRows.push([
       co.code,
       co.group,
-      co.products.join('; '),
+      co.products.map(prodLabel).join('; '),
       typeof co.mt === 'number' ? co.mt : '',
       fmtD(submitCycle.submitDate),
       co.date || '',
