@@ -136,6 +136,116 @@ function rrFindOrCreateObtained(co, seed) {
   return cy;
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   KONFIRMASI CORPSEC PER PRODUK TUJUAN
+
+   Diminta tim 2026-08-13. Sales merevisi SATU produk asal menjadi BEBERAPA
+   produk tujuan — IKM: Sheet Pile 1.750 MT → CRC Alloy 500 + GL Alloy 1.355 +
+   GL Carbon 120 + PPGL Carbon 600. Panel CorpSec hanya menampilkan SATU kolom
+   konfirmasi berisi 500 MT, yaitu MT target PERTAMA, sehingga tiga target
+   lainnya tidak bisa dikonfirmasi sama sekali.
+
+   Sebabnya `salesRevRequest[produkAsal]` hanya punya satu `confirmedMT` — satu
+   angka untuk berapa pun jumlah targetnya. Yang dibutuhkan: satu baris
+   konfirmasi PER TARGET, dengan nama dan qty persis seperti yang diajukan
+   Sales, dan bisa dikonfirmasi/dibatalkan sendiri-sendiri.
+
+   Bentuk datanya:
+     req.targetProducts   = [{product, mt}]           ← dari Sales, tidak diubah
+     req.confirmedTargets = [{product, mt, status}]   ← BARU, sejajar indeksnya
+     req.confirmedMT      = Σ mt target yang confirmed ← tetap ada demi pembaca
+                                                        lama (tabel SPI, drawer,
+                                                        form edit, shipment)
+     req.status           = pending bila masih ada yang menunggu; confirmed bila
+                            ada yang disetujui dan tak ada yang menunggu;
+                            selain itu rejected.
+   ═══════════════════════════════════════════════════════════════════════ */
+function rrTargets(req, sourceProd) {
+  if (req && Array.isArray(req.targetProducts) && req.targetProducts.length) return req.targetProducts;
+  if (req && req.newProduct) return [{ product: req.newProduct, mt: req.requestedMT }];
+  // "— Tetap sama —": produknya tidak berubah, hanya tonasenya.
+  return [{ product: sourceProd, mt: req ? req.requestedMT : null }];
+}
+
+/* Keadaan tiap target: qty yang DIMINTA Sales + qty & status KONFIRMASI. */
+function rrTargetState(req, sourceProd) {
+  const t  = rrTargets(req, sourceProd);
+  const ct = Array.isArray(req.confirmedTargets) ? req.confirmedTargets : [];
+  return t.map((x, i) => {
+    const simpan = ct[i] || {};
+    return {
+      product:   x.product || sourceProd,
+      requested: x.mt,
+      mt:        simpan.mt != null ? simpan.mt : x.mt,
+      status:    simpan.status || 'pending',
+    };
+  });
+}
+
+/* Simpan kembali keadaan target + turunkan status & confirmedMT tingkat
+   request. Dipanggil setiap kali satu target dikonfirmasi/dibatalkan. */
+function rrSyncReqStatus(req, sourceProd, state) {
+  const st = state || rrTargetState(req, sourceProd);
+  req.confirmedTargets = st.map(s => ({ product: s.product, mt: s.mt, status: s.status }));
+  const adaPending = st.some(s => s.status === 'pending');
+  const adaConf    = st.some(s => s.status === 'confirmed');
+  req.status = adaPending ? 'pending' : (adaConf ? 'confirmed' : 'rejected');
+  req.confirmedMT = adaConf
+    ? st.filter(s => s.status === 'confirmed').reduce((a, s) => a + (Number(s.mt) || 0), 0)
+    : null;
+  return st;
+}
+
+/* Bangun ulang siklus + revFrom/revTo dari target yang SUDAH dikonfirmasi.
+   Dipisah dari csConfirmRev supaya konfirmasi dan pembatalan per target
+   menghasilkan keadaan yang sama — dulu logika ini hanya ada di jalur
+   konfirmasi, jadi membatalkan satu target tidak pernah memperbarui siklusnya. */
+function rrRebuildFromConfirmed(co, prod, req) {
+  if (!co.cycles) co.cycles = [];
+  co.cycles = co.cycles.filter(c => !(c.type === `Revision Request — ${prod}`));
+  if (!co.revFrom) co.revFrom = [];
+  if (!co.revTo)   co.revTo   = [];
+  const st  = rrTargetState(req, prod);
+  const oke = st.filter(s => s.status === 'confirmed');
+
+  co.revFrom = co.revFrom.filter(f => f.prod !== prod);
+  co.revTo   = co.revTo.filter(f => !st.some(s => s.product === f.prod));
+
+  if (!oke.length) {                       // semua target dibatalkan
+    if (!co.revFrom.length && !co.revTo.length) { co.revType = 'none'; co.revStatus = ''; }
+    return;
+  }
+
+  const total   = oke.reduce((a, s) => a + (Number(s.mt) || 0), 0);
+  const prodObj = {};
+  oke.forEach(s => { if (s.product) prodObj[s.product] = (prodObj[s.product] || 0) + (Number(s.mt) || 0); });
+  const now = (typeof todayStd === 'function') ? todayStd()
+            : new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-');
+
+  co.cycles.push({
+    type:        `Revision Request — ${prod}`,
+    mt:          total,
+    products:    prodObj,
+    submitType:  'Sales Request',
+    submitDate:  req.confirmedDate || now,
+    releaseType: 'CorpSec Confirmation',
+    releaseDate: now,
+    status:      `✅ Dikonfirmasi oleh ${req.confirmedBy || currentRole || 'CorpSec'} · ${req.confirmedDate || now}`
+                 + ` · ${oke.length} dari ${st.length} produk${req.note ? ' · ' + req.note : ''}`,
+    _isRevReq:   true,
+  });
+
+  const obtMap = (typeof getObtainedByProd === 'function') ? getObtainedByProd(co) : {};
+  co.revFrom.push({ prod, mt: obtMap[prod] != null ? obtMap[prod] : (co.obtained || 0), label: 'Before' });
+  oke.forEach(s => co.revTo.push({ prod: s.product, mt: Number(s.mt) || 0, label: 'After' }));
+
+  co.revType   = 'active';
+  co.revStatus = `Revision Request dikonfirmasi — ${prod} → `
+               + oke.map(s => `${s.product} ${Number(s.mt).toLocaleString(MT_LOCALE)} MT`).join(' + ')
+               + ` · ${now}`;
+  if (!co.revNote) co.revNote = req.note || '';
+}
+
 /* "WELDED STAINLESS STEEL PIPE 325 MT + FABRICATED STEEL PAINTED FRAME 75 MT"
    — every target of a gated PERTEK Perubahan split, in one line. Falls back to
    the flat to/mt pair when the payload carries no `targets` list. */
@@ -196,7 +306,7 @@ function buildRevMgmtSection(co) {
       const note     = req.note || '';
       const isConf   = req.status === 'confirmed';
       const isBatal  = req.status === 'rejected';
-      const confMT   = req.confirmedMT != null ? Number(req.confirmedMT).toLocaleString(MT_LOCALE) : (req.requestedMT != null ? Number(req.requestedMT).toLocaleString(MT_LOCALE) : '');
+      const tState   = rrTargetState(req, prod);   // satu entri per produk tujuan
 
       // Status badge
       const statusBadge = isConf
@@ -205,28 +315,37 @@ function buildRevMgmtSection(co) {
         ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--red-bg);color:var(--red2);border:1px solid var(--red-bd)">✕ Dibatalkan</span>`
         : `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)">⏳ Menunggu</span>`;
 
-      const actionArea = canConfirm ? `
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <input type="text" inputmode="numeric"
-            class="pmt-mt-inp corpsec-revconfirm-inp"
-            data-prod="${prod}" id="csconf-mt-${pid}"
-            value="${confMT}"
-            placeholder="Qty (MT)"
-            oninput="fmtThousandInline(this)"
-            style="width:90px;font-size:11.5px;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;text-align:right">
-          <button onclick="csConfirmRev('${prod}','${pid}','${code}')"
-            style="font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:5px;border:none;cursor:pointer;
-              background:var(--green);color:#fff;transition:background .15s"
-            onmouseover="this.style.background='#16a34a'" onmouseout="this.style.background='var(--green)'">
-            ✓ Konfirmasi
-          </button>
-          <button onclick="csBatalRev('${prod}','${pid}','${code}')"
-            style="font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:5px;border:1px solid var(--red-bd);cursor:pointer;
-              background:var(--red-bg);color:var(--red2);transition:background .15s"
-            onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='var(--red-bg)'">
-            ✕ Batal
-          </button>
-        </div>` : `<div>${statusBadge}</div>`;
+      /* SATU baris konfirmasi per produk tujuan — bukan satu untuk semuanya.
+         Sebelumnya seluruh target diringkas jadi satu input berisi MT target
+         pertama saja (IKM: 500 MT dari empat target). */
+      const actionArea = canConfirm
+        ? tState.map((s, ti) => {
+            const sudah = s.status === 'confirmed', batal = s.status === 'rejected';
+            const nilai = s.mt != null ? Number(s.mt).toLocaleString(MT_LOCALE) : '';
+            const tanda = sudah
+              ? `<span style="font-size:9px;font-weight:700;color:var(--green)">✅</span>`
+              : batal
+              ? `<span style="font-size:9px;font-weight:700;color:var(--red2)">✕</span>`
+              : `<span style="font-size:9px;font-weight:700;color:var(--amber)">⏳</span>`;
+            return `<div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap;margin-bottom:4px">
+              ${tanda}
+              <span style="font-size:10px;font-weight:700;min-width:104px;color:var(--txt2)"
+                    title="${s.product}">${prodLabel(s.product)}</span>
+              <input type="text" inputmode="numeric"
+                class="pmt-mt-inp corpsec-revconfirm-inp"
+                data-prod="${prod}" data-target="${ti}" id="csconf-mt-${pid}-${ti}"
+                value="${nilai}" placeholder="Qty (MT)"
+                oninput="fmtThousandInline(this)"
+                style="width:84px;font-size:11.5px;padding:3px 7px;border:1px solid var(--border2);border-radius:5px;text-align:right">
+              <button onclick="csConfirmRev('${prod}','${pid}','${code}',${ti})"
+                style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;border:none;cursor:pointer;
+                  background:${sudah?'#16a34a':'var(--green)'};color:#fff">✓</button>
+              <button onclick="csBatalRev('${prod}','${pid}','${code}',${ti})"
+                style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;border:1px solid var(--red-bd);
+                  cursor:pointer;background:${batal?'#fecaca':'var(--red-bg)'};color:var(--red2)">✕</button>
+            </div>`;
+          }).join('')
+        : `<div>${statusBadge}</div>`;
 
       return `<tr style="border-bottom:1px solid var(--border);padding:6px 0">
         <td style="padding:8px 10px">
@@ -573,73 +692,39 @@ function buildRevMgmtSection(co) {
 }
 
 /* ── CorpSec: confirm / reject individual revision request items ── */
-function csConfirmRev(prod, pid, code) {
+/* Konfirmasi SATU produk tujuan. `ti` = indeks target dalam
+   req.targetProducts. Tanpa `ti` (pemanggil lama) seluruh target ikut
+   dikonfirmasi, supaya perilaku lama tidak mendadak berubah. */
+function csConfirmRev(prod, pid, code, ti) {
   const co = getSPI(code); if (!co) return;
   const req = co.salesRevRequest && co.salesRevRequest[prod];
   if (!req) return;
 
-  // Read MT from input — use requestedMT as fallback only if input is truly empty
-  const inp = document.getElementById('csconf-mt-' + pid);
-  const raw = inp ? inp.value.replace(/,/g,'').trim() : '';
-  const mt  = raw !== '' ? parseFloat(raw) : (req.requestedMT || null);
+  const st = rrTargetState(req, prod);
+  const idx = (ti == null) ? null : Number(ti);
 
-  req.status        = 'confirmed';
-  req.confirmedMT   = mt;
-  req.confirmedDate = (typeof todayStd === 'function') ? todayStd() : new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-');
-  req.confirmedBy   = currentRole || 'CorpSec';
+  const bacaInput = n => {
+    const el = document.getElementById('csconf-mt-' + pid + '-' + n);
+    if (!el) return null;
+    const raw = String(el.value || '').replace(/,/g, '').trim();
+    if (raw === '') return null;
+    const v = parseFloat(raw);
+    return isNaN(v) ? null : v;
+  };
 
-  // ── Build products object from targetProducts ──────────────────────
-  if (!co.cycles) co.cycles = [];
-  const targets = req.targetProducts && req.targetProducts.length
-    ? req.targetProducts
-    : [{ product: req.newProduct || prod, mt }];
-  const prodObj = {};
-  targets.forEach(t => { if (t.product) prodObj[t.product] = t.mt || mt || 0; });
-  if (!Object.keys(prodObj).length) prodObj[prod] = mt || 0;
-
-  // Remove stale pending cycle for this prod
-  co.cycles = co.cycles.filter(c =>
-    !(c.type === `Revision Request — ${prod}` && c.status === 'pending')
-  );
-
-  const now = (typeof todayStd === 'function') ? todayStd() : new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-');
-  co.cycles.push({
-    type:        `Revision Request — ${prod}`,
-    mt:          mt || 0,
-    products:    prodObj,
-    submitType:  'Sales Request',
-    submitDate:  req.confirmedDate,
-    releaseType: 'CorpSec Confirmation',
-    releaseDate: now,
-    status:      `✅ Dikonfirmasi oleh ${currentRole||'CorpSec'} · ${req.confirmedDate}${req.note ? ' · ' + req.note : ''}`,
-    _isRevReq:   true,
+  const kena = idx == null ? st.map((_, n) => n) : [idx];
+  kena.forEach(n => {
+    if (!st[n]) return;
+    const v = bacaInput(n);
+    st[n].mt     = v != null ? v : (st[n].mt != null ? st[n].mt : st[n].requested);
+    st[n].status = 'confirmed';
   });
 
-  // ── Update revType + accumulate revFrom/revTo ──────────────────────
-  // revFrom/revTo accumulate across multiple csConfirmRev calls (multi-product)
-  if (!co.revFrom) co.revFrom = [];
-  if (!co.revTo)   co.revTo   = [];
-
-  // Remove old entry for this prod if re-confirming
-  co.revFrom = co.revFrom.filter(f => f.prod !== prod);
-  co.revTo   = co.revTo.filter(f => f.prod !== prod && !targets.some(t => t.product === f.prod));
-
-  // Add updated entries — revFrom uses per-product obtained MT, not total
-  const obtByProdMap = (typeof getObtainedByProd === 'function') ? getObtainedByProd(co) : {};
-  const fromMT = obtByProdMap[prod] != null ? obtByProdMap[prod] : (co.obtained || 0);
-  co.revFrom.push({ prod, mt: fromMT, label: 'Before' });
-  targets.forEach(t => {
-    // Use confirmed MT (mt from input) — not requestedMT
-    const toMT = (t.mt != null && !isNaN(Number(t.mt)) && Number(t.mt) > 0)
-      ? Number(t.mt)
-      : (mt || 0);
-    co.revTo.push({ prod: t.product || prod, mt: toMT, label: 'After' });
-  });
-
-  // Activate revision tracking
-  co.revType   = 'active';
-  co.revStatus = `Revision Request dikonfirmasi — ${prod}${req.newProduct ? ' → ' + req.newProduct : ''} · ${now}`;
-  if (!co.revNote) co.revNote = req.note || '';
+  req.confirmedDate = (typeof todayStd === 'function') ? todayStd()
+    : new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-');
+  req.confirmedBy = currentRole || 'CorpSec';
+  rrSyncReqStatus(req, prod, st);
+  rrRebuildFromConfirmed(co, prod, req);
 
   buildRevMgmtSection(co);
   applyRolePermissions();
@@ -649,22 +734,31 @@ function csConfirmRev(prod, pid, code) {
   patchToServer(co).catch(err => notifySaveError('csConfirmRev', err));
 }
 
-function csBatalRev(prod, pid, code) {
+/* Batalkan SATU produk tujuan. Target lain tidak ikut terpengaruh — dulu
+   pembatalan menghapus seluruh siklus request, sehingga target yang sudah
+   dikonfirmasi ikut hilang. */
+function csBatalRev(prod, pid, code, ti) {
   const co = getSPI(code); if (!co) return;
-  if (!co.salesRevRequest || !co.salesRevRequest[prod]) return;
-  co.salesRevRequest[prod].status      = 'rejected';
-  co.salesRevRequest[prod].confirmedMT = null;
+  const req = co.salesRevRequest && co.salesRevRequest[prod];
+  if (!req) return;
 
-  // Remove any injected pending revision request cycle for this prod
-  if (co.cycles) {
-    co.cycles = co.cycles.filter(c => !(c._isRevReq && c.type === `Revision Request — ${prod}`));
-  }
+  const st = rrTargetState(req, prod);
+  const idx = (ti == null) ? null : Number(ti);
+  (idx == null ? st.map((_, n) => n) : [idx]).forEach(n => {
+    if (st[n]) st[n].status = 'rejected';
+  });
+
+  rrSyncReqStatus(req, prod, st);
+  rrRebuildFromConfirmed(co, prod, req);
 
   buildRevMgmtSection(co);
   applyRolePermissions();
+  buildRevList && buildRevList();
+  updateSPICounts && updateSPICounts();
   saveToStorage();
   patchToServer(co).catch(err => notifySaveError('csBatalRev', err));
 }
+
 
 /* ── Action handlers ─────────────────────────────────────────────────────── */
 
