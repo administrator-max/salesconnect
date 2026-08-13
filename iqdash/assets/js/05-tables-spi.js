@@ -346,7 +346,7 @@ function getObtainedProdBreakdown(co) {
   if (!entries.length) return null;
   return entries.map(([prod, mt]) =>
     `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 0;border-bottom:1px dashed var(--border)">
-       <span style="display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;background:${pc(prod).light};color:${pc(prod).text}">${prod}</span>
+       <span style="display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;background:${pc(prod).light};color:${pc(prod).text}">${prodLabel(prod)}</span>
        <span style="font-size:11px;font-family:'DM Mono',monospace;font-weight:600;color:var(--txt2)">${fmtMt(Number(mt))} MT</span>
      </div>`
   ).join('');
@@ -434,14 +434,14 @@ function buildRevDetailTable() {
       let salesReqCell = '<span style="color:var(--txt3);font-size:10px">—</span>';
       if (reqEntries.length > 0) {
         const lines = reqEntries.map(([prod, v]) => {
-          const newP     = v.newProduct ? ` → <strong style="color:var(--blue)">${v.newProduct}</strong>` : '';
+          const newP     = v.newProduct ? ` → <strong style="color:var(--blue)">${prodLabel(v.newProduct)}</strong>` : '';
           const mt       = v.confirmedMT != null ? fmtMt(v.confirmedMT)
                          : v.requestedMT != null ? fmtMt(v.requestedMT) : '—';
           const stColor  = v.status==='confirmed' ? 'var(--green)' : v.status==='rejected' ? 'var(--red2)' : 'var(--amber)';
           const stIco    = v.status==='confirmed' ? '✅' : v.status==='rejected' ? '✕' : '⏳';
           return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
             <span style="font-size:9.5px;font-weight:700;color:${stColor}">${stIco}</span>
-            <span style="font-size:10px;font-weight:600">${prod}${newP}</span>
+            <span style="font-size:10px;font-weight:600">${prodLabel(prod)}${newP}</span>
             <span style="font-size:9.5px;font-family:'DM Mono',monospace;color:var(--txt3)">${mt} MT</span>
           </div>`;
         }).join('');
