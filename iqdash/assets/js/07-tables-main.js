@@ -143,11 +143,21 @@ function renderMain() {
        Dipakai helper kanonik yang sama; company PENDING yang benar-benar belum
        terbit tetap keluar 0, jadi tampilan lamanya tidak berubah untuk mereka. */
     ...filteredPending().map(d => {
-      const obt  = (typeof canonicalObtained === 'function') ? canonicalObtained(d) : 0;
+      /* Diiris ke periode dengan helper yang sama seperti baris SPI di atas.
+         `d.mt` dan canonicalObtained() keduanya SEPANJANG WAKTU: dengan filter
+         Agustus 2026 baris SNSD tetap menyumbang Submit 3.000 / Obtained 120
+         ke TOTAL, padahal Submit MOI-nya 17/06/2026 — kartu menghitung 0. */
+      const obt  = (PERIOD.active && typeof canonicalObtainedFiltered === 'function')
+        ? canonicalObtainedFiltered(d)
+        : ((typeof canonicalObtained === 'function') ? canonicalObtained(d) : 0);
+      const sub  = (PERIOD.active && typeof scopedSubmittedTotal === 'function')
+        ? scopedSubmittedTotal(d)
+        : (((typeof scopedSubmittedTotal === 'function') ? scopedSubmittedTotal(d) : 0) || d.mt || 0);
       const util = scopedUtilTotal(d);
+      const _rc  = (typeof realizedByCompany === 'function') ? (realizedByCompany()[d.code] || 0) : 0;
       return {
         code:d.code, group:d.group, products:d.products,
-        submit1:d.mt, obtained:obt, utilMT:util, berat:0,
+        submit1:sub, obtained:obt, utilMT:util, berat:_rc,
         realPct:null, utilPct:null,
         availMT:(typeof availableInPeriod === 'function')
                   ? availableInPeriod(d, _avqCodes) : cumulativeAvailable(d),
