@@ -423,30 +423,82 @@ function refreshRealizedDrill() {
   const fmtDate = d => d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}) : '—';
   const realColor = r => r>=0.8?'var(--green)':r>=0.6?'var(--teal)':'var(--red2)';
 
-  // Filter: arrived companies, optionally within period
-  const rows = RA.filter(r => {
-    if (!r.cargoArrived) return false;
-    if (!PERIOD.active) return true;
-    const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
-    return inPd(ad);
-  }).sort((a,b) => {
-    const da = a.arrivalDate ? raDate(a.arrivalDate) : null;
-    const db = b.arrivalDate ? raDate(b.arrivalDate) : null;
-    if (da && db) return da - db;
-    return a.code.localeCompare(b.code);
-  });
+  /* ══════════════════════════════════════════════════════════════════════
+     Drill ini dibuka DARI kartu Total Realized dan ada untuk menjelaskan angka
+     itu — jadi ia wajib menghitung dari kolam dan gerbang yang SAMA.
 
-  const totalRealized = rows.reduce((s,r) => s + (r.berat||0), 0);
+     Dulu tidak: kartu (reportRealizedTotal) menjumlah baris PIB di
+     REALIZATIONS dan menyaringnya dengan `pib_date`, sementara drill ini
+     menjumlah `ra_records.berat` dan menyaringnya dengan `arrivalDate`. Dua
+     sumber, dua tanggal. Tanpa filter keduanya kebetulan sama, jadi ini tidak
+     terlihat sampai ada yang memilih periode: Juni 2026 → drill 2.069,08 MT /
+     5 company terhadap kartu 2.275,372 / 9 (audit 2026-08-14).
+
+     Sekarang barisnya diringkas PER PERUSAHAAN dari baris PIB yang sama, jadi
+     Σ baris drill = angka kartu, selalu. `ra_records` tetap dipakai untuk
+     obtained — lewat raTotals(), karena ia satu baris per gelombang. */
+  const periodLabel = PERIOD.active ? PERIOD.label : 'All Time';
+  const _hs2prod = (() => {
+    const m = {};
+    if (typeof PROD_HS_CODES !== 'undefined')
+      Object.entries(PROD_HS_CODES).forEach(([p, h]) => { if (h && !m[h]) m[h] = p; });
+    return m;
+  })();
+
+  let rows;
+  if (Array.isArray(window.REALIZATIONS) && REALIZATIONS.length) {
+    const per = {};
+    REALIZATIONS.forEach(r => {
+      if (PERIOD.active && !inPd(pDate(r.pib_date))) return;
+      const code = String(r.company_code || '').toUpperCase();
+      if (!code) return;
+      const vol = parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0;
+      const e = per[code] || (per[code] = { code, berat: 0, lines: 0, prods: new Set(), last: null, pibs: new Set() });
+      e.berat += vol;
+      e.lines += 1;
+      const nm = _hs2prod[String(r.hs_code || '').trim()] || String(r.product || '').trim();
+      if (nm) e.prods.add(canonicalProduct(nm));
+      if (r.pib_no) e.pibs.add(String(r.pib_no));
+      const d = pDate(r.pib_date);
+      if (d && (!e.last || d > e.last)) e.last = d;
+    });
+    rows = Object.values(per).map(e => {
+      const t = (typeof raTotals === 'function') ? raTotals(e.code) : null;
+      const ra = (typeof getRA === 'function') ? getRA(e.code) : null;
+      const obtained = Number(ra && ra.obtained) || 0;
+      return {
+        code: e.code,
+        product: [...e.prods].map(p => (typeof prodLabel === 'function' ? prodLabel(p) : p)).join(' + ') || '—',
+        arrivalDate: e.last, berat: e.berat, obtained,
+        realPct: obtained > 0 ? e.berat / obtained : 0,
+        catatan: `${e.lines} PIB line${e.lines !== 1 ? 's' : ''}${e.pibs.size ? ' · ' + e.pibs.size + ' PIB' : ''}`,
+        _waves: t ? t.count : 1,
+      };
+    }).sort((a, b) => (a.arrivalDate && b.arrivalDate) ? a.arrivalDate - b.arrivalDate : a.code.localeCompare(b.code));
+  } else {
+    /* Cadangan — sama seperti cabang cadangan reportRealizedTotal(): agregat
+       per perusahaan lewat raTotals(), BUKAN satu baris per gelombang. */
+    const kode = [...new Set(RA.filter(r => r.cargoArrived && (!PERIOD.active
+      || inPd(r.arrivalDate ? raDate(r.arrivalDate) : null))).map(r => r.code))];
+    rows = kode.map(c => {
+      const t = raTotals(c), ra = getRA(c);
+      const obtained = Number(ra && ra.obtained) || 0;
+      return { code: c, product: ra ? ra.product : '—',
+               arrivalDate: ra && ra.arrivalDate ? raDate(ra.arrivalDate) : null,
+               berat: t.berat, obtained, realPct: obtained > 0 ? t.berat / obtained : 0,
+               catatan: t.multi ? `${t.count} arrival waves` : '', _waves: t.count };
+    }).sort((a, b) => a.code.localeCompare(b.code));
+  }
+
+  /* Tile ringkasan memanggil sumber kanonik, bukan menjumlah ulang barisnya. */
+  const _kanon       = reportRealizedTotal();
+  const totalRealized = _kanon.mt;
+  const nCompanies    = _kanon.companies;
   const totalObtained = rows.reduce((s,r) => s + (r.obtained||0), 0);
-  const avgReal       = rows.length ? (rows.reduce((s,r)=>s+r.realPct,0)/rows.length*100).toFixed(1) : '—';
-  const periodLabel   = PERIOD.active ? PERIOD.label : 'All Time';
-  /* `rows` adalah baris ra_records — satu per GELOMBANG kedatangan, bukan per
-     perusahaan. Dua company punya dua gelombang, jadi menghitung rows.length
-     membaca 26 "Companies" terhadap kartu yang membuka drill ini: 24. */
-  const nCompanies    = new Set(rows.map(r => r.code)).size;
+  const avgReal       = totalObtained > 0 ? (totalRealized / totalObtained * 100).toFixed(1) : '—';
 
   document.getElementById('realDrillSubtitle').textContent =
-    `Period: ${periodLabel} · ${nCompanies} compan${nCompanies!==1?'ies':'y'} · ${rows.length} arrival wave${rows.length!==1?'s':''} · cargo arrived at JKT`;
+    `Period: ${periodLabel} · ${nCompanies} compan${nCompanies!==1?'ies':'y'} · realisasi PIB`;
 
   document.getElementById('realDrillSummary').innerHTML = [
     ['Realized (MT)',  totalRealized.toLocaleString(MT_LOCALE)+' MT', 'var(--green)',   'var(--green-bg)',  'var(--green-bd)'],
@@ -466,7 +518,9 @@ function refreshRealizedDrill() {
   }
 
   body.innerHTML = rows.map(r => {
-    const arrDate  = r.arrivalDate ? raDate(r.arrivalDate) : null;
+    /* arrivalDate sudah berupa Date di kedua cabang di atas. */
+    const arrDate  = (r.arrivalDate instanceof Date) ? r.arrivalDate
+                   : (r.arrivalDate ? raDate(r.arrivalDate) : null);
     const pct      = (r.realPct*100).toFixed(1)+'%';
     const pctColor = realColor(r.realPct);
     const eligible = r.realPct >= 0.6 ? '✅ Eligible' : '✗ Below 60%';
@@ -483,7 +537,7 @@ function refreshRealizedDrill() {
   }).join('');
 
   document.getElementById('realDrillFooter').textContent =
-    `${rows.length} compan${rows.length!==1?'ies':'y'} with cargo arrived · Click row to open detail`;
+    `${rows.length} compan${rows.length!==1?'ies':'y'} · Click row to open detail`;
 }
 
 /* ─────────────────────────────────────────────────────────────────

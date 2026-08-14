@@ -89,10 +89,21 @@ ok(!/const tReal\s*=\s*rows\.reduce/.test(k07) && !/const tR\s*=\s*rows\.reduce\
    'baris TOTAL & bar footer tidak lagi menjumlah d.berat sendiri');
 ok((k07.match(/reportRealizedTotal\(\)/g) || []).length >= 2,
    'keduanya memanggil reportRealizedTotal()');
-ok(/nCompanies\s*=\s*new Set\(rows\.map/.test(k03),
-   'drill Realized menghitung perusahaan unik, bukan rows.length');
+/* Drill Realized dibuka DARI kartu, jadi tile ringkasnya harus MEMANGGIL angka
+   kartu — bukan menjumlah barisnya sendiri. Dulu kartu memakai baris PIB
+   (gerbang pib_date) sementara drill memakai ra_records (gerbang arrivalDate):
+   Juni 2026 membaca 2.069,08 / 5 company terhadap 2.275,372 / 9. */
+const drill = k03.slice(k03.indexOf('function refreshRealizedDrill'),
+                        k03.indexOf('function refreshRealizedDrill') + 4200);
+ok(/const _kanon\s*=\s*reportRealizedTotal\(\)/.test(drill),
+   'drill Realized memanggil reportRealizedTotal() untuk ringkasannya');
+ok(/totalRealized\s*=\s*_kanon\.mt/.test(drill) && /nCompanies\s*=\s*_kanon\.companies/.test(drill),
+   'MT dan jumlah perusahaan diambil dari sumber kanonik');
 ok(!/\['Companies',\s*rows\.length/.test(k03),
    'kartu "Companies" pada drill tidak lagi memakai rows.length');
+ok(/REALIZATIONS\.forEach/.test(drill) && /inPd\(pDate\(r\.pib_date\)\)/.test(drill),
+   'barisnya diringkas dari baris PIB dengan gerbang pib_date — sama dengan kartu');
+ok(/raTotals\(/.test(drill), 'cabang cadangannya memakai raTotals(), bukan satu baris per gelombang');
 
 console.log(`\n${fail === 0 ? '✔ SEMUA LULUS' : '✖ GAGAL'}  —  lulus ${pass}, gagal ${fail}`);
 process.exit(fail ? 1 : 0);
