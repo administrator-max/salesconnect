@@ -1192,14 +1192,207 @@ function collectReapplyData(co) {
    Sales dapat input request revision produk dan/atau kuantiti.
    CorpSec akan melihat ini dan dapat edit qty-nya.
 ════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════════
+   NEW SUBMISSION — formulir Sales untuk perusahaan tanpa riwayat
+
+   Diminta tim 2026-08-14 (kasus SUJU). Panel revisi di bawah dibangun dari
+   produk yang SUDAH obtained, jadi perusahaan baru berhenti di "No products
+   found." dan tidak punya jalan masuk sama sekali.
+
+   Di sini Sales memilih produk dari MASTER PRODUK (selectableProducts()) —
+   bukan dari kepemilikan perusahaan, yang memang masih kosong — lalu mengisi
+   Qty (MT), dan boleh menambah baris dengan + Add Product.
+
+   Formulir ini hanya MENGAJUKAN. Yang mengubah angka dashboard adalah
+   konfirmasi CorpSec (nsConfirm di 13-rev-mgmt.js), yang menulis siklus
+   Submit #N. Model datanya didokumentasikan di file itu.
+   ═══════════════════════════════════════════════════════════════════════ */
+function buildNewSubmissionForm(co, wrapEl) {
+  const wrap = wrapEl || document.getElementById('salesRevReqWrap');
+  if (!wrap) return;
+
+  const req      = co.newSubmission || {};
+  const canSales = currentRole && (ROLE_PERMISSIONS[currentRole]||[]).includes('salesShipTable');
+  const st       = (typeof nsTargetState === 'function') ? nsTargetState(req) : [];
+  /* Sudah dikonfirmasi CorpSec = sudah jadi Submit. Mengubahnya di sini tidak
+     akan menyentuh siklus yang sudah lahir, jadi dikunci saja. */
+  const terkunci = req.status === 'confirmed';
+  const rows     = st.length ? st : [{ product: '', requested: null, mt: null, status: 'pending' }];
+  const mati     = !canSales || terkunci;
+
+  const ALL_PRODS = (typeof selectableProducts === 'function')
+    ? selectableProducts()
+    : Object.keys(PROD_COLORS);
+
+  const totalMinta = rows.reduce((a, r) => a + (Number(r.requested) || 0), 0);
+  const lencana = terkunci
+    ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">✅ Submit — dikonfirmasi CorpSec</span>`
+    : req.status === 'rejected'
+    ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--red-bg);color:var(--red2);border:1px solid var(--red-bd)">✕ Dibatalkan CorpSec</span>`
+    : st.length
+    ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)">⏳ Menunggu konfirmasi CorpSec</span>`
+    : '';
+
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:700;color:var(--txt2)">🆕 New Submission ke CorpSec</span>
+      <span class="tti" data-tip="Perusahaan ini belum punya kuota sama sekali. Pilih produk dan isi Qty (MT) yang ingin diajukan. Setelah CorpSec konfirmasi, statusnya menjadi Submit dan MT-nya masuk ke Total Submitted.">i</span>
+      ${lencana}
+    </div>
+    <div style="margin-bottom:10px;padding:8px 12px;background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:7px;font-size:10.5px;color:var(--navy);line-height:1.5">
+      Belum ada obtained quota untuk <strong>${co.code}</strong>, jadi tidak ada yang bisa direvisi.
+      Ajukan produk &amp; tonase awalnya di sini —
+      alurnya: <strong>Sales input</strong> → <strong>Konfirmasi CorpSec</strong> → <strong>Submit</strong>
+      → <strong>Active Application (New Submission)</strong> → <strong>Total Submitted</strong>.
+    </div>
+    <div id="newsub-rows-wrap">
+      ${rows.map((r, i) => newSubRowHtml(r, i, ALL_PRODS, mati, rows.length > 1)).join('')}
+    </div>
+    ${!mati ? `<button id="newsub-addbtn" onclick="addNewSubProduct()"
+      style="margin-top:4px;font-size:10.5px;font-weight:600;padding:4px 12px;border-radius:5px;
+        border:1px dashed var(--border2);background:var(--bg2);color:var(--blue);cursor:pointer">
+      + Add Product
+    </button>` : ''}
+    <div style="margin-top:10px">
+      <div class="fl" style="margin-bottom:4px">Catatan (opsional)</div>
+      <input type="text" class="fi" id="newsub-note" value="${req.note || ''}"
+        placeholder="Alasan / keterangan pengajuan…" ${mati ? 'disabled' : ''}
+        style="width:100%;font-size:11px">
+    </div>
+    <div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--txt3)">
+      <span>Total diajukan: <strong id="newsub-total" style="color:var(--blue)">${totalMinta.toLocaleString(MT_LOCALE)} MT</strong></span>
+      <span class="tti tip-right" data-tip="Simpan dengan tombol Save di bawah. Angka dashboard baru berubah setelah CorpSec mengonfirmasi.">i</span>
+    </div>`;
+}
+
+/* Satu baris produk pada formulir New Submission. */
+function newSubRowHtml(r, i, allProds, mati, bolehHapus) {
+  const opts = `<option value="">— Pilih Produk —</option>` +
+    allProds.map(op => `<option value="${op}" ${op === r.product ? 'selected' : ''}>${op}</option>`).join('');
+  const mt = r.requested != null ? Number(r.requested).toLocaleString(MT_LOCALE) : '';
+  const tanda = r.status === 'confirmed' ? '✅' : r.status === 'rejected' ? '✕' : '';
+  return `<div class="newsub-row" data-idx="${i}"
+      style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+    <div style="width:14px;flex-shrink:0;font-size:10px;color:var(--txt3);text-align:center">${tanda || (i + 1)}</div>
+    <select class="fi newsub-prod" data-idx="${i}" ${mati ? 'disabled' : ''}
+      onchange="syncNewSubTotal()"
+      style="flex:1;min-width:0;padding:4px 6px;font-size:11.5px;border:1px solid var(--border2);border-radius:5px;background:var(--bg);color:var(--txt)">
+      ${opts}
+    </select>
+    <input type="text" inputmode="decimal" class="pmt-mt-inp newsub-mt" data-idx="${i}"
+      value="${mt}" placeholder="Qty (MT)" ${mati ? 'disabled' : ''}
+      oninput="fmtThousandInline(this);syncNewSubTotal()">
+    ${bolehHapus && !mati ? `<button onclick="removeNewSubProduct(${i})"
+      style="flex-shrink:0;width:22px;height:22px;border:1px solid var(--border2);border-radius:4px;background:var(--red-bg);color:var(--red2);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;padding:0"
+      title="Hapus baris ini">✕</button>` : '<div style="width:22px"></div>'}
+  </div>`;
+}
+
+/* + Add Product — satu baris kosong di bawah. */
+function addNewSubProduct() {
+  const wrap = document.getElementById('newsub-rows-wrap');
+  if (!wrap) return;
+  const i = wrap.querySelectorAll('.newsub-row').length;
+  const ALL_PRODS = (typeof selectableProducts === 'function')
+    ? selectableProducts() : Object.keys(PROD_COLORS);
+  wrap.insertAdjacentHTML('beforeend',
+    newSubRowHtml({ product: '', requested: null, status: 'pending' }, i, ALL_PRODS, false, true));
+  reindexNewSubRows();
+}
+
+function removeNewSubProduct(idx) {
+  const wrap = document.getElementById('newsub-rows-wrap');
+  if (!wrap) return;
+  const row = wrap.querySelector(`.newsub-row[data-idx="${idx}"]`);
+  if (row) row.remove();
+  reindexNewSubRows();
+  syncNewSubTotal();
+}
+
+/* Nomor & data-idx harus rapat setelah hapus — indeksnya yang memasangkan
+   baris Sales dengan confirmedTargets CorpSec. */
+function reindexNewSubRows() {
+  const wrap = document.getElementById('newsub-rows-wrap');
+  if (!wrap) return;
+  const rows = [...wrap.querySelectorAll('.newsub-row')];
+  rows.forEach((row, i) => {
+    row.dataset.idx = i;
+    row.querySelectorAll('[data-idx]').forEach(el => { el.dataset.idx = i; });
+    const del = row.querySelector('button');
+    if (del) {
+      del.setAttribute('onclick', `removeNewSubProduct(${i})`);
+      del.style.display = rows.length > 1 ? '' : 'none';
+    }
+  });
+}
+
+function syncNewSubTotal() {
+  const wrap = document.getElementById('newsub-rows-wrap');
+  const el   = document.getElementById('newsub-total');
+  if (!wrap || !el) return;
+  let total = 0;
+  wrap.querySelectorAll('.newsub-mt').forEach(inp => {
+    total += parseFloat(String(inp.value || '').replace(/,/g, '')) || 0;
+  });
+  el.textContent = total.toLocaleString(MT_LOCALE) + ' MT';
+}
+
+/* Baca formulir New Submission ke objek company. Dipanggil saveEdit(). */
+function collectNewSubmissionData(co) {
+  if (!co) return;
+  const wrap = document.getElementById('newsub-rows-wrap');
+  if (!wrap) return;                                  // formulirnya tidak tampil — jangan sentuh datanya
+  const prev = co.newSubmission || {};
+  if (prev.status === 'confirmed') return;            // sudah jadi Submit; Sales tidak boleh mengubahnya
+
+  const items = [];
+  wrap.querySelectorAll('.newsub-row').forEach(row => {
+    const sel = row.querySelector('.newsub-prod');
+    const inp = row.querySelector('.newsub-mt');
+    const product = sel ? String(sel.value || '').trim() : '';
+    const raw     = inp ? String(inp.value || '').replace(/,/g, '').trim() : '';
+    const mt      = raw ? parseFloat(raw) : null;
+    if (product && mt > 0) items.push({ product, mt });
+  });
+
+  if (!items.length) { delete co.newSubmission; return; }
+
+  /* Keputusan CorpSec yang sudah ada dipertahankan lewat NAMA PRODUK, bukan
+     indeks — Sales bisa menyisipkan atau menghapus baris di antaranya. */
+  const ct = Array.isArray(prev.confirmedTargets) ? prev.confirmedTargets : [];
+  const noteEl = document.getElementById('newsub-note');
+
+  co.newSubmission = {
+    products:      items,
+    note:          noteEl ? String(noteEl.value || '').trim() : (prev.note || ''),
+    requestedBy:   prev.requestedBy   || currentRole || 'Sales',
+    requestedDate: prev.requestedDate || ((typeof todayStd === 'function') ? todayStd() : ''),
+    confirmedBy:   prev.confirmedBy   || null,
+    confirmedDate: prev.confirmedDate || null,
+    cycleType:     prev.cycleType     || null,
+    confirmedTargets: items.map(it => {
+      const m = ct.find(c => c && c.product === it.product && c.status && c.status !== 'pending');
+      return m ? { product: it.product, mt: m.mt, status: m.status }
+               : { product: it.product, mt: null, status: 'pending' };
+    }),
+    status: 'pending',
+  };
+  if (typeof rrSyncReqStatus === 'function') {
+    rrSyncReqStatus(co.newSubmission, null, nsTargetState(co.newSubmission));
+  }
+}
+
 function buildRevisionRequestTable(co) {
   const wrap = document.getElementById('salesRevReqWrap');
   if (!wrap) return;
 
   const obtByProd = getObtainedByProd(co);
   const products  = Object.keys(obtByProd);
+  /* Tanpa obtained tidak ada produk asal yang bisa direvisi — tapi bukan berarti
+     Sales tidak punya apa-apa untuk diajukan. Perusahaan baru (SUJU) masuk lewat
+     jalur New Submission: pilih produk dari master, isi MT. */
   if (!products.length) {
-    wrap.innerHTML = '<div class="pmt-note" style="color:var(--txt3)">No products found.</div>';
+    buildNewSubmissionForm(co, wrap);
     return;
   }
 

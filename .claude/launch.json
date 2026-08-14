@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "salesconnect-dev",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["-S", "127.0.0.1:8788", "router.dev.php"],
+      "port": 8788
+    }
+  ]
+}

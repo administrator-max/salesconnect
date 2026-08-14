@@ -223,6 +223,37 @@ async function loadData() {
       }
     }));
 
+    /* ── Bongkar amplop rev_note ──────────────────────────────────────────
+       Server mengirim SELURUH JSON rev_note sebagai `salesRevRequest` (lihat
+       iqdash_data.php). Amplop itu juga membawa dua kunci yang bukan produk:
+       `_revisionType` (Revision / Re-Apply) dan `_newSubmission` (pengajuan
+       pertama perusahaan tanpa riwayat — lihat 11-shipment.js). Keduanya harus
+       dikembalikan ke fieldnya sendiri di sini; kalau tidak, sanitasi di
+       buildRevisionRequestTable() membuangnya karena tidak punya `requested`,
+       dan pilihan type Sales hilang tiap kali halaman dimuat ulang. */
+    [SPI, PENDING].forEach(arr => arr.forEach(co => {
+      const env = co.salesRevRequest;
+      if (env && typeof env === 'object') {
+        if (env._revisionType) {
+          if (!co.salesRevReqType) co.salesRevReqType = env._revisionType;
+          delete env._revisionType;
+        }
+        if (env._newSubmission) {
+          co.newSubmission = env._newSubmission;
+          delete env._newSubmission;
+        }
+      }
+      const ns = co.newSubmission;
+      if (ns && Array.isArray(ns.products)) {
+        ns.products = ns.products.map(x =>
+          x ? { product: canonicalProduct(String(x.product || '').trim()), mt: x.mt } : x);
+        if (Array.isArray(ns.confirmedTargets)) {
+          ns.confirmedTargets = ns.confirmedTargets.map(x =>
+            x ? Object.assign({}, x, { product: canonicalProduct(String(x.product || '').trim()) }) : x);
+        }
+      }
+    }));
+
     /* `ra_records` juga menyimpan ejaan ledger, di DUA field. Ia muncul di
        tabel Realization Monitoring, tabel RA pada PDF, dan kolom "Re-Apply
        Product" di Excel — permukaan yang tidak menyentuh cycles sama sekali,

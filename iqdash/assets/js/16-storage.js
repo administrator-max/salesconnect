@@ -433,11 +433,18 @@ async function patchToServer(co) {
   }
 
   // Encode salesRevRequest + salesRevReqType into revNote for persistence
+  /* `newSubmission` (pengajuan pertama perusahaan tanpa riwayat) ikut di amplop
+     yang sama — itu satu-satunya kanal bebas-bentuk yang sudah ada, dan
+     01-data.js membongkarnya kembali saat load. Amplopnya kini dibuat juga
+     ketika HANYA newSubmission yang terisi; tanpa itu pengajuan perusahaan
+     baru hilang begitu halaman dimuat ulang, karena salesRevRequest-nya kosong. */
   let salesRevJson = null;
-  if (co.salesRevRequest && Object.keys(co.salesRevRequest).length) {
-    const envelope = Object.assign({}, co.salesRevRequest);
-    if (co.salesRevReqType) envelope._revisionType = co.salesRevReqType;
-    salesRevJson = JSON.stringify(envelope);
+  const adaRevReq = co.salesRevRequest && Object.keys(co.salesRevRequest).length;
+  if (adaRevReq || co.newSubmission) {
+    const envelope = Object.assign({}, co.salesRevRequest || {});
+    if (co.salesRevReqType) envelope._revisionType  = co.salesRevReqType;
+    if (co.newSubmission)   envelope._newSubmission = co.newSubmission;
+    if (Object.keys(envelope).length) salesRevJson = JSON.stringify(envelope);
   }
 
   // ── SAFEGUARD: don't downgrade rev_type/rev_note/rev_status/etc when

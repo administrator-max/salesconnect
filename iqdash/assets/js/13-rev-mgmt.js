@@ -246,6 +246,189 @@ function rrRebuildFromConfirmed(co, prod, req) {
   if (!co.revNote) co.revNote = req.note || '';
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   NEW SUBMISSION — pengajuan pertama perusahaan TANPA riwayat
+
+   Diminta tim 2026-08-14, kasus SUJU. Panel "Revision Request ke CorpSec"
+   dibangun dari produk yang SUDAH obtained, jadi perusahaan baru tidak punya
+   satu baris pun untuk ditumpangi permintaannya — panelnya berhenti di "No
+   products found." dan Sales tidak bisa mengajukan apa-apa.
+
+   Alurnya, persis seperti yang diminta:
+     New Company → Sales pilih Produk & MT → Konfirmasi CorpSec
+       → Submit #N → Active Application (New Submission) → Total Submitted
+
+   Bentuk datanya sengaja SEJAJAR dengan salesRevRequest supaya konfirmasi
+   per produk memakai mesin yang sama (rrSyncReqStatus):
+     co.newSubmission = {
+       products:         [{product, mt}],           ← dari Sales, tidak diubah
+       confirmedTargets: [{product, mt, status}],   ← sejajar indeksnya
+       confirmedMT:      Σ mt yang confirmed
+       status:           pending | confirmed | rejected
+       cycleType:        "Submit #N" — siklus yang DIKELOLA blok ini
+       note, requestedBy, requestedDate, confirmedBy, confirmedDate
+     }
+
+   Yang MEMBUAT angkanya jalan hanyalah siklus `Submit #N` yang ditulis
+   nsRebuildFromConfirmed(): reportSubmittedTotal() menjumlahkan siklus itu
+   (bertanggal Submit MOI), dan outstandingStage() melihatnya menggantung tanpa
+   Obtained pasangannya. Tidak ada satu pun angka yang dihitung ulang di sini.
+   ═══════════════════════════════════════════════════════════════════════ */
+function nsRequest(co) {
+  const r = co && co.newSubmission;
+  return (r && Array.isArray(r.products) && r.products.length) ? r : null;
+}
+
+/* Keadaan tiap produk: qty yang DIAJUKAN Sales + qty & status KONFIRMASI.
+   Pasangan dari rrTargetState() untuk permintaan yang tidak punya produk asal. */
+function nsTargetState(req) {
+  const t  = (req && Array.isArray(req.products)) ? req.products : [];
+  const ct = (req && Array.isArray(req.confirmedTargets)) ? req.confirmedTargets : [];
+  return t.map((x, i) => {
+    const simpan = ct[i] || {};
+    return {
+      product:   (x && x.product) || '',
+      requested: x ? x.mt : null,
+      mt:        simpan.mt != null ? simpan.mt : (x ? x.mt : null),
+      status:    simpan.status || 'pending',
+    };
+  });
+}
+
+/* Siklus yang dikelola blok ini. Nomornya dikunci di `req.cycleType` begitu
+   dikonfirmasi — flag di objek siklus tidak ikut tersimpan ke server, jadi
+   sesudah reload hanya field inilah yang tahu siklus mana miliknya. */
+function nsCycleType(co, req) {
+  if (req && req.cycleType) return req.cycleType;
+  let maks = 0;
+  (co.cycles || []).forEach(c => {
+    const m = String((c && c.type) || '').match(/^submit\s*#?\s*(\d+)/i);
+    if (m) maks = Math.max(maks, +m[1]);
+  });
+  return `Submit #${maks + 1}`;
+}
+
+/* Bangun ulang siklus Submit dari produk yang SUDAH dikonfirmasi. Sama seperti
+   rrRebuildFromConfirmed: konfirmasi dan pembatalan lewat jalur yang sama,
+   sehingga membatalkan satu produk juga memperbarui siklusnya. */
+function nsRebuildFromConfirmed(co) {
+  const req = nsRequest(co);
+  if (!req) return;
+  if (!co.cycles) co.cycles = [];
+  const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const tipe = nsCycleType(co, req);
+  co.cycles = co.cycles.filter(c => !(c && (c._fromNewSubmission || norm(c.type) === norm(tipe))));
+
+  const st  = nsTargetState(req);
+  const oke = st.filter(s => s.status === 'confirmed' && Number(s.mt) > 0);
+  if (!oke.length) {                       // semua ditolak / dibatalkan
+    delete req.cycleType;
+    if (co.revStatus === 'Submit') co.revStatus = '';
+    return;
+  }
+
+  const kanon   = p => (typeof canonicalProduct === 'function') ? canonicalProduct(String(p||'').trim()) : String(p||'').trim();
+  const total   = oke.reduce((a, s) => a + (Number(s.mt) || 0), 0);
+  const prodObj = {};
+  oke.forEach(s => { const p = kanon(s.product); if (p) prodObj[p] = (prodObj[p] || 0) + (Number(s.mt) || 0); });
+  const now = req.confirmedDate || ((typeof todayStd === 'function') ? todayStd()
+            : new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-'));
+
+  req.cycleType = tipe;
+  co.cycles.push({
+    type:        tipe,
+    mt:          total,
+    products:    prodObj,
+    submitType:  'Submit MOI',
+    submitDate:  now,
+    /* PERTEK belum terbit — justru itu yang membuat perusahaan ini tampil di
+       Active Application sebagai New Submission (outstandingStage). */
+    releaseType: 'PERTEK',
+    releaseDate: 'TBA',
+    status:      `✅ New Submission dikonfirmasi ${req.confirmedBy || currentRole || 'CorpSec'} · ${now}`
+                 + ` · ${oke.length} dari ${st.length} produk${req.note ? ' · ' + req.note : ''}`,
+    _fromNewSubmission: true,
+  });
+
+  /* Produk perusahaan ikut tercatat — tanpa ini setiap kolom per-produk
+     (shipment, stats, dropdown) tidak mengenali produk yang baru diajukan. */
+  co.products = [...new Set([...(co.products || []).map(kanon), ...Object.keys(prodObj)])].filter(Boolean);
+  co.submit1  = (typeof canonicalSubmitted === 'function') ? canonicalSubmitted(co) : total;
+  co.revStatus = 'Submit';
+  if (!co.revSubmitDate) co.revSubmitDate = now;
+}
+
+/* CorpSec: konfirmasi SATU produk. Tanpa `ti` seluruh produk ikut. */
+function nsConfirm(code, ti) {
+  const co = getSPI(code) || (typeof PENDING !== 'undefined' && PENDING.find(p => p.code === code));
+  const req = co && nsRequest(co);
+  if (!req) return;
+
+  const st  = nsTargetState(req);
+  const idx = (ti == null) ? null : Number(ti);
+  const baca = n => {
+    const el = document.getElementById('nsconf-mt-' + n);
+    if (!el) return null;
+    const raw = String(el.value || '').replace(/,/g, '').trim();
+    if (raw === '') return null;
+    const v = parseFloat(raw);
+    return isNaN(v) ? null : v;
+  };
+
+  (idx == null ? st.map((_, n) => n) : [idx]).forEach(n => {
+    if (!st[n]) return;
+    const v = baca(n);
+    st[n].mt     = v != null ? v : (st[n].mt != null ? st[n].mt : st[n].requested);
+    st[n].status = 'confirmed';
+  });
+
+  req.confirmedDate = (typeof todayStd === 'function') ? todayStd()
+    : new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-');
+  req.confirmedBy = currentRole || 'CorpSec';
+  rrSyncReqStatus(req, null, st);
+  nsRebuildFromConfirmed(co);
+  nsAfterDecision(co);
+}
+
+/* CorpSec: batalkan SATU produk. Produk lain tidak terpengaruh. */
+function nsBatal(code, ti) {
+  const co = getSPI(code) || (typeof PENDING !== 'undefined' && PENDING.find(p => p.code === code));
+  const req = co && nsRequest(co);
+  if (!req) return;
+
+  const st  = nsTargetState(req);
+  const idx = (ti == null) ? null : Number(ti);
+  (idx == null ? st.map((_, n) => n) : [idx]).forEach(n => { if (st[n]) st[n].status = 'rejected'; });
+
+  rrSyncReqStatus(req, null, st);
+  nsRebuildFromConfirmed(co);
+  nsAfterDecision(co);
+}
+
+/* Simpan + gambar ulang. Siklus WAJIB ikut dikirim (patchCyclesToServer) —
+   patchToServer tidak membawa cycles, jadi tanpa ini Submit #N hilang begitu
+   halaman dimuat ulang dan Total Submitted kembali ke angka lama. */
+function nsAfterDecision(co) {
+  if (typeof buildRevMgmtSection === 'function') buildRevMgmtSection(co);
+  if (typeof applyRolePermissions === 'function') applyRolePermissions();
+  if (typeof buildRevList === 'function') buildRevList();
+  if (typeof updateSPICounts === 'function') updateSPICounts();
+  if (typeof saveToStorage === 'function') saveToStorage();
+  if (typeof patchToServer === 'function')
+    patchToServer(co).catch(err => notifySaveError('nsConfirm', err));
+  if (typeof patchCyclesToServer === 'function')
+    patchCyclesToServer(co).catch(err => notifySaveError('nsConfirm/cycles', err));
+
+  /* Angka headline berubah begitu siklus Submit lahir — segarkan permukaan
+     yang membacanya, sama seperti penutup saveEdit(). */
+  ['renderSPI', 'renderMain', 'buildRevDetailTable', 'buildFlowKPIStrip',
+   'buildPipeline', 'updateOverviewStats', 'updateOverviewKPIs']
+    .forEach(fn => {
+      const f = (typeof globalThis !== 'undefined') ? globalThis[fn] : null;
+      if (typeof f === 'function') f();
+    });
+}
+
 /* "WELDED STAINLESS STEEL PIPE 325 MT + FABRICATED STEEL PAINTED FRAME 75 MT"
    — every target of a gated PERTEK Perubahan split, in one line. Falls back to
    the flat to/mt pair when the payload carries no `targets` list. */
@@ -284,6 +467,81 @@ function buildRevMgmtSection(co) {
     <div class="rr-stat-box"><div class="rr-stat-val" style="color:${ra ? (ra.realPct>=.6?'var(--green)':'var(--red2)') : 'var(--txt3)'}">${realPct}</div><div class="rr-stat-lbl">Realization</div></div>
     <div class="rr-stat-box"><div class="rr-stat-val" style="color:var(--blue)">${cycleCount}</div><div class="rr-stat-lbl">Total Cycles</div></div>
   </div>`;
+
+  // ── 2a. New Submission panel (perusahaan tanpa riwayat) ────────────────
+  const nsReq = nsRequest(co);
+  if (nsReq) {
+    const canConfirmNS = currentRole && (ROLE_PERMISSIONS[currentRole]||[]).includes('corpsecRevConfirm');
+    const nsSt   = nsTargetState(nsReq);
+    const nsTot  = nsSt.reduce((a, s) => a + (Number(s.requested) || 0), 0);
+    const nsConf = nsSt.filter(s => s.status === 'confirmed').reduce((a, s) => a + (Number(s.mt) || 0), 0);
+    const lencana = st => st === 'confirmed'
+      ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">✅ Dikonfirmasi</span>`
+      : st === 'rejected'
+      ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--red-bg);color:var(--red2);border:1px solid var(--red-bd)">✕ Dibatalkan</span>`
+      : `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)">⏳ Menunggu</span>`;
+
+    const nsRows = nsSt.map((s, ti) => {
+      const nilai = s.mt != null ? Number(s.mt).toLocaleString(MT_LOCALE) : '';
+      const minta = s.requested != null ? Number(s.requested).toLocaleString(MT_LOCALE) + ' MT' : '—';
+      const aksi = canConfirmNS
+        ? `<div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
+             <input type="text" inputmode="numeric" class="pmt-mt-inp newsub-confirm-inp"
+               data-target="${ti}" id="nsconf-mt-${ti}" value="${nilai}" placeholder="Qty (MT)"
+               oninput="fmtThousandInline(this)"
+               style="width:90px;font-size:11.5px;padding:3px 7px;border:1px solid var(--border2);border-radius:5px;text-align:right">
+             <button onclick="nsConfirm('${code}',${ti})"
+               style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;border:none;cursor:pointer;
+                 background:${s.status==='confirmed'?'#16a34a':'var(--green)'};color:#fff">✓</button>
+             <button onclick="nsBatal('${code}',${ti})"
+               style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;border:1px solid var(--red-bd);
+                 cursor:pointer;background:${s.status==='rejected'?'#fecaca':'var(--red-bg)'};color:var(--red2)">✕</button>
+           </div>`
+        : lencana(s.status);
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 10px">
+          <div class="pmt-prod-chip">
+            <div class="pmt-prod-dot" style="background:${prodDot(s.product)}"></div>
+            <span style="font-weight:700">${prodLabel(s.product)}</span>
+          </div>
+        </td>
+        <td style="padding:8px 10px;text-align:right">
+          <span style="font-weight:700;color:var(--amber);font-family:'DM Mono',monospace">${minta}</span>
+        </td>
+        <td style="padding:8px 10px">${lencana(s.status)}</td>
+        <td style="padding:8px 10px">${aksi}</td>
+      </tr>`;
+    }).join('');
+
+    html += `<div id="newSubConfirmWrap" style="margin-bottom:12px;padding:12px;background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        🆕 New Submission — pengajuan pertama
+        <span style="font-size:9.5px;font-weight:600;padding:1px 6px;background:var(--blue);color:#fff;border-radius:3px">${nsSt.length} produk</span>
+        <span style="font-size:9.5px;font-weight:600;padding:1px 6px;background:var(--amber);color:#fff;border-radius:3px">${nsTot.toLocaleString(MT_LOCALE)} MT diminta</span>
+        ${nsConf > 0 ? `<span style="font-size:9.5px;font-weight:600;padding:1px 6px;background:var(--green);color:#fff;border-radius:3px">${nsConf.toLocaleString(MT_LOCALE)} MT dikonfirmasi</span>` : ''}
+        ${!canConfirmNS ? '<span style="font-size:9.5px;color:var(--txt3)">🔒 CorpSec / Super Admin only</span>' : ''}
+      </div>
+      <div style="font-size:10px;color:var(--txt3);margin-bottom:8px">
+        Diajukan ${nsReq.requestedBy || 'Sales'}${nsReq.requestedDate ? ' · ' + nsReq.requestedDate : ''}
+        ${nsReq.note ? ` · 💬 <em>${nsReq.note}</em>` : ''}
+      </div>
+      <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid var(--border)">
+        <thead>
+          <tr style="background:var(--bg2)">
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Produk</th>
+            <th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3);width:110px">Qty Diminta</th>
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3);width:110px">Status</th>
+            <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Aksi CorpSec</th>
+          </tr>
+        </thead>
+        <tbody>${nsRows}</tbody>
+      </table>
+      <div style="margin-top:8px;font-size:10px;color:var(--txt3)">
+        Konfirmasi membuat siklus <strong>${nsCycleType(co, nsReq)}</strong> — MT-nya langsung masuk Total Submitted
+        dan perusahaan ini muncul di Active Application sebagai <strong>New Submission</strong> sampai PERTEK terbit.
+      </div>
+    </div>`;
+  }
 
   // ── 2b. Sales Revision Request panel (CorpSec read + confirm) ───────────
   const salesRevReq = co.salesRevRequest || {};
@@ -392,7 +650,7 @@ function buildRevMgmtSection(co) {
         <span class="tti" data-tip="Input qty konfirmasi (pre-filled dari request Sales), lalu klik Konfirmasi atau Batal per produk. Hasil tersimpan saat klik Save &amp; Refresh.">i</span>
       </div>
     </div>`;
-  } else {
+  } else if (!nsReq) {
     html += `<div style="margin-bottom:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:10.5px;color:var(--txt3)">
       📋 <em>Belum ada Revision Request dari Sales.</em> CorpSec tidak dapat input revision sampai Sales mengajukan request.
     </div>`;
@@ -1141,6 +1399,10 @@ function saveEdit() {
   // ── Collect Sales Revision Request ────────────────────────────────
   if (co_live && can('salesRevReq')) {
     collectRevisionRequestData(co_live);
+    /* Perusahaan tanpa riwayat memakai formulir New Submission di slot yang
+       sama — hanya satu dari keduanya yang pernah ada di DOM, dan masing-masing
+       collector langsung keluar kalau formulirnya tidak tampil. */
+    collectNewSubmissionData(co_live);
   }
 
   // ── Collect CorpSec Revision Confirmation ─────────────────────────

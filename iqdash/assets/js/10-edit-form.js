@@ -285,6 +285,14 @@ function applyRolePermissions() {
         el.disabled = !canSalesRev || !(chk && chk.checked);
       }
     });
+    /* Formulir New Submission menempati slot yang sama untuk perusahaan tanpa
+       riwayat. Hanya MENGUNCI, tidak pernah membuka: buildNewSubmissionForm()
+       sudah mematikan isiannya sendiri begitu CorpSec mengonfirmasi, dan blok
+       ini tidak boleh menghidupkannya kembali. */
+    if (!canSalesRev) {
+      revReqWrap.querySelectorAll('.newsub-prod,.newsub-mt,#newsub-note,#newsub-addbtn')
+        .forEach(el => { el.disabled = true; });
+    }
     const wrapEl = g('wrap-salesRevReq');
     if (wrapEl) {
       wrapEl.style.opacity = canSalesRev ? '1' : '0.55';
@@ -303,6 +311,17 @@ function applyRolePermissions() {
     csRevWrap.style.opacity = canCorpSecRev ? '1' : '0.55';
     csRevWrap.style.cursor  = canCorpSecRev ? '' : 'not-allowed';
     csRevWrap.title         = canCorpSecRev ? '' : 'Restricted by role — requires Sales revision request first';
+  }
+
+  // ── CorpSec New Submission confirm lock — izin yang sama ────────────
+  document.querySelectorAll('.newsub-confirm-inp').forEach(inp => {
+    inp.disabled = !canCorpSecRev;
+  });
+  const nsWrap = g('newSubConfirmWrap');
+  if (nsWrap) {
+    nsWrap.style.opacity = canCorpSecRev ? '1' : '0.55';
+    nsWrap.style.cursor  = canCorpSecRev ? '' : 'not-allowed';
+    nsWrap.title         = canCorpSecRev ? '' : 'Restricted by role — CorpSec / Super Admin only';
   }
 
   // Enable save button once role is selected and company is selected
