@@ -132,5 +132,32 @@ const sst = k02b.slice(k02b.indexOf('function scopedSubmittedTotal'),
 ok(/\^submit\\s\*#\\d/.test(sst) && /_fromRevReq/.test(sst) && /inPd\(pDate\(c\.submitDate\)\)/.test(sst),
    'aturannya sama persis: Submit #N saja · dedup · lewati _fromRevReq · gerbang Submit MOI');
 
+/* ── Putaran kedua audit: tile drill & ekspor ───────────────────────────── */
+console.log('\n-- tile drill memanggil sumber kanonik --');
+const k03b = kode('03-kpis.js');
+const ud = k03b.slice(k03b.indexOf('function refreshUtilDrill'),
+                      k03b.indexOf('function refreshUtilDrill') + 3000);
+ok(/totalAvail\s*=\s*reportAvailableTotal\(\)\.mt/.test(ud),
+   'drill Utilized: tile Available kanonik (dulu 7.708 vs kartu 11.478 — baris ber-util 0 tidak ada)');
+ok(/totalObt\s*=\s*reportObtainedTotal\(\)\.mt/.test(ud),
+   'drill Utilized: tile Obtained tetap kanonik');
+
+const k17 = kode('17-ou-chart.js');
+const br = k17.slice(k17.indexOf('function buildRealizationRows'),
+                     k17.indexOf('function buildRealizationRows') + 1400);
+ok(/kpiPool\(\)/.test(br),
+   'drill Lead Time: kolam kpiPool (SPI + PENDING) — dulu 33 co, kartu 34');
+ok(/canonicalObtainedFiltered\(co\)/.test(br),
+   'drill Lead Time: obtained diiris periode, bukan co.obtained sepanjang waktu');
+
+console.log('\n-- ekspor: realisasi per perusahaan menjumlah seluruh gelombang --');
+const k14 = kode('14-export.js');
+ok(/const _t\s*=\s*\(typeof raTotals/.test(k14),
+   'sheet SPI Excel memakai raTotals(), bukan satu baris getRA()');
+ok(/const t=\(typeof raTotals/.test(k14),
+   'ekspor CSV memakai raTotals()');
+ok(!/ra\.cargoArrived \? ra\.berat : ''/.test(k14),
+   'tidak ada lagi kolom realisasi yang membaca satu gelombang saja');
+
 console.log(`\n${fail === 0 ? '✔ SEMUA LULUS' : '✖ GAGAL'}  —  lulus ${pass}, gagal ${fail}`);
 process.exit(fail ? 1 : 0);

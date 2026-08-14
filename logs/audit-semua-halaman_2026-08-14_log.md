@@ -134,6 +134,68 @@ Q3 2026      sub   5600 · obt  1680 · util  4385 · real     0 · avail  6745 
 2025         sub 197000 · obt 13720 · util  6872 · real     0 · avail  1053 · AA 5
 ```
 
+---
+
+# Putaran kedua — permukaan yang belum tersentuh
+
+Putaran pertama menutup kartu, footer, dan dua drill. Putaran ini menyisir yang
+**belum** pernah diperiksa di tingkat DOM: ketujuh drill, sub-baris per produk,
+kartu per-produk AVQ, dan **ekspor**. Tiga temuan lagi, semuanya kelas yang sama.
+
+### 6 · Drill Utilized: tile Available menjumlah barisnya sendiri
+
+`rows` di drill itu hanya memuat produk yang **punya** utilisasi (baris ber-util
+0 dilewati), jadi kuota yang belum tersentuh sama sekali tidak punya baris dan
+sisanya ikut hilang.
+
+| | |
+|---|---|
+| Tile "Available (MT)" | **7.708 MT** |
+| Kartu Available Quota | **11.478 MT** |
+
+Tile Utilized dan Obtained di drill yang sama sudah memanggil sumber kanonik —
+yang ini tertinggal. Sekarang memakai `reportAvailableTotal()`.
+
+### 7 · Drill Lead Time: tile Total Obtained
+
+Menjumlah `co.obtained` (sepanjang waktu) atas `filteredSPI()` saja:
+**35.140 MT · 33 company** terhadap kartu **35.260 · 34**. SNSD hidup di PENDING
+sehingga tidak pernah punya baris. Kolamnya kini `kpiPool()` dengan obtained
+diiris periode.
+
+### 8 · Ekspor: baris per-perusahaan masih satu gelombang
+
+Baris **ringkasan** PDF dan Excel sudah memanggil `report*Total()` dan benar.
+Tapi kolom per-company di sheet SPI Excel dan ekspor CSV masih memakai
+`getRA()` — sehingga **satu berkas memuat dua cerita**:
+
+| | Ringkasan | Kolom per-company |
+|---|---|---|
+| Total Realized | 15.438,208 MT | AMP **399,942** dari 799,12 · SGD **488,562** dari 1.996,098 |
+
+AMP juga tercetak **0% realisasi** di sebelah 799 dari 800 MT. Keduanya kini
+memakai `raTotals()`; kolom Eligible ikut memakai persentase yang benar.
+Tabel Realization Monitoring di PDF sudah benar sejak sebelumnya.
+
+## Verifikasi putaran kedua
+
+`test_realized_gelombang_ganda.cjs` diperluas jadi **34 assertion**. 21 suite
+node lulus, 0 gagal.
+
+Audit ulang **13 periode**, kini termasuk **ketujuh drill** (Submit · Obtained ·
+Utilized · Realized · Available · Lead Time · Pending), baris TOTAL + bar
+footer, kartu Overview, kartu halaman AVQ, dan lima identitas per-produk:
+**nol selisih, nol error.**
+
+Konsistensi antar-baris diuji terpisah untuk **41 perusahaan × 4 metrik ×
+3 periode** — Σ per-produk = total company untuk submitted, obtained, utilized,
+dan available: **nol selisih**. Kartu per-produk AVQ = Σ baris tabelnya: **nol
+selisih**.
+
+Ekspor diverifikasi tanpa mengunduh, dengan membangun barisnya di halaman:
+Σ kolom realisasi per-company = **15.438,208** = angka ringkasan. AMP 799,12
+(99,89%) · SGD 1.996,098 (99,80%) · ADP 246,684 (70,48%) tidak berubah.
+
 ## Catatan metode
 
 Dua "temuan" pertama saya di putaran ini ternyata **salah baca harness saya
