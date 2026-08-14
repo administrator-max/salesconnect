@@ -195,11 +195,35 @@ Audit ulang: 25 builder × 12 periode + panel + drawer 41 perusahaan → **0 err
 12 periode × 6 identitas → **nol selisih**; `submittedBreakdownIssues()` → **0**;
 `revisionRuleIssues()` → **0**.
 
-### Catatan kecil yang tersisa
+### ETA Jakarta SMS — 18/09/2026, 150 MT, utilisasi 30/06/2026
 
-ETA Jakarta SMS (18/09/2026) belum punya tempat di data. Kolom
-`company_product_stats.eta_jkt` sudah dipakai untuk TANGGAL UTILISASI
-(30/06/2026), dan menaruhnya di lot shipment akan melipatgandakan utilisasi SMS
-(150 → 300), karena 150 MT-nya berasal dari baseline master, bukan dari lot —
-jebakan `baseline + lotSum` yang sama seperti 2026-08-03. Perlu slot sendiri
-kalau ETA per produk memang mau ditampilkan.
+Diminta tim menyusul. Yang menahan sebelumnya: menaruh ETA di lot shipment
+melewati recompute `baseline + lotSum` di server, yang MELIPATGANDAKAN utilisasi
+produk yang angkanya berasal dari baseline master dan bukan dari lot — SMS 150
+akan jadi 300. Tampilannya memang tertutup cap ledger (`min(obtained, …)`),
+tapi sheet-nya tersimpan salah dan akan muncul begitu ledger di-regen.
+
+Tempat yang benar ternyata sudah ada: `company_product_stats.eta_jkt`, yang
+dikirim payload sebagai `etaByProd` dan **dirender sebagai kolom ETA JKT** di
+tabel Realization Monitoring (06-tables-util-ra.js). Endpoint tulisnya di server
+sengaja DATE-ONLY — "tidak bisa memindahkan satu MT pun" — hanya saja sisi
+klien tidak pernah mengirimnya, jadi kolom itu selama ini cuma bisa diisi
+importer. Ditambahkan ke `patchToServer`, dikirim HANYA bila sengaja disiapkan
+lewat `co._etaWrite`, sama seperti `_obtainedStats`.
+
+Aman untuk tanggal utilisasi karena SMS punya `utilCycles`: sumber utama tanggal
+utilisasi adalah `utilCycles[].date`, dan `etaByProd` hanya cadangan untuk
+perusahaan yang belum punya rincian per siklus. Terverifikasi:
+
+| | |
+|---|---|
+| ETA JKT | **18/09/2026** |
+| Tanggal utilisasi (`utilCycles`) | 30/06/2026 — tidak berubah |
+| Utilisasi SMS | **150 MT** (bukan 300) |
+| Utilisasi di Juni 2026 | 150 MT ✔ |
+| Utilisasi di September 2026 | 0 ✔ — ETA tidak menyeret tonasenya |
+| Obtained / Available | 150 / 0 — tidak berubah |
+
+Seluruh angka headline tidak bergeser: sub 277.545 · obt 35.260 · util 23.782 ·
+avail 11.478. Audit ulang: 0 error, nol selisih, `submittedBreakdownIssues()` 0,
+`revisionRuleIssues()` 0.
