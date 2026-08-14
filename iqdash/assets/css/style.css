@@ -196,6 +196,9 @@ body { font-family:'DM Sans','Calibri','Segoe UI',sans-serif; background:var(--b
 /* Belum dikonfigurasi — netral & tanpa denyut: bukan keadaan yang menunggu
    tindakan, hanya baris master yang belum pernah dipakai. */
 .b-none     { background:var(--bg2);      color:var(--txt3);  border:1px dashed var(--border) }  .b-none::before   { background:var(--txt3) }
+/* New Submission — pengajuan pertama yang masih berjalan. Warnanya sengaja
+   sama dengan golongan 'new' di AA_GROUPS (19-init.js). */
+.b-new      { background:var(--blue-bg);  color:var(--blue);  border:1px solid var(--blue-bd) }   .b-new::before    { background:var(--blue); animation:pulse 1.6s infinite }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
 
 /* ── TOOLTIP ── */

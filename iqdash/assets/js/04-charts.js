@@ -245,6 +245,14 @@ function isUnconfigured(d) {
 
 function statusBadge(d) {
   if (isUnconfigured(d)) return '<span class="badge b-none">Belum Dikonfigurasi</span>';
+  /* Pengajuan pertama yang masih berjalan: ada Submit menggantung dan obtained
+     masih nol — PERTEK belum terbit, apalagi SPI. Tanpa cabang ini
+     revisionStatus() memulangkan 'clean' (revType 'none') dan barisnya jatuh ke
+     fallback paling bawah, "✅ SPI Issued", untuk perusahaan yang justru belum
+     punya SPI sama sekali. Sumbernya activeApplicationStage() — sama dengan
+     Active Application, supaya kedua permukaan tidak pernah berbeda. */
+  if (typeof activeApplicationStage === 'function' && activeApplicationStage(d) === 'new')
+    return '<span class="badge b-new">🆕 New Submission</span>';
   const rs = revisionStatus(d);
   if (rs === 'reapply')    return '<span class="badge b-reapply">📨 Re-Apply Submit #2</span>';
   if (rs === 'active')     return '<span class="badge b-rev">🔄 Under Revision</span>';

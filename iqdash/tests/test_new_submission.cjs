@@ -113,6 +113,14 @@ ok(!AA.active.concat(AA.reapply, AA.revpending).some(c => c.code === 'SUJU'),
    'tidak dobel di golongan lain');
 ok(call('isUnconfigured(this._suju)') === false,
    'tidak lagi berlabel "Belum Dikonfigurasi"');
+/* Badge tabel HARUS sepakat dengan Active Application. revisionStatus() memulangkan
+   'clean' untuk revType 'none', jadi tanpa cabang khusus barisnya jatuh ke
+   fallback "✅ SPI Issued" — untuk perusahaan yang belum punya SPI sama sekali. */
+ok(/New Submission/.test(call('statusBadge(this._suju)')),
+   'badge tabel = New Submission, bukan "SPI Issued"', call('statusBadge(this._suju)'));
+ok(!/SPI Issued/.test(call('statusBadge(this._suju)')), 'tidak mengaku punya SPI');
+ok(/SPI Issued/.test(call('statusBadge(this.SPI[1])')),
+   'perusahaan yang siklusnya tuntas tetap "SPI Issued"', call('statusBadge(this.SPI[1])'));
 ok(call('scopedSubmittedByProd(this._suju)')['GI ALLOY'] === 2000,
    'submitted per produk terbaca (All Time)', JSON.stringify(call('scopedSubmittedByProd(this._suju)')));
 
