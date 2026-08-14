@@ -500,6 +500,14 @@ async function patchToServer(co) {
     // KPI (cycles) and the per-product breakdown (stats) stay equal. Set only by
     // saveEdit for non-revision Obtained edits; absent otherwise.
     obtainedStats: Array.isArray(co._obtainedStats) && co._obtainedStats.length ? co._obtainedStats : undefined,
+    /* ETA JKT per produk → company_product_stats.eta_jkt. Endpoint-nya sudah
+       ada di server dan sengaja DATE-ONLY: menaruh ETA di lot shipment akan
+       melewati recompute `baseline + lotSum`, yang MELIPATGANDAKAN utilisasi
+       produk yang angkanya berasal dari master, bukan dari lot (SMS 150 -> 300).
+       Sisi klien tidak pernah mengirimnya, jadi kolom itu hanya bisa diisi
+       importer. Dikirim HANYA bila sengaja disiapkan — sama seperti
+       _obtainedStats — supaya penyimpanan biasa tidak menyentuhnya. */
+    etaByProd:     (co._etaWrite && Object.keys(co._etaWrite).length) ? co._etaWrite : undefined,
     // Sync the canonical company_products list. Without this, adding a
     // new product via "+Add Product" only writes to cycle_products via
     // patchCyclesToServer — the master products table stays stale and
@@ -540,6 +548,7 @@ async function patchToServer(co) {
   if (result && result.updatedAt) co._updatedAt = result.updatedAt;
   // One-shot payload — clear so it isn't re-sent on unrelated later saves.
   if (co._obtainedStats) delete co._obtainedStats;
+  if (co._etaWrite)      delete co._etaWrite;
   // Also persist cycles array (Submit #1, Obtained #1, Obtained #2, etc.)
   if (co.cycles && co.cycles.length) {
     await patchCyclesToServer(co);
