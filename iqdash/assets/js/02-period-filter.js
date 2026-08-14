@@ -528,6 +528,73 @@ function scopedObtainedByProd(co) {
    Where two in-period cycles grant the same product, the LATER PERTEK wins —
    the alert measures elapsed time since quota was granted, so the most recent
    grant is the one whose clock is still meaningful. */
+/* ══════════════════════════════════════════════════════════════════════════
+   ATURAN 1 — TOTAL SIKLUS ADALAH MASTER
+   (keputusan tim 2026-08-14, dipakai sebagai master data logic)
+
+   "Total Submission pada masing-masing cycle adalah master … jika total
+   submission berbeda dengan total product breakdown, gunakan nilai Total
+   Submission pada cycle tersebut, karena itu angka resmi yang diajukan.
+   Jangan melakukan double counting antara cycle total dan product breakdown."
+
+   Dua siklus melanggarnya di data hidup:
+     HDP Submit #3   total 3.000 MT, rincian produk KOSONG      -> per-produk 0
+     LCP Submit #2   total 2.725 MT, rincian GL ALLOY 3.000     -> per-produk +275
+
+   Sehingga kartu headline (yang membaca total siklus) dan kolom per-produk
+   (yang membaca rincian) menyebut angka berbeda untuk baris yang sama.
+
+   Rekonsiliasinya HANYA memakai yang sudah pasti — tidak ada nama produk yang
+   ditebak (aturan "Missing Product Breakdown"):
+     rincian kosong          -> seluruh total masuk ember (Product Breakdown Missing)
+     rincian 1 produk        -> produk itu = total siklus (satu-satunya alokasi
+                                yang mungkin; bukan tebakan)
+     rincian >1, kurang      -> selisihnya masuk ember tak-dirinci
+     rincian >1, lebih       -> DIBIARKAN dan ditandai. Menskalakan turun berarti
+                                memutuskan produk mana yang dikurangi — itu tebakan.
+   ══════════════════════════════════════════════════════════════════════════ */
+const PRODUK_TAK_DIRINCI = '(Product Breakdown Missing)';
+
+function cycleProductsReconciled(c) {
+  const total = typeof c.mt === 'number' ? c.mt : Number(c.mt) || 0;
+  const src = {};
+  Object.entries((c && c.products) || {}).forEach(([p, v]) => {
+    const n = Number(v) || 0;
+    if (n > 0) { const k = _canonProd(String(p).trim()); src[k] = (src[k] || 0) + n; }
+  });
+  const kunci = Object.keys(src);
+  const jml = kunci.reduce((a, k) => a + src[k], 0);
+  if (total <= 0) return src;
+  if (!kunci.length) return { [PRODUK_TAK_DIRINCI]: total };
+  if (Math.abs(jml - total) < 0.001) return src;
+  if (kunci.length === 1) return { [kunci[0]]: total };
+  if (jml < total) return Object.assign({}, src, { [PRODUK_TAK_DIRINCI]: total - jml });
+  return src;
+}
+
+/* Setiap siklus yang rinciannya tidak menutup totalnya. Dipakai audit dan
+   ditampilkan sebagai tanda "Product Breakdown Missing" — bukan ditebak. */
+function submittedBreakdownIssues() {
+  const out = [];
+  allCompaniesPool().forEach(co => {
+    (co.cycles || []).forEach(c => {
+      const jenis = /^submit\s*#\d/i.test(c.type || '') ? 'submit'
+                  : /^obtained/i.test(c.type || '')      ? 'obtained' : null;
+      if (!jenis) return;
+      const total = typeof c.mt === 'number' ? c.mt : Number(c.mt) || 0;
+      if (total <= 0) return;
+      const jml = Object.values(c.products || {}).reduce((a, v) => a + (Number(v) || 0), 0);
+      if (Math.abs(jml - total) < 0.001) return;
+      out.push({
+        code: co.code, cycle: c.type, total, breakdown: jml,
+        kind: jml === 0 ? 'kosong' : (jml < total ? 'kurang' : 'lebih'),
+        products: Object.assign({}, c.products || {}),
+      });
+    });
+  });
+  return out;
+}
+
 function scopedObtainedDetailByProd(co) {
   const out = {};
   if (!co) return out;
@@ -545,7 +612,10 @@ function scopedObtainedDetailByProd(co) {
     if (!anchor && c.pertekDate) anchor = pDate(c.pertekDate);
     if (!anchor) anchor = pDate(c.releaseDate) || pDate(c.spiDate);
     if (PERIOD.active && !inPd(anchor)) return;
-    Object.entries(c.products || {}).forEach(([p, v]) => {
+    /* ATURAN 1: rinciannya direkonsiliasi ke total siklus dulu, supaya Σ
+       per-produk di sini selalu sama dengan canonicalObtained yang membaca
+       c.mt. HDP Obtained #3 (100 MT, rincian kosong) dulu hilang di sini. */
+    Object.entries(cycleProductsReconciled(c)).forEach(([p, v]) => {
       const mt = Number(v) || 0;
       if (mt <= 0) return;
       const key = _canonProd(p);
@@ -610,15 +680,11 @@ function scopedSubmittedByProd(co) {
      ("GL ALLOY"). Pemanggil yang menggabungkan keduanya lalu melihat SATU
      produk sebagai DUA, dan menghitungnya dua kali — drill Obtained sempat
      membaca Available 14.553 terhadap kartu 11.178 gara-gara ini. */
-  if (!PERIOD.active) {
-    const src = (typeof getSubmittedByProd === 'function') ? getSubmittedByProd(co) : {};
-    const o = {};
-    Object.entries(src).forEach(([p, v]) => {
-      const k = _canonProd(p);
-      o[k] = (o[k] || 0) + (Number(v) || 0);
-    });
-    return o;
-  }
+  /* SATU jalur untuk kedua cabang. Dulu All Time memakai getSubmittedByProd()
+     (menjumlahkan rincian mentah) sementara cabang periode membaca cycles
+     sendiri — dua aturan, dua hasil. Sekarang keduanya lewat
+     cycleProductsReconciled(), sehingga Σ per-produk SELALU sama dengan
+     reportSubmittedTotal() yang membaca c.mt (ATURAN 1). */
   const out = {};
   const seen = new Set();
   (co.cycles || []).forEach(c => {
@@ -629,8 +695,8 @@ function scopedSubmittedByProd(co) {
     if (seen.has(k)) return;
     seen.add(k);
     if (c._fromRevReq) return;
-    if (!inPd(pDate(c.submitDate))) return;
-    Object.entries(c.products || {}).forEach(([p, v]) => {
+    if (PERIOD.active && !inPd(pDate(c.submitDate))) return;
+    Object.entries(cycleProductsReconciled(c)).forEach(([p, v]) => {
       const n = Number(v) || 0;
       if (n > 0) { const key = _canonProd(p); out[key] = (out[key] || 0) + n; }
     });

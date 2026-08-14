@@ -174,6 +174,99 @@ function activeApplications() {
   return out;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   ATURAN 5 — ACTIVE APPLICATIONS MENAMPILKAN SIKLUS YANG SEDANG AKTIF
+   (keputusan tim 2026-08-14)
+
+   "Total Submission = cumulative seluruh cycle, sedangkan Active Applications =
+   hanya active/current application cycle."
+
+   Contohnya: Submit #1 = 800 MT, Submit #2 Re-Apply = 2.200 MT. Total Submission
+   tetap 3.000 MT (kumulatif), tapi Active Applications menampilkan Submit #2
+   Re-Apply 2.200 MT saja — bukan 3.000.
+
+   Fungsi ini memulangkan siklus yang SEDANG berjalan itu, supaya strip dan modal
+   Active Application menyebut angka permohonannya sendiri dan tidak pernah
+   tertukar dengan angka kumulatif di kartu Total Submitted. */
+function activeApplicationCycle(co) {
+  if (!co) return null;
+  const cy = co.cycles || [];
+  const obtained = cy.filter(c => /^obtained/i.test(c.type || ''));
+  const lengkap = c => (typeof _cycleTerbitLengkap === 'function') ? _cycleTerbitLengkap(c) : true;
+  const calon = [];
+  cy.forEach(c => {
+    const t = String(c.type || '');
+    if (/^revision request/i.test(t)) return;
+    let m = t.match(/^submit\s*#(\d+)/i);
+    if (m) {
+      const p = obtained.find(o => new RegExp(`^obtained\\s*#${m[1]}\\b`, 'i').test(o.type || ''));
+      if (!p || !lengkap(p)) calon.push({ c, n: +m[1] });
+      return;
+    }
+    m = t.match(/^revision\s*#(\d+)/i);
+    if (m) {
+      const p = obtained.find(o => new RegExp(`^obtained\\s*\\(revision\\s*#${m[1]}\\)`, 'i').test(o.type || ''));
+      if (!p || !lengkap(p)) calon.push({ c, n: +m[1] });
+    }
+  });
+  if (!calon.length) return null;
+  calon.sort((a, b) => a.n - b.n);
+  const c = calon[calon.length - 1].c;
+  return {
+    type: c.type,
+    mt: typeof c.mt === 'number' ? c.mt : (Number(c.mt) || 0),
+    /* Rinciannya direkonsiliasi ke total siklus — ATURAN 1. */
+    products: (typeof cycleProductsReconciled === 'function') ? cycleProductsReconciled(c) : (c.products || {}),
+    submitDate: c.submitDate, pertekDate: c.pertekDate || c.releaseDate,
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ATURAN 4 — REVISI ADALAH PENGGANTIAN, DAN HANYA SETELAH PERTEK PERUBAHAN TERBIT
+
+   "Selama PERTEK Perubahan belum terbit: tetap gunakan PERTEK original. Jangan
+   memasukkan produk hasil revision sebagai Obtained. Jangan mengganti quota
+   original. Revision adalah replacement, bukan penambahan quota."
+
+   Contoh PT MIN: original Wear Plate 600 MT; revisi berjalan meminta Wear Plate
+   246,80 + GI Alloy 353,20. Selama PERTEK Perubahannya belum terbit, dashboard
+   TETAP membaca Wear Plate 600 MT obtained — GI Alloy belum boleh muncul.
+
+   Penjaganya sudah ada dan tidak diubah: `_isObtainedTerbit()` menggugurkan
+   Obtained yang tanggal terbitnya masih TBA, sehingga siklus hasil konfirmasi
+   revisi (yang lahir dengan releaseDate 'TBA') tidak terhitung sampai PERTEK /
+   SPI Perubahannya benar-benar diisi. Yang ditambahkan di sini adalah PEMERIKSA:
+   ia menyisir seluruh perusahaan dan melaporkan bila ada produk hasil revisi
+   yang bocor ke obtained sebelum waktunya. Dipakai audit dan uji regresi. */
+function revisionRuleIssues() {
+  const out = [];
+  const pool = (typeof allCompaniesPool === 'function') ? allCompaniesPool() : [];
+  pool.forEach(co => {
+    const obtProd = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
+    (co.cycles || []).forEach(c => {
+      const t = String(c.type || '');
+      if (!/^revision request/i.test(t)) return;
+      /* Siklus permintaan revisi tidak menyimpan tanggal PERTEK-nya sendiri.
+         Yang menentukan "PERTEK Perubahan sudah terbit" adalah siklus Obtained
+         hasil revisi yang sudah lolos gerbang terbit. */
+      const sudahTerbit = (co.cycles || []).some(o =>
+        /^obtained/i.test(o.type || '') && (o._fromRevReq || /revision/i.test(o.type || '')) &&
+        (typeof _isObtainedTerbit === 'function' ? _isObtainedTerbit(o, co.cycles) : false));
+      if (sudahTerbit) return;
+      const asal = t.replace(/^revision request\s*—\s*/i, '').trim();
+      const asalKanon = (typeof canonicalProduct === 'function') ? canonicalProduct(asal) : asal;
+      Object.keys(c.products || {}).forEach(p => {
+        if (p === asalKanon) return;               // produk asal memang boleh ada
+        if ((Number(obtProd[p]) || 0) > 0)
+          out.push({ code: co.code, cycle: t, product: p,
+                     mt: Number(obtProd[p]) || 0,
+                     note: 'produk hasil revisi terhitung obtained padahal PERTEK Perubahan belum terbit' });
+      });
+    });
+  });
+  return out;
+}
+
 function revisionStatus(d) {
   if (d.revType === 'none')   return 'clean';
   /* Tidak ada yang menggantung -> selesai, apa pun bunyi teks statusnya. */

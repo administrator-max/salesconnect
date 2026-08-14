@@ -705,10 +705,24 @@ function openActiveRevPopup() {
         <div style="padding:7px 12px;background:${g.bg};font-size:11px;font-weight:700;color:${g.color};display:flex;justify-content:space-between;align-items:center">
           <span>${g.label}</span><span>${g.items.length}</span>
         </div>
-        <div style="padding:9px 12px;display:flex;flex-wrap:wrap;gap:5px">
-          ${g.items.map(d => `<span onclick="closeActiveRevPopup();openDrawer('${d.code}')" title="Buka detail ${d.code}" style="cursor:pointer;font-size:11px;font-weight:700;padding:2px 9px;border-radius:4px;background:rgba(0,0,0,.05);color:${g.color}">${d.code}</span>`).join('')}
+        <div style="padding:9px 12px;display:flex;flex-wrap:wrap;gap:6px">
+          ${g.items.map(d => {
+            /* ATURAN 5: yang tampil di sini adalah siklus yang SEDANG berjalan,
+               bukan angka kumulatif. Submit #1 800 + Submit #2 Re-Apply 2.200
+               muncul sebagai "Submit #2 · 2,200 MT" di sini, sementara Total
+               Submission di Overview tetap membaca 3.000. */
+            const ac = (typeof activeApplicationCycle === 'function') ? activeApplicationCycle(d) : null;
+            const info = ac
+              ? `<span style="font-size:9px;font-weight:600;opacity:.8">${canonProdInText(ac.type)}${ac.mt > 0 ? ' · ' + fmtMt(ac.mt) + ' MT' : ''}</span>`
+              : '';
+            return `<span onclick="closeActiveRevPopup();openDrawer('${d.code}')" title="Buka detail ${d.code}"
+              style="cursor:pointer;font-size:11px;font-weight:700;padding:3px 9px;border-radius:4px;background:rgba(0,0,0,.05);color:${g.color};display:inline-flex;flex-direction:column;line-height:1.3">${d.code}${info}</span>`;
+          }).join('')}
         </div>
       </div>`).join('');
+  const nota = document.getElementById('activeRevNote');
+  if (nota) nota.textContent = 'Angka per perusahaan adalah siklus permohonan yang sedang berjalan, '
+    + 'bukan kumulatif — Total Submission di Overview tetap menjumlahkan seluruh siklus.';
   modal.style.display = 'block';
 }
 function closeActiveRevPopup() {
