@@ -940,6 +940,54 @@ function reportRealizedTotal() {
   };
 }
 
+/* Realisasi per PERUSAHAAN — pasangan per-company dari reportRealizedTotal(),
+   dengan kolam dan gerbang tanggal yang SAMA persis. Σ nilainya selalu = kartu.
+
+   Ada karena tabel All Companies dan drill Realized sama-sama perlu "berapa
+   realisasi company ini di periode ini", dan sebelumnya masing-masing
+   menjawabnya sendiri: tabel memakai ra_records.berat (SEPANJANG WAKTU, dan
+   hanya satu gelombang lewat getRA), drill memakai gerbang `arrivalDate`.
+   Keduanya berbeda dari kartu begitu ada periode dipilih. */
+function realizedByCompany() {
+  const out = {};
+  const REAL = (typeof REALIZATIONS !== 'undefined') ? REALIZATIONS : null;
+  if (Array.isArray(REAL) && REAL.length) {
+    REAL.forEach(r => {
+      if (PERIOD.active && !inPd(pDate(r.pib_date))) return;
+      const c = String(r.company_code || '').toUpperCase();
+      if (!c) return;
+      out[c] = (out[c] || 0) + (parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0);
+    });
+    return out;
+  }
+  ((typeof filteredRA === 'function') ? filteredRA() : RA).forEach(r => {
+    if (!r || !r.cargoArrived) return;
+    out[r.code] = (out[r.code] || 0) + (Number(r.berat) || 0);
+  });
+  return out;
+}
+
+/* Submitted per PERUSAHAAN, diiris periode — pasangan per-company dari
+   reportSubmittedTotal(), aturan siklus yang sama (Submit #N saja, dedup per
+   tipe, lewati _fromRevReq, gerbang tanggal Submit MOI). */
+function scopedSubmittedTotal(co) {
+  if (!co) return 0;
+  const seen = new Set();
+  let mt = 0;
+  (co.cycles || []).forEach(c => {
+    if (!/^submit\s*#\d/i.test(c.type || '')) return;
+    const k = String(c.type).toLowerCase().trim();
+    if (seen.has(k)) return;
+    seen.add(k);
+    if (c._fromRevReq) return;
+    const v = typeof c.mt === 'number' ? c.mt : Number(c.mt) || 0;
+    if (v <= 0) return;
+    if (PERIOD.active && !inPd(pDate(c.submitDate))) return;
+    mt += v;
+  });
+  return mt;
+}
+
 /* reportPendingShipmentTotal — kuota yang sudah dialokasikan tapi barangnya
    BELUM tiba: utilisasi dikurangi realisasi. Diminta tim 2026-08-10,
    menggantikan kartu Total Submitted.

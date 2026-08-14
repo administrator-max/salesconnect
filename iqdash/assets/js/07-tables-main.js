@@ -16,6 +16,7 @@ function renderMain() {
   ══════════════════════════════════════════════════════════════════ */
   /* Dihitung SEKALI untuk seluruh tabel, bukan per baris. */
   const _avqCodes = (typeof availablePoolCodes === 'function') ? availablePoolCodes() : null;
+  const _realCo   = (typeof realizedByCompany === 'function') ? realizedByCompany() : {};
 
   const buildCompanyRow = (d) => {
     const ra  = getRA(d.code);
@@ -61,10 +62,11 @@ function renderMain() {
        satu barisnya. */
     const _raT    = (typeof raTotals === 'function') ? raTotals(d.code) : null;
     const _obtRA  = Number(ra && ra.obtained) || 0;
-    const realMT  = (_raT && _raT.arrived) ? _raT.realMT : ((ra && ra.cargoArrived) ? ra.berat : 0);
-    const realPct = (_raT && _raT.arrived)
+    const realMT  = (_realCo[d.code] != null) ? _realCo[d.code]
+                  : ((_raT && _raT.arrived) ? _raT.realMT : ((ra && ra.cargoArrived) ? ra.berat : 0));
+    const realPct = (realMT > 0)
       ? (_obtRA > 0 ? realMT / _obtRA : (ra ? ra.realPct : null))
-      : ((ra && ra.cargoArrived) ? ra.realPct : null);
+      : ((ra && ra.cargoArrived) ? 0 : null);
     const utilPct = (ra && !ra.cargoArrived) ? ra.utilPct : null;
 
     // Per-product data
@@ -112,7 +114,20 @@ function renderMain() {
       });
     }
 
-    return { ...d, utilMT, availMT, berat: realMT, realPct, utilPct, rowType, subRows };
+    /* Submit & Obtained WAJIB diiris ke periode yang sama dengan kolomnya.
+       Sebelumnya baris ini memakai `d.submit1` / `d.obtained` — keduanya
+       SEPANJANG WAKTU (ditimpa canonicalSubmitted/canonicalObtained saat
+       loadData) — di atas daftar company yang sudah difilter periode. Dua basis
+       dalam satu penjumlahan, persis kelas yang sudah dibereskan untuk kolom
+       Available di atas. Akibatnya baris TOTAL membaca Submit 236.945 MT
+       terhadap kartu 74.945 pada H1 2026 (audit 2026-08-14). */
+    const submitMT = (PERIOD.active && typeof scopedSubmittedTotal === 'function')
+      ? scopedSubmittedTotal(d) : (d.submit1 || 0);
+    const obtainMT = (PERIOD.active && typeof canonicalObtainedFiltered === 'function')
+      ? canonicalObtainedFiltered(d) : (d.obtained || 0);
+
+    return { ...d, submit1: submitMT, obtained: obtainMT,
+             utilMT, availMT, berat: realMT, realPct, utilPct, rowType, subRows };
   };
 
   const all = [
