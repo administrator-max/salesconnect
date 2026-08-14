@@ -1020,7 +1020,13 @@ ${p2}
   win.document.close();
 }
 
-function doExportCSV() { const hd=['Code','Group','Products','Submit_MT','Obtained_MT','Realized_MT','Realization_Pct','RevType','Status','SPI_Ref','Eligible']; const fSpi=filteredSPI(); const rows=[...fSpi.map(d=>{const ra=getRA(d.code);return[d.code,d.group,d.products.map(prodLabel).join(';'),d.submit1,d.obtained,ra?ra.berat:'',ra?(ra.realPct*100).toFixed(1)+'%':'',d.revType,statusBadge(d).replace(/<[^>]+>/g,''),d.spiRef,ra?isEligible(ra)?'Yes':'No':''];}), ...filteredPending().map(d=>[d.code,d.group,d.products.map(prodLabel).join(';'),d.mt,0,'','','pending',d.status,'',''])]; const csv=[hd,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='quota_monitoring_2026.csv';a.click(); }
+function doExportCSV() { const hd=['Code','Group','Products','Submit_MT','Obtained_MT','Realized_MT','Realization_Pct','RevType','Status','SPI_Ref','Eligible']; const fSpi=filteredSPI(); const rows=[...fSpi.map(d=>{const ra=getRA(d.code);
+  /* Σ seluruh gelombang, bukan satu baris — lihat catatan di sheet SPI Excel. */
+  const t=(typeof raTotals==='function')?raTotals(d.code):null;
+  const real=t?t.berat:(ra?(Number(ra.berat)||0):0);
+  const obt=Number(ra&&ra.obtained)||0;
+  const pct=obt>0?real/obt:(ra?(Number(ra.realPct)||0):0);
+  return[d.code,d.group,d.products.map(prodLabel).join(';'),d.submit1,d.obtained,ra?real:'',ra?(pct*100).toFixed(1)+'%':'',d.revType,statusBadge(d).replace(/<[^>]+>/g,''),d.spiRef,ra?(ra.cargoArrived&&pct>=0.6&&!isReapplySubmitted(ra)?'Yes':'No'):''];}), ...filteredPending().map(d=>[d.code,d.group,d.products.map(prodLabel).join(';'),d.mt,0,'','','pending',d.status,'',''])]; const csv=[hd,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='quota_monitoring_2026.csv';a.click(); }
 function doExportJSON() { const d={metadata:{date:'2026-02-26',note:'Realization% = berat/obtained. Eligibility: Realization >= 60%'},spi:filteredSPI(),pending:filteredPending(),reapply:filteredRA()}; const a=document.createElement('a');a.href='data:application/json,'+encodeURIComponent(JSON.stringify(d,null,2));a.download='quota_data_2026.json';a.click(); }
 
 /* ══════════════════════════════════════════════════
@@ -1209,7 +1215,17 @@ async function doExportXLSX() {
 
   fSPI.forEach(co => {
     const ra = getRA(co.code);
-    const elig = ra && ra.cargoArrived && ra.realPct >= 0.6;
+    /* Realisasi per perusahaan = Σ SELURUH gelombang kedatangan. `ra_records`
+       satu baris per gelombang dan getRA() memulangkan yang terbaru saja, jadi
+       kolom ini melaporkan AMP 399,942 dari 799,12 dan SGD 488,562 dari
+       1.996,098 — angka yang tidak akan pernah cocok dengan baris ringkasan di
+       sheet yang sama. Persentasenya diturunkan Σ berat ÷ obtained; terbukti
+       sama dengan realPct tersimpan untuk 24 dari 24 company. */
+    const _t    = (typeof raTotals === 'function') ? raTotals(co.code) : null;
+    const _obtRA = Number(ra && ra.obtained) || 0;
+    const _real = _t ? _t.berat : (ra ? (Number(ra.berat) || 0) : 0);
+    const _pct  = _obtRA > 0 ? _real / _obtRA : (ra ? (Number(ra.realPct) || 0) : 0);
+    const elig = ra && ra.cargoArrived && _pct >= 0.6;
     const status = revisionStatus(co) === 'reapply'  ? 'Re-Apply (Submit #2)'
       : revisionStatus(co) === 'active'  ? 'Under Revision'
       : co.revType === 'complete' ? 'Rev. Complete' : 'SPI Issued';
@@ -1221,9 +1237,9 @@ async function doExportXLSX() {
       typeof co.submit1 === 'number' ? co.submit1 : '',
       typeof co.obtained === 'number' ? co.obtained : '',
       ra ? (ra.cargoArrived ? 'Yes' : 'No') : '',
-      ra && ra.cargoArrived ? ra.berat : '',
-      ra && ra.cargoArrived ? parseFloat((ra.realPct*100).toFixed(2)) : '',
-      ra && !ra.cargoArrived ? ra.berat : '',
+      ra && ra.cargoArrived ? _real : '',
+      ra && ra.cargoArrived ? parseFloat((_pct*100).toFixed(2)) : '',
+      ra && !ra.cargoArrived ? _real : '',
       ra && !ra.cargoArrived && ra.utilPct != null ? parseFloat((ra.utilPct*100).toFixed(2)) : '',
       elig ? 'Yes' : (ra ? 'No' : ''),
       ra && ra.reapplyStage ? `Stage ${ra.reapplyStage}` : '',
