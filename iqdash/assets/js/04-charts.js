@@ -255,11 +255,28 @@ function revisionRuleIssues() {
       if (sudahTerbit) return;
       const asal = t.replace(/^revision request\s*—\s*/i, '').trim();
       const asalKanon = (typeof canonicalProduct === 'function') ? canonicalProduct(asal) : asal;
+
+      /* Produk yang kuotanya datang lewat siklus Obtained #N yang SUDAH terbit
+         bukan hasil revisi — itu jalur Re-Apply (ATURAN 5: menambah kuota),
+         dan ATURAN 8 memang menghitungnya begitu PERTEK-nya terbit. BHG, EMS
+         dan SGD sempat tertuduh di sini: masing-masing punya Submit #2 ber-PERTEK
+         yang memberi GI Alloy, berdampingan dengan siklus Revision Request lama
+         yang sudah terlewati. */
+      const dariReApply = new Set();
+      (co.cycles || []).forEach(o => {
+        if (!/^obtained #/i.test(o.type || '')) return;
+        if (typeof _isObtainedTerbit === 'function' && !_isObtainedTerbit(o, co.cycles)) return;
+        Object.keys((typeof cycleProductsReconciled === 'function'
+          ? cycleProductsReconciled(o) : (o.products || {}))).forEach(p => dariReApply.add(p));
+      });
+
       Object.keys(c.products || {}).forEach(p => {
         if (p === asalKanon) return;               // produk asal memang boleh ada
+        if (dariReApply.has(p)) return;            // kuotanya sah lewat Obtained yang terbit
         if ((Number(obtProd[p]) || 0) > 0)
           out.push({ code: co.code, cycle: t, product: p,
                      mt: Number(obtProd[p]) || 0,
+                     asal: asalKanon,
                      note: 'produk hasil revisi terhitung obtained padahal PERTEK Perubahan belum terbit' });
       });
     });
