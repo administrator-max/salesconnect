@@ -2,7 +2,7 @@
 
 **Sumber aturan:** keputusan tim (8 butir), dipakai sebagai aturan induk dashboard
 **Master data:** `00 IQ Dash - Quota Data 110826 (dashboard master data).xlsx`
-**Commit:** `62c39cb` (mesin aturan) · `a1f0e2d` (pemeriksa aturan 4)
+**Commit:** `5eac888` (mesin aturan) · `ce6965e` (pemeriksa aturan 4)
 **Deploy:** `./deploy.sh iqdash` — 36 file, 0 gagal, dua kali
 
 ---
