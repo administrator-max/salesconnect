@@ -105,5 +105,32 @@ ok(/REALIZATIONS\.forEach/.test(drill) && /inPd\(pDate\(r\.pib_date\)\)/.test(dr
    'barisnya diringkas dari baris PIB dengan gerbang pib_date — sama dengan kartu');
 ok(/raTotals\(/.test(drill), 'cabang cadangannya memakai raTotals(), bukan satu baris per gelombang');
 
+/* ── Tabel All Companies: satu basis, bukan dua ─────────────────────────
+   Barisnya memakai d.submit1 / d.obtained — keduanya SEPANJANG WAKTU — di atas
+   daftar company yang sudah difilter periode, jadi baris TOTAL berbeda dari
+   kartu di SETIAP periode (H1 2026: Submit 236.945 vs 74.945). Dan kolamnya
+   lebih sempit dari kolam kartu Utilized, sehingga company yang kargonya
+   mendarat di jendela tapi siklusnya di luar tidak punya baris sama sekali
+   (Feb 2026: SGD 2.000 MT). */
+console.log('\n-- tabel All Companies: satu basis dengan kartunya --');
+const k07b = kode('07-tables-main.js');
+ok(/scopedSubmittedTotal\(d\)/.test(k07b),
+   'Submit per baris diiris periode lewat scopedSubmittedTotal()');
+ok(/canonicalObtainedFiltered\(d\)/.test(k07b),
+   'Obtained per baris diiris periode lewat canonicalObtainedFiltered()');
+ok(/realizedByCompany\(\)/.test(k07b),
+   'Realisasi per baris lewat realizedByCompany() — pasangan per-company dari kartu');
+ok(/utilizationPool\(filteredSPI\(\)\)/.test(k07b),
+   'kolam tabel = kolam kartu Utilized, bukan hanya company ber-siklus di periode');
+
+const k02b = kode('02-period-filter.js');
+ok(/function scopedSubmittedTotal/.test(k02b) && /function realizedByCompany/.test(k02b),
+   'kedua pasangan per-company hidup di lapisan kanonik, bukan di permukaannya');
+/* scopedSubmittedTotal harus memakai gerbang yang SAMA dengan reportSubmittedTotal. */
+const sst = k02b.slice(k02b.indexOf('function scopedSubmittedTotal'),
+                       k02b.indexOf('function scopedSubmittedTotal') + 900);
+ok(/\^submit\\s\*#\\d/.test(sst) && /_fromRevReq/.test(sst) && /inPd\(pDate\(c\.submitDate\)\)/.test(sst),
+   'aturannya sama persis: Submit #N saja · dedup · lewati _fromRevReq · gerbang Submit MOI');
+
 console.log(`\n${fail === 0 ? '✔ SEMUA LULUS' : '✖ GAGAL'}  —  lulus ${pass}, gagal ${fail}`);
 process.exit(fail ? 1 : 0);
