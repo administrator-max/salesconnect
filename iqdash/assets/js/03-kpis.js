@@ -319,22 +319,32 @@ function updateOverviewKPIs() {
   s('pillMSPI',     filteredSPI().length);
   s('pillMPending', filteredPending().length);
 
-  // ── Active Revisions insight (dynamic from live data) ──────────────────
-  const revRevision = filteredSPI().filter(d => revisionStatus(d) === 'active');
-  const revReapply  = filteredSPI().filter(d => revisionStatus(d) === 'reapply');
-  const revPending  = filteredSPI().filter(d => revisionStatus(d) === 'revpending');
-  const revActive   = [...revRevision, ...revReapply];
+  /* ── Active Application (dulu "Active Revisions") ──────────────────────
+     Satu sumber dengan strip Overview dan modalnya: activeApplications().
+     Dulu blok ini menyusun kolamnya sendiri dari filteredSPI() + tiga status,
+     jadi kartu insight, strip, dan modal bisa menyebut angka berbeda — dan
+     New Submission (yang hidup di PENDING) tak pernah terhitung sama sekali. */
+  const _AA = (typeof activeApplications === 'function')
+    ? activeApplications()
+    : { new: [], active: [], reapply: [], revpending: [], total: 0 };
+  const revRevision = _AA.active;
+  const revReapply  = _AA.reapply;
+  const revPending  = _AA.revpending;
+  const revActive   = [..._AA.new, ..._AA.active, ..._AA.reapply];
   const insValEl = document.getElementById('insRevVal');
   const insSubEl = document.getElementById('insRevSub');
-  if (insValEl) insValEl.textContent = `${revRevision.length} Revision · ${revReapply.length} Re-Apply`;
+  if (insValEl) insValEl.textContent =
+    `${_AA.new.length} Baru · ${revRevision.length} Revisi · ${revReapply.length} Re-Apply · ${revPending.length} PERTEK`;
   if (insSubEl) {
     const parts = [];
+    if (_AA.new.length)     parts.push(_AA.new.map(d=>d.code).join(', ')     + ' (New Submission)');
     if (revRevision.length) parts.push(revRevision.map(d=>d.code).join(', ') + ' (Revision)');
     if (revReapply.length)  parts.push(revReapply.map(d=>d.code).join(', ')  + ' (Re-Apply)');
-    insSubEl.textContent = parts.length ? parts.join(' · ') : 'No active revisions';
+    if (revPending.length)  parts.push(revPending.map(d=>d.code).join(', ')  + ' (PERTEK Pending)');
+    insSubEl.textContent = parts.length ? parts.join(' · ') : 'Tidak ada permohonan berjalan';
   }
   const revBadge = document.getElementById('revCardBadge');
-  if (revBadge) revBadge.textContent = `${revActive.length} Active`;
+  if (revBadge) revBadge.textContent = `${_AA.total} Active`;
 
   // ── All Companies page: Revision + Eligible pill counts ────────────────
   // Revision = active + reapply + revpending (matches setMF('REV') filter)

@@ -624,22 +624,29 @@ function buildAvqProdChart() {
 /* ══════════════════════════════════════════════════
    COMPACT STATUS STRIPS (Overview)
 ══════════════════════════════════════════════════ */
+
+/* Definisi keempat golongan Active Application, dipakai BERSAMA oleh strip
+   Overview dan modalnya — supaya urutan, label, dan warnanya tidak mungkin
+   berbeda antara ringkasan dan rinciannya. */
+const AA_GROUPS = [
+  { key:'new',        label:'🆕 New Submission', color:'var(--blue)',  bg:'var(--blue-bg)',  bd:'var(--blue-bd)' },
+  { key:'active',     label:'🔄 Revision',       color:'var(--amber)', bg:'var(--amber-bg)', bd:'var(--amber-bd)' },
+  { key:'reapply',    label:'📨 Re-Apply',       color:'#7c3aed',      bg:'#f5f3ff',         bd:'#c4b5fd' },
+  { key:'revpending', label:'⏳ PERTEK Pending', color:'var(--red2)',  bg:'var(--red-bg)',   bd:'var(--red-bd)' },
+];
+
 function buildRevSummaryStrip() {
   const el = document.getElementById('revSummaryStrip');
   if (!el) return;
   const badge = document.getElementById('revCardBadge');
-  // Group by revisionStatus
-  const active  = filteredSPI().filter(d => revisionStatus(d) === 'active');
-  const reapply = filteredSPI().filter(d => revisionStatus(d) === 'reapply');
-  const revpend = filteredSPI().filter(d => revisionStatus(d) === 'revpending');
-  const total   = active.length + reapply.length + revpend.length;
-  if (badge) badge.textContent = total + ' Active';
+  /* Empat golongan Active Application — satu sumber, activeApplications().
+     Dulu tiga golongan atas filteredSPI() saja, sehingga New Submission (yang
+     hidup di PENDING) tidak pernah muncul dan perusahaan yang sedang berproses
+     lewat form Sales ikut hilang (kasus IKM). */
+  const AA = activeApplications();
+  if (badge) badge.textContent = AA.total + ' Active';
 
-  const groups = [
-    { items: active,  label: '🔄 Under Revision', color:'var(--amber)',  bg:'var(--amber-bg)',  bd:'var(--amber-bd)' },
-    { items: reapply, label: '📨 Re-Apply Submit', color:'#7c3aed',      bg:'#f5f3ff',          bd:'#c4b5fd' },
-    { items: revpend, label: '⏳ PERTEK Pending',  color:'var(--red2)',   bg:'var(--red-bg)',    bd:'var(--red-bd)' },
-  ].filter(g => g.items.length > 0);
+  const groups = AA_GROUPS.map(g => ({ ...g, items: AA[g.key] })).filter(g => g.items.length > 0);
 
   el.innerHTML = groups.map(g => `
     <div style="padding:5px 8px;background:${g.bg};border:1px solid ${g.bd};border-radius:var(--r);display:flex;align-items:center;justify-content:space-between">
@@ -683,19 +690,16 @@ function openActiveRevPopup() {
   const modal = document.getElementById('activeRevModal');
   const body  = document.getElementById('activeRevBody');
   if (!modal || !body) return;
-  const active  = filteredSPI().filter(d => revisionStatus(d) === 'active');
-  const reapply = filteredSPI().filter(d => revisionStatus(d) === 'reapply');
-  const revpend = filteredSPI().filter(d => revisionStatus(d) === 'revpending');
-  const total   = active.length + reapply.length + revpend.length;
+  /* Sumber yang SAMA dengan strip di Overview — activeApplications() dan
+     AA_GROUPS — supaya ringkasan dan rinciannya tidak mungkin berbeda. */
+  const AA = activeApplications();
+  const total = AA.total;
   const sub = document.getElementById('activeRevSubtitle');
-  if (sub) sub.textContent = `${active.length} Under Revision · ${reapply.length} Re-Apply · ${revpend.length} PERTEK Pending`;
-  const groups = [
-    { items: active,  label: '🔄 Under Revision', color:'var(--amber)', bg:'var(--amber-bg)', bd:'var(--amber-bd)' },
-    { items: reapply, label: '📨 Re-Apply Submit', color:'#7c3aed',      bg:'#f5f3ff',         bd:'#c4b5fd' },
-    { items: revpend, label: '⏳ PERTEK Pending',  color:'var(--red2)',   bg:'var(--red-bg)',   bd:'var(--red-bd)' },
-  ].filter(g => g.items.length > 0);
+  if (sub) sub.textContent = AA_GROUPS
+    .map(g => `${AA[g.key].length} ${g.label.replace(/^\S+\s/, '')}`).join(' · ');
+  const groups = AA_GROUPS.map(g => ({ ...g, items: AA[g.key] })).filter(g => g.items.length > 0);
   body.innerHTML = total === 0
-    ? `<div style="text-align:center;color:var(--txt3);padding:24px 0;font-size:12px">No active revisions right now.</div>`
+    ? `<div style="text-align:center;color:var(--txt3);padding:24px 0;font-size:12px">Tidak ada permohonan yang sedang berjalan.</div>`
     : groups.map(g => `
       <div style="border:1px solid ${g.bd};border-radius:var(--r);overflow:hidden">
         <div style="padding:7px 12px;background:${g.bg};font-size:11px;font-weight:700;color:${g.color};display:flex;justify-content:space-between;align-items:center">

@@ -110,6 +110,70 @@ function outstandingStage(d) {
   return sudahPertek ? 'revpending' : 'active';
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   ACTIVE APPLICATION — permohonan yang MASIH BERJALAN
+
+   Diminta tim 2026-08-13, menggantikan "Active Revisions" yang hanya memuat
+   tiga golongan dan melewatkan perusahaan yang jelas-jelas sedang berproses.
+
+   Empat golongan:
+     new         New Submission — pengajuan pertama, belum punya obtained
+     active      Revision       — perubahan produk/qty dari PERTEK sebelumnya
+     reapply     Re-Apply       — pengajuan tambahan produk/MT
+     revpending  PERTEK Pending — PERTEK sudah terbit, SPI belum
+
+   Aturan utamanya (kata tim): selama ada New Submission / Revision / Re-Apply
+   yang masih berproses dan PERTEK-nya belum terbit, perusahaan itu HARUS
+   muncul.
+
+   Kenapa tidak cukup outstandingStage() saja: ia hanya menyusuri pasangan
+   Submit #N / Revision #N. IKM punya `Obtained #2` TANPA tanggal dan TANPA
+   Submit #2 pasangannya (revisi diajukan lewat form Sales, bukan siklus baru),
+   plus dua Sales Revision Request yang belum diputus CorpSec. Akibatnya
+   hasOutstandingCycle() berkata "masih menggantung" sementara
+   outstandingStage() mengembalikan null — dua fungsi bertentangan, dan IKM
+   hilang dari daftar meski status SPI/PERTEK-nya jelas "Submit".
+
+   Dua celah itu ditutup di sini, di ATAS logika lama, supaya golongan yang
+   sudah benar (DIOR/GIS revisi, GKL re-apply) tidak bergeser. */
+function activeApplicationStage(co) {
+  if (!co) return null;
+
+  let tahap = (typeof outstandingStage === 'function') ? outstandingStage(co) : null;
+
+  if (!tahap) {
+    // Permintaan revisi Sales yang belum diputus CorpSec = revisi sedang berjalan.
+    const adaReq = Object.values(co.salesRevRequest || {})
+      .some(v => v && v.requested && (!v.status || v.status === 'pending'));
+    // Obtained yatim yang belum bertanggal — ditangkap hasOutstandingCycle().
+    if (adaReq || (typeof hasOutstandingCycle === 'function' && hasOutstandingCycle(co))) {
+      tahap = 'active';
+    }
+  }
+  if (!tahap) return null;
+
+  // Belum pernah memperoleh kuota sama sekali -> ini pengajuan PERTAMA.
+  const obt = (typeof canonicalObtained === 'function') ? canonicalObtained(co) : 0;
+  if (!(obt > 0)) return 'new';
+
+  return tahap;   // 'active' | 'reapply' | 'revpending'
+}
+
+/* Seluruh perusahaan yang sedang punya permohonan berjalan, sudah digolongkan.
+   Kolamnya SPI + PENDING — bukan filteredSPI() saja, karena "New Submission"
+   justru hidup di PENDING. */
+function activeApplications() {
+  const pool = (typeof kpiPool === 'function') ? kpiPool() : [];
+  const out = { new: [], active: [], reapply: [], revpending: [] };
+  pool.forEach(co => {
+    const t = activeApplicationStage(co);
+    if (t && out[t]) out[t].push(co);
+  });
+  Object.keys(out).forEach(k => out[k].sort((a, b) => a.code.localeCompare(b.code)));
+  out.total = out.new.length + out.active.length + out.reapply.length + out.revpending.length;
+  return out;
+}
+
 function revisionStatus(d) {
   if (d.revType === 'none')   return 'clean';
   /* Tidak ada yang menggantung -> selesai, apa pun bunyi teks statusnya. */

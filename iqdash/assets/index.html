@@ -438,8 +438,8 @@ window.ensureXLSX = function () {
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,560px);max-height:88vh;background:var(--bg);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:16px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
-        <div style="font-size:15px;font-weight:700;color:var(--txt)">🔄 Active Revisions</div>
-        <div id="activeRevSubtitle" style="font-size:11px;color:var(--txt3);margin-top:2px">Companies with ongoing revision / re-apply process</div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt)">🔄 Active Application</div>
+        <div id="activeRevSubtitle" style="font-size:11px;color:var(--txt3);margin-top:2px">Perusahaan dengan permohonan yang sedang berjalan</div>
       </div>
       <button onclick="closeActiveRevPopup()" style="background:var(--border);border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:var(--txt3);display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
     </div>
@@ -617,11 +617,11 @@ window.ensureXLSX = function () {
       <div class="ins-arrow">↗</div>
     </div>
 
-    <!-- 2: Active Revisions — simplified (opens popup, no page navigation) -->
+    <!-- 2: Active Application — New Submission / Revision / Re-Apply / PERTEK Pending -->
     <div class="insight insight-click" onclick="openActiveRevPopup()">
       <div class="ins-ico">🔄</div>
       <div class="ins-body">
-        <div class="ins-lbl">Active Revisions</div>
+        <div class="ins-lbl">Active Application</div>
         <div class="ins-val" id="insRevVal" style="font-size:13px">—</div>
         <div class="ins-sub" id="insRevSub" style="margin-top:3px">—</div>
       </div>
