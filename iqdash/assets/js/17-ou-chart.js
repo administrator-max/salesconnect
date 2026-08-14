@@ -815,8 +815,15 @@ function closeLeadTimeDrill() {
 function buildRealizationRows() {
   const OVERDUE_DAYS = 60; // 2 months
   const rows = [];
-  filteredSPI().forEach(co => {
-    const obtained = co.obtained || 0;
+  /* Kolam kpiPool() (SPI + PENDING) dengan obtained yang DIIRIS periode — sama
+     dengan reportObtainedTotal(). Sebelumnya filteredSPI() + `co.obtained`
+     sepanjang waktu, sehingga tile "Total Obtained" pada drill Lead Time
+     membaca 35.140 MT · 33 company terhadap kartu 35.260 · 34: SNSD hidup di
+     PENDING dan karena itu tidak pernah punya baris (audit 2026-08-14). */
+  ((typeof kpiPool === 'function') ? kpiPool() : filteredSPI()).forEach(co => {
+    const obtained = (PERIOD.active && typeof canonicalObtainedFiltered === 'function')
+      ? canonicalObtainedFiltered(co)
+      : ((typeof canonicalObtained === 'function') ? canonicalObtained(co) : (co.obtained || 0));
     if (obtained <= 0) return;
     const allLots = Object.values(co.shipments || {}).flat();
     const utilMT  = allLots.reduce((s, l) => s + (l.utilMT  || 0), 0);

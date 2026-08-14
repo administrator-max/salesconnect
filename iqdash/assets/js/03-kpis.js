@@ -753,7 +753,13 @@ function refreshUtilDrill() {
   rows.sort((a,b) => a.code.localeCompare(b.code) || a.product.localeCompare(b.product));
 
   const totalUtil  = rows.reduce((s,r) => s+r.utilMT, 0);
-  const totalAvail = rows.reduce((s,r) => s+r.availMT, 0);
+  /* Available dari sumber kanonik, BUKAN penjumlahan baris di atas. `rows` hanya
+     memuat produk yang PUNYA utilisasi (baris ber-util 0 dilewati), jadi kuota
+     yang belum tersentuh sama sekali tidak punya baris dan sisanya ikut hilang:
+     tile ini membaca 7.708 MT terhadap kartu Available 11.478 (audit
+     2026-08-14). Tile Utilized dan Obtained di drill yang sama sudah kanonik —
+     yang ini tertinggal. */
+  const totalAvail = reportAvailableTotal().mt;
   const totalObt   = reportObtainedTotal().mt;   // kanonik, bukan obtained all-time
   const avgUtil    = totalObt > 0 ? (totalUtil/totalObt*100).toFixed(1) : '—';
 
