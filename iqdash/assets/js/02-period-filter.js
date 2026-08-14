@@ -927,10 +927,16 @@ function reportRealizedTotal() {
     return { mt, companies: cos.size, codes: [...cos] };
   }
   const arrived = (typeof filteredRA === 'function' ? filteredRA() : RA).filter(r => r.cargoArrived);
+  /* `ra_records` adalah satu baris per GELOMBANG kedatangan, bukan per
+     perusahaan — dua company punya dua gelombang. Menghitung barisnya
+     memulangkan 26 "companies" untuk 24 perusahaan, dan `codes` berisi kembar.
+     Cabang REALIZATIONS di atas sudah memakai Set; cabang ini tertinggal, dan
+     hanya tidak terlihat karena REALIZATIONS hampir selalu ada. */
+  const kode = [...new Set(arrived.map(r => r.code).filter(Boolean))];
   return {
     mt: arrived.reduce((s, r) => s + (Number(r.berat) || 0), 0),
-    companies: arrived.length,
-    codes: arrived.map(r => r.code),
+    companies: kode.length,
+    codes: kode,
   };
 }
 

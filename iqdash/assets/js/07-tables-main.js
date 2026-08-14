@@ -47,8 +47,24 @@ function renderMain() {
        terhadap kartu 853 — saldo 2026 dipamerkan di jendela 2025. */
     const availMT = (typeof availableInPeriod === 'function')
       ? availableInPeriod(d, _avqCodes) : cumulativeAvailable(d);
-    const realMT  = (ra && ra.cargoArrived) ? ra.berat   : 0;
-    const realPct = (ra && ra.cargoArrived) ? ra.realPct : null;
+    /* raTotals(), BUKAN satu baris RA. `ra_records` menyimpan satu baris per
+       GELOMBANG kedatangan, dan getRA() sengaja memulangkan gelombang terbaru
+       saja — jadi memakainya sebagai "realisasi perusahaan" membuang gelombang
+       lainnya. Dua company punya dua gelombang, dan baris TOTAL di bawah
+       karena itu membaca 13.531,494 MT terhadap kartu Total Realized
+       15.438,208 (AMP kehilangan 399,178 · SGD 1.507,536).
+
+       Persentasenya diturunkan dari realisasi perusahaan ÷ obtained. Itu bukan
+       tafsiran: diuji atas SELURUH 24 company yang punya RA, hasilnya sama
+       persis dengan realPct yang tersimpan — termasuk kedua company
+       dua-gelombang, yang justru menyimpan persentase se-perusahaan pada salah
+       satu barisnya. */
+    const _raT    = (typeof raTotals === 'function') ? raTotals(d.code) : null;
+    const _obtRA  = Number(ra && ra.obtained) || 0;
+    const realMT  = (_raT && _raT.arrived) ? _raT.realMT : ((ra && ra.cargoArrived) ? ra.berat : 0);
+    const realPct = (_raT && _raT.arrived)
+      ? (_obtRA > 0 ? realMT / _obtRA : (ra ? ra.realPct : null))
+      : ((ra && ra.cargoArrived) ? ra.realPct : null);
     const utilPct = (ra && !ra.cargoArrived) ? ra.utilPct : null;
 
     // Per-product data
@@ -295,7 +311,11 @@ function renderMain() {
     const tSubmit = rows.reduce((s,d) => s + (d.submit1||0), 0);
     const tObtain = rows.reduce((s,d) => s + (d.obtained||0), 0);
     const tUtil   = rows.reduce((s,d) => s + (d.utilMT||0),   0);
-    const tReal   = rows.reduce((s,d) => s + (d.berat||0),    0);
+    /* Realized dari sumber kanonik, bukan penjumlahan baris. reportRealizedTotal()
+       membaca baris PIB di REALIZATIONS — spesifikasi laporan — sedangkan
+       penjumlahan `d.berat` hanya seakurat penjodohan RA per baris. */
+    const tReal   = (typeof reportRealizedTotal === 'function')
+      ? reportRealizedTotal().mt : rows.reduce((s,d) => s + (d.berat||0), 0);
     const tAvail  = rows.reduce((s,d) => s + (d.availMT||0),  0);
     const arrived = rows.filter(d => d.realPct != null);
     const avgPct  = arrived.length ? arrived.reduce((s,d) => s + d.realPct, 0) / arrived.length : null;
@@ -331,7 +351,9 @@ function renderMain() {
     const tS = rows.reduce((s,d) => s+(d.submit1||0), 0);
     const tO = rows.reduce((s,d) => s+(d.obtained||0), 0);
     const tU = rows.reduce((s,d) => s+(d.utilMT||0), 0);
-    const tR = rows.reduce((s,d) => s+(d.berat||0), 0);
+    // Sama seperti baris TOTAL di atas — satu sumber, bukan dua.
+    const tR = (typeof reportRealizedTotal === 'function')
+      ? reportRealizedTotal().mt : rows.reduce((s,d) => s+(d.berat||0), 0);
     const tA = rows.reduce((s,d) => s+(d.availMT||0), 0);
     totBar.innerHTML =
       `<span style="color:var(--navy)">Submit: <strong>${fmtMt(tS)}</strong></span>` +

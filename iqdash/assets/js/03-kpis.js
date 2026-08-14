@@ -440,14 +440,18 @@ function refreshRealizedDrill() {
   const totalObtained = rows.reduce((s,r) => s + (r.obtained||0), 0);
   const avgReal       = rows.length ? (rows.reduce((s,r)=>s+r.realPct,0)/rows.length*100).toFixed(1) : '—';
   const periodLabel   = PERIOD.active ? PERIOD.label : 'All Time';
+  /* `rows` adalah baris ra_records — satu per GELOMBANG kedatangan, bukan per
+     perusahaan. Dua company punya dua gelombang, jadi menghitung rows.length
+     membaca 26 "Companies" terhadap kartu yang membuka drill ini: 24. */
+  const nCompanies    = new Set(rows.map(r => r.code)).size;
 
   document.getElementById('realDrillSubtitle').textContent =
-    `Period: ${periodLabel} · ${rows.length} compan${rows.length!==1?'ies':'y'} · cargo arrived at JKT`;
+    `Period: ${periodLabel} · ${nCompanies} compan${nCompanies!==1?'ies':'y'} · ${rows.length} arrival wave${rows.length!==1?'s':''} · cargo arrived at JKT`;
 
   document.getElementById('realDrillSummary').innerHTML = [
     ['Realized (MT)',  totalRealized.toLocaleString(MT_LOCALE)+' MT', 'var(--green)',   'var(--green-bg)',  'var(--green-bd)'],
     ['Obtained (MT)',  totalObtained.toLocaleString(MT_LOCALE)+' MT', 'var(--teal)',    'var(--teal-bg)',   'var(--teal-bd)'],
-    ['Companies',      rows.length,                          'var(--blue)',    'var(--blue-bg)',   'var(--blue-bd)'],
+    ['Companies',      nCompanies,                           'var(--blue)',    'var(--blue-bg)',   'var(--blue-bd)'],
     ['Avg Real. %',    avgReal+'%',                          'var(--green)',   'var(--green-bg)',  'var(--green-bd)'],
   ].map(([lbl,val,col,bg,bd]) => `
     <div style="text-align:center;padding:6px 14px;background:${bg};border-radius:6px;border:1px solid ${bd}">
