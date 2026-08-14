@@ -130,8 +130,24 @@ function renderMain() {
              utilMT, availMT, berat: realMT, realPct, utilPct, rowType, subRows };
   };
 
+  /* Kolam tabel = kolam yang dipakai KARTU Utilized, bukan hanya company yang
+     tanggal SIKLUS-nya jatuh di periode. Perusahaan yang kargonya mendarat di
+     dalam jendela tapi siklusnya di luar tetap punya utilisasi nyata di periode
+     itu — kartu menghitungnya (itulah gunanya utilizationPool), tabel ini tidak
+     menampilkannya sama sekali, jadi baris TOTAL-nya selalu lebih kecil:
+       Feb 2026  9.825 vs 12.525 (SGD 2.000 MT tidak punya baris)
+       Mei 2026    700 vs  3.000 (BTS 1.000 + GKL 1.300)
+     Dilebarkan di sini supaya angkanya tidak bisa berbeda lagi. Kolom Submit/
+     Obtained baris tambahan itu memang 0 untuk periode ini — dan itu benar. */
+  const _spiPool = (typeof utilizationPool === 'function')
+    ? utilizationPool(filteredSPI()).filter(c => (typeof SPI !== 'undefined') && SPI.includes(c))
+    : filteredSPI();
+  const _pendPool = (typeof utilizationPool === 'function')
+    ? utilizationPool(filteredPending()).filter(c => (typeof PENDING !== 'undefined') && PENDING.includes(c))
+    : filteredPending();
+
   const all = [
-    ...filteredSPI().map(buildCompanyRow),
+    ..._spiPool.map(buildCompanyRow),
     /* Baris PENDING dulu dipaku obtained:0 / availMT:0. Itu benar untuk company
        yang memang belum dapat apa-apa, tapi PENDING juga memuat company yang
        PERTEK-nya SUDAH terbit dan tinggal menunggu langkah berikutnya — SNSD
@@ -142,7 +158,7 @@ function renderMain() {
 
        Dipakai helper kanonik yang sama; company PENDING yang benar-benar belum
        terbit tetap keluar 0, jadi tampilan lamanya tidak berubah untuk mereka. */
-    ...filteredPending().map(d => {
+    ..._pendPool.map(d => {
       /* Diiris ke periode dengan helper yang sama seperti baris SPI di atas.
          `d.mt` dan canonicalObtained() keduanya SEPANJANG WAKTU: dengan filter
          Agustus 2026 baris SNSD tetap menyumbang Submit 3.000 / Obtained 120
