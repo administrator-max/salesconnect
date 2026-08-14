@@ -246,9 +246,13 @@ function revisionRuleIssues() {
     (co.cycles || []).forEach(c => {
       const t = String(c.type || '');
       if (!/^revision request/i.test(t)) return;
-      /* Siklus permintaan revisi tidak menyimpan tanggal PERTEK-nya sendiri.
-         Yang menentukan "PERTEK Perubahan sudah terbit" adalah siklus Obtained
-         hasil revisi yang sudah lolos gerbang terbit. */
+      /* "PERTEK Perubahan sudah terbit" bisa tercatat di dua tempat:
+         (a) pada siklus permintaan revisinya sendiri — CorpSec mengisi
+             pertekDate/spiDate begitu terbit (SMS: PERTEK Perubahan 26/06/2026,
+             SPI Perubahan 10/07/2026); atau
+         (b) lewat siklus Obtained hasil revisi yang sudah lolos gerbang terbit. */
+      const bertanggal = v => { const s = String(v || '').trim(); return s && !/^tba$/i.test(s); };
+      if (bertanggal(c.pertekDate) || bertanggal(c.spiDate)) return;
       const sudahTerbit = (co.cycles || []).some(o =>
         /^obtained/i.test(o.type || '') && (o._fromRevReq || /revision/i.test(o.type || '')) &&
         (typeof _isObtainedTerbit === 'function' ? _isObtainedTerbit(o, co.cycles) : false));
