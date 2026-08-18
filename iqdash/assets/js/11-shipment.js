@@ -695,10 +695,11 @@ function saveSalesUtil(prod, idx) {
 
   // Refresh dashboard views that read these (cheap; each early-returns if its
   // container isn't mounted). Keeps cards/KPIs consistent with the lot edit.
-  if (typeof updateOverviewKPIs === 'function') updateOverviewKPIs();
-  if (typeof buildAvqPageKPIs   === 'function') buildAvqPageKPIs();
-  if (typeof buildAvqProdGrid   === 'function') buildAvqProdGrid();
-  if (typeof buildAvqProdChart  === 'function') buildAvqProdChart();
+  /* Sapuan penuh — lihat refreshAllSurfaces() di 02-period-filter.js. Empat
+     builder di sini melewatkan tabel SPI, All Companies, Realization
+     Monitoring, tabel AVQ, strip Active Application dan drill yang sedang
+     terbuka. Tombol ini menulis UTILISASI, jadi semuanya ikut bergerak. */
+  if (typeof refreshAllSurfaces === 'function') refreshAllSurfaces();
 
   // Persist to localStorage + server DB
   if (typeof saveToStorage === 'function') saveToStorage();

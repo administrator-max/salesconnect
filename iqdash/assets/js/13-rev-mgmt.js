@@ -421,12 +421,8 @@ function nsAfterDecision(co) {
 
   /* Angka headline berubah begitu siklus Submit lahir — segarkan permukaan
      yang membacanya, sama seperti penutup saveEdit(). */
-  ['renderSPI', 'renderMain', 'buildRevDetailTable', 'buildFlowKPIStrip',
-   'buildPipeline', 'updateOverviewStats', 'updateOverviewKPIs']
-    .forEach(fn => {
-      const f = (typeof globalThis !== 'undefined') ? globalThis[fn] : null;
-      if (typeof f === 'function') f();
-    });
+  /* Sapuan yang sama dengan jalur simpan lain — lihat refreshAllSurfaces(). */
+  refreshAllSurfaces();
 }
 
 /* "WELDED STAINLESS STEEL PIPE 325 MT + FABRICATED STEEL PAINTED FRAME 75 MT"
@@ -986,8 +982,7 @@ function csConfirmRev(prod, pid, code, ti) {
 
   buildRevMgmtSection(co);
   applyRolePermissions();
-  buildRevList && buildRevList();
-  updateSPICounts && updateSPICounts();
+  refreshAllSurfaces();   // sapuan penuh, bukan dua builder saja
   saveToStorage();
   patchToServer(co).catch(err => notifySaveError('csConfirmRev', err));
 }
@@ -1011,8 +1006,7 @@ function csBatalRev(prod, pid, code, ti) {
 
   buildRevMgmtSection(co);
   applyRolePermissions();
-  buildRevList && buildRevList();
-  updateSPICounts && updateSPICounts();
+  refreshAllSurfaces();   // sapuan penuh, bukan dua builder saja
   saveToStorage();
   patchToServer(co).catch(err => notifySaveError('csBatalRev', err));
 }
@@ -1088,6 +1082,7 @@ function rrApplyObtained(code) {
 
   // Refresh cycle history panel
   buildRevMgmtSection(co);
+  refreshAllSurfaces();   // menulis Obtained MT — seluruh kartu harus ikut segar
 
   // Persist to localStorage + server
   saveToStorage();
@@ -1337,11 +1332,11 @@ function rrSaveReapply(code) {
 
 /* Shared refresh after any RR edit */
 function _refreshAfterRREdit() {
-  buildRevList();
-  buildRevDetailTable();
-  renderSPI();
-  renderMain();
-  updateOverviewKPIs();
+  /* Dipakai rrSaveStatus · rrMarkApproved · rrCancelRevision · rrReopenRevision
+     · rrSaveReapply. Dulu lima builder saja, sehingga menyimpan status revisi
+     memperbarui tabel SPI tapi TIDAK halaman Available Quota maupun strip
+     Active Application. Satu sapuan, sama dengan jalur simpan lainnya. */
+  refreshAllSurfaces();
   if (typeof autoSave === 'function') autoSave();
 }
 
@@ -1880,19 +1875,11 @@ function saveEdit() {
   cancelEdit();
   closeImport();
   buildRoleHistory && buildRoleHistory();
-
-  // Charts
-  buildPipeline(); buildProductDonut(); buildTopCo();
-  buildUtilChart(); buildCmpChart(); buildGauge(); buildFlowKPIStrip();
-  // Tables & lists
-  renderSPI(); renderUtilTable(); renderRATable(); renderMain();
-  buildRevList(); buildPendingQuick(); buildRevDetailTable();
-  buildCmpList(); buildPendingTable();
-  // Analytics & KPIs
-  buildLeadTimeAnalytics();
-  buildAvailableQuota();
-  updateOverviewStats();
-  updateOverviewKPIs();
+  /* SATU sapuan — lihat refreshAllSurfaces() di 02-period-filter.js. Daftar
+     builder yang dulu dienumerasi di sini melewatkan 15 permukaan, termasuk
+     SELURUH halaman Available Quota dan strip Active Application: data
+     tersimpan, kartu Overview berubah, halaman AVQ masih angka lama. */
+  refreshAllSurfaces();
 }
 /* ══════════════════════════════════════════════════════════════════════
    EXPORT EXECUTIVE PDF — Management Summary (A4 Portrait)

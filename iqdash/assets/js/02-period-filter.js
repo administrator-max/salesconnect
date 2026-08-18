@@ -1517,52 +1517,93 @@ function updatePeriodUI() {
 }
 
 function applyPeriodFilter() {
-  // Re-render all views that use filtered data
-  renderSPI();
-  renderUtilTable();
-  renderRATable();
-  renderMain();
-  buildPipeline();
-  buildProductDonut();
-  buildTopCo();
-  buildCmpChart();
-  buildCmpList();
-  buildRevList();
-  buildPendingQuick();
-  buildRevSummaryStrip();
-  buildPendingSummaryStrip();
-  buildPendingTable();
-  buildLeadTimeAnalytics();
-  buildOUChart();
-  buildOUChartOverview();
-  updateOUOverviewKPIs();
-  updateSalesIntelKPIs();
-  buildGauge();          // ← fix: gauge must rebuild on filter change
-  updateOverviewStats(); // ← fix: insight strip + gauge labels
-  updateOverviewKPIs();  // ← fix: KPI cards (calls filteredSPI/RA/Pending)
-  buildAvailableQuota(); // ← fix: AVQ chart re-filters per period
-  buildFlowKPIStrip();   // ← fix: flow KPI strip re-calculates obtained/utilized
-  buildAvqPageKPIs();    // ← fix: Available Quota page KPI cards re-calculate
-  // ── fix: AVQ "By Product" sub-views + Realization% chart were period-AWARE
-  //   (they call filteredSPI()/filteredRA()) but were never re-invoked on a
-  //   filter change, so the per-product cards/table/chart kept showing the
-  //   unfiltered company set. Rebuild them here. They early-return when their
-  //   container is absent, so calling the hidden tabs is cheap and safe. ──
-  if (typeof buildAvqProdGrid  === 'function') buildAvqProdGrid();
-  if (typeof buildAvqTable      === 'function') buildAvqTable();
-  if (typeof buildAvqProdChart  === 'function') buildAvqProdChart();
-  if (typeof buildUtilChart     === 'function') buildUtilChart();
-  // Refresh drill-down modal if currently open
-  const drillModal = document.getElementById('obtainedDrillModal');
-  if (drillModal && drillModal.style.display !== 'none') refreshObtainedDrill();
-  const pendModal = document.getElementById('pendingDrillModal');
-  if (pendModal && pendModal.style.display !== 'none') refreshPendingDrill();
-  const subModal = document.getElementById('submitDrillModal');
-  if (subModal && subModal.style.display !== 'none') refreshSubmitDrill();
-  const realModal = document.getElementById('realizedDrillModal');
-  if (realModal && realModal.style.display !== 'none') refreshRealizedDrill();
-  const raModal = document.getElementById('reapplyDrillModal');
-  if (raModal && raModal.style.display !== 'none') refreshReapplyDrill();
+  /* ════════════════════════════════════════════════════════════════════════
+     Satu daftar, dijalankan BERPAGAR.
+
+     Dulu keempat puluh pemanggilan ini berdiri telanjang berurutan, jadi SATU
+     builder yang melempar error menghentikan sisanya — separuh dashboard tetap
+     menampilkan angka periode sebelumnya, tanpa tanda apa pun di layar. Itu
+     kegagalan paling berbahaya untuk kami: bukan angka yang salah, melainkan
+     angka lama yang tampak benar.
+
+     Sekarang tiap permukaan dipagari sendiri: yang gagal dicatat ke console,
+     yang lain tetap segar. Urutannya persis seperti semula.
+     ════════════════════════════════════════════════════════════════════════ */
+  const URUTAN = [
+    'renderSPI', 'renderUtilTable', 'renderRATable', 'renderMain',
+    'buildPipeline', 'buildProductDonut', 'buildTopCo', 'buildCmpChart',
+    'buildCmpList', 'buildRevList', 'buildPendingQuick',
+    'buildRevSummaryStrip', 'buildPendingSummaryStrip', 'buildPendingTable',
+    'buildLeadTimeAnalytics', 'buildOUChart', 'buildOUChartOverview',
+    'updateOUOverviewKPIs', 'updateSalesIntelKPIs', 'buildGauge',
+    'updateOverviewStats', 'updateOverviewKPIs', 'buildAvailableQuota',
+    'buildFlowKPIStrip', 'buildAvqPageKPIs',
+    /* Sub-tampilan AVQ + grafik utilisasi: period-aware tapi dulu tidak pernah
+       dipanggil ulang saat filter berubah. Aman dipanggil walau tabnya
+       tersembunyi — masing-masing keluar lebih awal bila wadahnya tidak ada. */
+    'buildAvqProdGrid', 'buildAvqTable', 'buildAvqProdChart', 'buildUtilChart',
+  ];
+  const gagal = [];
+  URUTAN.forEach(nama => {
+    const f = (typeof globalThis !== 'undefined') ? globalThis[nama] : null;
+    if (typeof f !== 'function') return;
+    try { f(); } catch (e) { gagal.push(nama); console.error('applyPeriodFilter/' + nama, e); }
+  });
+  if (gagal.length && typeof showToast === 'function') {
+    showToast('⚠ ' + gagal.length + ' bagian gagal disegarkan: ' + gagal.join(', ')
+      + ' — muat ulang halaman sebelum membaca angkanya.', 'error');
+  }
+
+  /* Drill yang sedang TERBUKA ikut disegarkan — kalau tidak, ia tetap
+     menampilkan periode sebelumnya di sebelah kartu yang sudah berubah. */
+  [['obtainedDrillModal', 'refreshObtainedDrill'],
+   ['pendingDrillModal',  'refreshPendingDrill'],
+   ['submitDrillModal',   'refreshSubmitDrill'],
+   ['realizedDrillModal', 'refreshRealizedDrill'],
+   ['reapplyDrillModal',  'refreshReapplyDrill'],
+   ['utilDrillModal',     'refreshUtilDrill'],
+   ['avqDrillModal',      'refreshAvqDrill'],
+   ['leadTimeDrillModal', 'refreshLtDrillModal']].forEach(([id, fn]) => {
+    const m = document.getElementById(id);
+    if (!m || m.style.display === 'none' || !m.style.display) return;
+    const f = (typeof globalThis !== 'undefined') ? globalThis[fn] : null;
+    if (typeof f === 'function') { try { f(); } catch (e) { console.error('applyPeriodFilter/' + fn, e); } }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   refreshAllSurfaces — SATU sapuan render, dipakai SEMUA jalur penyimpanan.
+
+   Sebelum ini tiap jalur simpan punya daftar buildernya sendiri, dan
+   daftar-daftar itu sudah melenceng jauh dari daftar applyPeriodFilter():
+
+     saveEdit          15 permukaan tidak ikut segar — termasuk SELURUH
+                       halaman Available Quota (kartu, tabel, kartu per-produk),
+                       strip Active Application, grafik Obtained vs Utilization
+     csConfirmRev      hanya 4 builder
+     csBatalRev        hanya 4 builder
+     rrApplyObtained   HANYA panel revisinya sendiri — padahal ia menulis
+                       Obtained MT, angka inti yang menggerakkan semua kartu
+     rrSaveStatus      hanya panel
+     rrMarkApproved    hanya panel
+
+   Akibatnya persis satu kelas: begitu tim menyimpan data, kartu Overview
+   berubah sementara halaman Available Quota masih menampilkan angka lama —
+   dua angka untuk hal yang sama, sampai halamannya dimuat ulang.
+
+   applyPeriodFilter() memang sudah sapuan lengkap dan TIDAK mengubah PERIOD
+   (ia hanya merender ulang), jadi memanggilnya sesudah menyimpan aman: filter
+   yang sedang dipakai tetap utuh. Sisanya hanya yang khas penyimpanan.
+
+   Setiap jalur simpan memanggil INI, bukan daftarnya sendiri — supaya keduanya
+   tidak bisa melenceng lagi. */
+function refreshAllSurfaces() {
+  if (typeof applyPeriodFilter === 'function') applyPeriodFilter();
+  ['buildRevDetailTable', 'buildRoleHistory', 'updateSPICounts',
+   'updateStorageStatus', 'refreshDropdownDraftBadges'].forEach(fn => {
+    const f = (typeof globalThis !== 'undefined') ? globalThis[fn] : null;
+    if (typeof f === 'function') { try { f(); } catch (e) { console.warn('refreshAllSurfaces:' + fn, e); } }
+  });
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
