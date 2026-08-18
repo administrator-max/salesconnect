@@ -33,15 +33,24 @@ function exportExecutivePDF() {
   const validSpiCodes = new Set(
     PERIOD.active ? SPI.filter(co => companyInPeriod(co.cycles||[])).map(co => co.code) : SPI.map(co => co.code)
   );
-  /* avgReal stays on ra_records: it is an average of per-company realisation
-     PERCENTAGES, which the PIB lines do not carry (they hold volume only). */
+  /* Avg Realization = realisasi ÷ obtained atas perusahaan yang SAMA — definisi
+     yang dipakai drill Realized di dashboard. Dulu rata-rata realPct per BARIS
+     ra_records, dan ra_records satu baris per GELOMBANG kedatangan: dua
+     perusahaan punya dua gelombang, yang keduanya menyimpan 0% pada baris
+     kedua. PDF karena itu mencetak 87,4% sementara dashboard menyebut 92,3%
+     untuk hal yang sama (audit 2026-08-14). Tertimbang, bukan rata-rata
+     persentase atas jumlah baris yang kebetulan ada. */
   const arrivedRA = RA.filter(r => {
     if (!r.cargoArrived) return false;
     if (!PERIOD.active) return true;
     const ad = r.arrivalDate ? raDate(r.arrivalDate) : null;
     return inPd(ad);
   });
-  const avgReal  = arrivedRA.length ? arrivedRA.reduce((t,r) => t+r.realPct, 0)/arrivedRA.length*100 : 0;
+  const _realCo = [...new Set(arrivedRA.map(r => r.code))];
+  const _obtReal = _realCo.reduce((t, c) => {
+    const ra = getRA(c); return t + (Number(ra && ra.obtained) || 0);
+  }, 0);
+  const avgReal = _obtReal > 0 ? (s3_mt / _obtReal * 100) : 0;
 
   // KPI 4 — Re-Apply: scoped to SPI companies that match the period
   const raPool  = PERIOD.active ? RA.filter(r => validSpiCodes.has(r.code)) : RA;
