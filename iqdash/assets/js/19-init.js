@@ -297,6 +297,23 @@ function buildAvqProdGrid() {
      dan state yang hanya ditulis persis yang membuat dua permukaan bisa
      bergeser diam-diam. Dihapus. */
 
+  /* Basis angkanya dinyatakan terang-terangan saat periode aktif.
+     Ketiga angka kartu ini KUMULATIF — saldo itu stock, jadi obtained dan
+     utilized pasangannya juga harus all-time, kalau tidak identitas
+     obtained − utilized = available tidak berlaku (lihat availableQuotaRows()).
+     Tanpa keterangan ini kata "OBTAINED" di bawah filter Februari wajar dibaca
+     "diperoleh pada Februari", dan itu persis yang membuat laporan tim lain
+     menulis GL ALLOY 900 sementara kartu ini 1.900 (dilaporkan 2026-08-18). */
+  const basisEl = document.getElementById("avqProdBasis");
+  if (basisEl) {
+    if (PERIOD.active) {
+      basisEl.style.display = "block";
+      basisEl.innerHTML = "<strong>Basis: saldo kumulatif (seluruh waktu)</strong> untuk perusahaan yang aktif pada " +
+        PERIOD.label + ". Obtained &amp; Utilized di kartu ini adalah TOTAL sepanjang waktu perusahaan tersebut — " +
+        "bukan yang diperoleh atau dipakai di dalam periode — supaya Obtained − Utilized = Available tetap berlaku. " +
+        "Untuk angka yang benar-benar diperoleh DI DALAM periode, pakai kartu <strong>SPI / Pertek Obtained</strong> di Overview.";
+    } else { basisEl.style.display = "none"; basisEl.innerHTML = ""; }
+  }
   const entries = Object.entries(prodMap).sort((a,b) => b[1].avail - a[1].avail);
   grid.innerHTML = entries.map(([prod, d]) => {
     // Suppress tiny negative avail (XLSX manual re-allocation rounding artifacts)
