@@ -156,7 +156,11 @@ const hasRealizationData = code => !!(REALIZATION_SUMMARY && REALIZATION_SUMMARY
 let REALIZATIONS = [];
 async function loadRealizations() {
   try {
-    const res = await fetch('api/realizations');
+    /* no-store: tanpa ini browser boleh menyajikan salinan lama, dan sesudah
+       menyimpan data satu kali muat ulang bisa menampilkan angka SEBELUM
+       perubahan. Memo di server sudah dibatalkan tiap penulisan — yang basi
+       cache HTTP di sisi ini. */
+    const res = await fetch('api/realizations', { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
     REALIZATIONS = Array.isArray(data && data.realizations) ? data.realizations : [];
@@ -168,7 +172,8 @@ async function loadRealizations() {
 
 async function loadData() {
   try {
-    const res  = await fetch('api/data');
+    // Lihat catatan no-store di loadRealizations().
+    const res  = await fetch('api/data', { cache: 'no-store' });
     const data = await res.json();
     const _dedup = (arr) => {
       const seen = new Set();
