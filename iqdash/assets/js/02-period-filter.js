@@ -1146,6 +1146,63 @@ function availablePool() {
   return availableScopePool().filter(co => cumulativeAvailable(co) > AVQ_EPS);
 }
 
+/* Kolam Available TANPA syarat "aktif di periode" — hanya syarat kausal:
+   kuotanya sudah terbit s/d akhir periode DAN saldonya masih ada.
+
+   Ini BUKAN kolam pengganti. Angka utama halaman ini tetap availablePool(),
+   yang dua syaratnya sudah dicocokkan ke master (lihat docblock
+   reportAvailableTotal). Kolam ini ada untuk satu hal saja: menghitung berapa
+   saldo yang DISEMBUNYIKAN oleh syarat aktivitas, supaya bisa dinyatakan
+   terang-terangan alih-alih hilang diam-diam.
+
+   Kenapa perlu: Available adalah SALDO (stock), tapi syarat #1 adalah saringan
+   AKTIVITAS. Akibatnya satu produk bisa berkedip hilang-muncul antar bulan
+   tanpa saldonya berubah sepeser pun — GL ALLOY tampil di filter Feb 2026
+   (CGK & GNG mengajukan MOI 25/02) lalu LENYAP di Maret 2026, padahal 500 MT
+   itu tetap ada dan tetap bisa dijual. Dilaporkan tim 2026-08-18.
+
+   Syarat kausal (#2) sengaja DIPERTAHANKAN: saldo tidak bisa ada sebelum kuota
+   yang melahirkannya — itulah kasus SNSD, dan melonggarkannya akan mengulang
+   bug yang sama. */
+function availablePoolAsOfPeriod() {
+  if (!PERIOD.active) return availablePool();
+  const EPOCH = new Date(1900, 0, 1);
+  const terbit = _asOfPeriod(EPOCH, PERIOD.to, () =>
+    allCompaniesPool().filter(co => canonicalObtainedFiltered(co) > 0));
+  return terbit.filter(co => cumulativeAvailable(co) > AVQ_EPS);
+}
+
+/* Saldo yang PUNYA kuota per akhir periode tapi tidak ditampilkan karena
+   pemegangnya tidak beraktivitas di dalam periode.
+
+   Keluarannya murni untuk PENGUNGKAPAN — tidak ada satu pun angka headline
+   yang memakainya, jadi definisi yang sudah dicocokkan ke master tidak
+   bergeser. Bentuknya sepadan dengan productTotals() supaya permukaan yang
+   merender bisa memakai keduanya berdampingan.
+
+   Rincian per produk lewat cumulativeAvailByProd() — pintu yang sama dengan
+   availableQuotaRows(), jadi Σ per produk = mt di sini, persis seperti kartu
+   yang ditampilkan. Satu pintu, satu basis. */
+function availableHiddenByActivity() {
+  const out = { mt: 0, companies: [], byProduct: {} };
+  if (!PERIOD.active) return out;
+  const tampil = new Set(availablePool().map(co => co.code));
+  availablePoolAsOfPeriod().forEach(co => {
+    if (tampil.has(co.code)) return;
+    out.companies.push(co.code);
+    out.mt += cumulativeAvailable(co);
+    const m = cumulativeAvailByProd(co);
+    Object.keys(m).forEach(prod => {
+      const v = Number(m[prod]) || 0;
+      if (v <= AVQ_EPS) return;
+      const e = out.byProduct[prod] || (out.byProduct[prod] = { avail: 0, cos: [] });
+      e.avail += v;
+      if (!e.cos.includes(co.code)) e.cos.push(co.code);
+    });
+  });
+  return out;
+}
+
 /* Saldo KUMULATIF per produk, dinormalkan supaya jumlahnya PERSIS
    cumulativeAvailable(co).
 

@@ -262,16 +262,44 @@ function buildAvqPageKPIs() {
     basis('avqKpiUnit3', 'MT · allocated to customers');
     basis('avqKpiUnit4', 'companies with available balance');
   }
+  /* Catatan ini berlaku untuk KETIGA view (Chart · By Product · Table) —
+     ketiganya merender dari kolam yang sama, jadi saldo yang disembunyikan
+     syarat aktivitas hilang dari ketiganya sekaligus. Disebutkan di sini supaya
+     tidak ada view yang diam soal itu; kartu bayangannya sendiri hanya ada di
+     By Product (2026-08-18). */
   const note = document.getElementById('avqBasisNote');
   if (note) {
-    note.textContent = PERIOD.active
-      ? 'Available = saldo kumulatif; Obtained & Utilized = aktivitas di dalam periode. '
-        + 'Ketiganya sengaja beda basis, jadi Available ≠ Obtained − Utilized selama filter periode aktif.'
-      : 'Tanpa filter periode ketiganya satu basis: Available = Obtained − Utilized.';
+    if (!PERIOD.active) {
+      note.textContent = 'Tanpa filter periode ketiganya satu basis: Available = Obtained − Utilized.';
+    } else {
+      const _h = (typeof availableHiddenByActivity === 'function')
+                   ? availableHiddenByActivity() : { mt: 0, companies: [] };
+      let teks = 'Available = saldo kumulatif; Obtained & Utilized = aktivitas di dalam periode. '
+        + 'Ketiganya sengaja beda basis, jadi Available ≠ Obtained − Utilized selama filter periode aktif.';
+      if (_h.mt > AVQ_EPS) {
+        teks += ' <strong>Di luar angka ini masih ada ' + fmtMt(_h.mt) + ' MT saldo berjalan</strong> di '
+          + _h.companies.length + ' perusahaan (' + _h.companies.join(', ') + ') yang kuotanya sudah terbit '
+          + 'per akhir periode tapi tidak beraktivitas di dalamnya — lihat tab By Product untuk rinciannya.';
+      }
+      note.innerHTML = teks;
+    }
   }
 }
 
 /* ── By Product grid view ── */
+
+/* Apakah kartu bayangan (saldo di luar periode) ikut ditampilkan.
+   Default TERTUTUP: angka headline halaman ini punya definisi yang sudah
+   dicocokkan ke master, dan yang default harus tetap definisi itu. Yang
+   diperbaiki adalah saldo itu tidak lagi hilang DIAM-DIAM — ada banner yang
+   menyebut jumlahnya, dan satu klik untuk melihatnya. */
+let _avqShowHidden = false;
+
+function toggleAvqHidden() {
+  _avqShowHidden = !_avqShowHidden;
+  buildAvqProdGrid();
+}
+
 function buildAvqProdGrid() {
   const grid = document.getElementById('avqProdGrid');
   if (!grid) return;
@@ -315,7 +343,7 @@ function buildAvqProdGrid() {
     } else { basisEl.style.display = "none"; basisEl.innerHTML = ""; }
   }
   const entries = Object.entries(prodMap).sort((a,b) => b[1].avail - a[1].avail);
-  grid.innerHTML = entries.map(([prod, d]) => {
+  const cards = entries.map(([prod, d]) => {
     // Suppress tiny negative avail (XLSX manual re-allocation rounding artifacts)
     const dispAvail = snapZero(d.avail);
     const utilPct = d.obtained > 0 ? Math.min((d.util / d.obtained * 100), 100).toFixed(0) : 0;
@@ -352,7 +380,78 @@ function buildAvqProdGrid() {
         </div>
       </div>
     </div>`;
-  }).join('');
+  });
+
+  /* ── SALDO YANG DISEMBUNYIKAN SYARAT AKTIVITAS ──────────────────────────
+     Kolam halaman ini menuntut dua hal: (1) company beraktivitas di dalam
+     periode, (2) kuotanya sudah terbit s/d akhir periode. Syarat #2 kausal dan
+     benar — saldo tidak bisa ada sebelum kuota yang melahirkannya. Syarat #1
+     adalah saringan AKTIVITAS yang dikenakan pada angka SALDO, dan itulah yang
+     membuat produk berkedip hilang-muncul antar bulan tanpa saldonya berubah.
+
+     Dilaporkan tim 2026-08-18: dengan filter Maret 2026, GL ALLOY dan HRPO
+     ALLOY tidak muncul sama sekali. Keduanya nyata — GNG/CGK dan MJU memang
+     masih memegang saldo itu — hanya saja tidak ada satu pun tanggal cycle
+     mereka yang jatuh di Maret. Angka Maret tidak salah; yang salah adalah
+     tidak ada apa pun di layar yang mengatakan ada 700 MT yang tidak
+     ditampilkan. Saldo yang hilang tanpa jejak dibaca sebagai "tidak ada yang
+     bisa dijual" — kelas kesalahan yang paling mahal di halaman ini.
+
+     Angka headline SENGAJA tidak diubah (definisinya sudah dicocokkan ke
+     master untuk H1 2026). Yang ditambahkan: pernyataan + kartu bayangan
+     opsional yang jelas-jelas ditandai di luar periode. */
+  const _hid  = (typeof availableHiddenByActivity === 'function')
+                  ? availableHiddenByActivity() : { mt: 0, companies: [], byProduct: {} };
+  const hidEntries = Object.entries(_hid.byProduct)
+    .filter(([, d]) => d.avail > 0.001)
+    .sort((a, b) => b[1].avail - a[1].avail);
+
+  if (_avqShowHidden) {
+    hidEntries.forEach(([prod, d]) => {
+      const c = clr(prod);
+      cards.push(`<div style="border:1px dashed ${c};border-radius:var(--r2);overflow:hidden;opacity:.72;background:repeating-linear-gradient(135deg,transparent,transparent 7px,var(--bg2) 7px,var(--bg2) 14px)">
+        <div style="background:${c};padding:9px 14px;display:flex;justify-content:space-between;align-items:center;opacity:.85">
+          <span style="font-size:11.5px;font-weight:700;color:#fff">${prod}</span>
+          <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.35)">
+            ${d.cos.length} co. · di luar periode
+          </span>
+        </div>
+        <div style="padding:10px 14px">
+          <div style="text-align:center;margin-bottom:7px">
+            <div style="font-size:16px;font-weight:700;color:${c}">${fmtMt(d.avail)}</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--txt3)">Available · saldo berjalan</div>
+          </div>
+          <div style="font-size:9.5px;color:var(--txt3);line-height:1.5">
+            Kuota sudah terbit s/d akhir periode dan saldonya masih ada di
+            <strong>${d.cos.join(', ')}</strong>, tapi tidak ada aktivitas
+            (MOI/PERTEK/MOT/SPI) di ${PERIOD.label}. TIDAK dihitung di kartu KPI
+            maupun tabel halaman ini.
+          </div>
+        </div>
+      </div>`);
+    });
+  }
+
+  grid.innerHTML = cards.join('');
+
+  const hidEl = document.getElementById('avqProdHidden');
+  if (hidEl) {
+    if (PERIOD.active && hidEntries.length) {
+      const namaProd = hidEntries.map(([prod, d]) => `${prod} ${fmtMt(d.avail)}`).join(' · ');
+      hidEl.style.display = 'block';
+      hidEl.innerHTML =
+        `<strong>${fmtMt(_hid.mt)} MT saldo berjalan tidak ditampilkan di atas</strong> — `
+        + `${_hid.companies.length} perusahaan (${_hid.companies.join(', ')}) sudah memegang kuota `
+        + `per akhir ${PERIOD.label} dan saldonya masih ada, tapi tidak ada aktivitas `
+        + `MOI/PERTEK/MOT/SPI di dalam periode itu, sehingga di luar kolam halaman ini.<br>`
+        + `<span style="color:var(--txt3)">${namaProd}</span> `
+        + `<span onclick="toggleAvqHidden()" style="display:inline-block;margin-left:6px;font-weight:700;color:#0891b2;cursor:pointer;text-decoration:underline;user-select:none">`
+        + `${_avqShowHidden ? 'sembunyikan' : 'tampilkan kartunya'}</span>`;
+    } else {
+      hidEl.style.display = 'none';
+      hidEl.innerHTML = '';
+    }
+  }
 }
 
 /* ── Product → Company popup ─────────────────────────────────────────── */

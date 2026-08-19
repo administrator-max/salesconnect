@@ -1026,6 +1026,12 @@ window.ensureXLSX = function () {
     <!-- BY PRODUCT VIEW -->
     <div id="avqViewProd" style="display:none;padding:14px 18px">
       <div id="avqProdBasis" style="display:none;margin-bottom:10px;padding:7px 11px;background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:6px;font-size:10.5px;color:var(--txt2);line-height:1.5"></div>
+      <!-- Saldo yang PUNYA kuota per akhir periode tapi pemegangnya tidak
+           beraktivitas di dalam periode. Sebelumnya lenyap tanpa jejak: GL ALLOY
+           dan HRPO ALLOY tampil di Feb 2026 lalu hilang di Mar 2026 padahal
+           saldonya tidak berubah (dilaporkan 2026-08-18). Angka headline tidak
+           berubah — ini murni pengungkapan + kartu bayangan opsional. -->
+      <div id="avqProdHidden" style="display:none;margin-bottom:10px;padding:8px 11px;background:var(--bg2);border:1px solid var(--border2);border-left:3px solid #0891b2;border-radius:6px;font-size:10.5px;color:var(--txt2);line-height:1.55"></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px" id="avqProdGrid"></div>
     </div>
 

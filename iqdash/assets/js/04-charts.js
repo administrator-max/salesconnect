@@ -610,9 +610,30 @@ function buildAvailableQuota() {
   // Product filter pills — built from unique products across all rows
   const products = [...new Set(rows.map(r => r.product))].sort();
   const fwEl = document.getElementById('avqFilterWrap');
-  if (fwEl && !fwEl._built) {
-    fwEl._built = true;
-    fwEl._active = 'ALL';
+  /* Pill DIBANGUN ULANG tiap kali daftar produknya berubah, bukan sekali
+     seumur halaman.
+
+     Dulu dijaga `!fwEl._built` — sekali dibangun, tidak pernah diperbarui.
+     Dua akibatnya nyata dan keduanya diam:
+       · Pill produk yang tidak ada di periode baru TETAP terpampang, dan pill
+         produk baru tidak pernah muncul.
+       · `_active` yang menunjuk produk itu ikut bertahan. Filter ke Maret 2026
+         setelah sempat mengklik pill GL ALLOY membuat `filtered` kosong, jadi
+         badge menulis "Available: 0 MT" tepat di sebelah kartu By Product yang
+         menjumlah 4.780 — dua angka yang bertentangan di satu kartu yang sama
+         (dilaporkan 2026-08-18).
+
+     Kunci tanda tangan daftar produk, bukan flag boolean: itu yang membuat
+     rebuild terjadi persis ketika perlu, dan pilihan pengguna tetap bertahan
+     selama produknya masih ada. */
+  const _sig = products.join('|');
+  if (fwEl && fwEl._sig !== _sig) {
+    fwEl._sig = _sig;
+    /* Pilihan yang produknya sudah tidak ada dikembalikan ke ALL — kalau tidak,
+       badge-nya nol tanpa satu pun pill yang terlihat aktif. */
+    if (fwEl._active !== 'ALL' && !products.includes(fwEl._active)) fwEl._active = 'ALL';
+    if (fwEl._active == null) fwEl._active = 'ALL';
+    fwEl.innerHTML = '';
     const makePill = (label, val) => {
       const p = document.createElement('span');
       p.className = 'avq-pill';
@@ -630,7 +651,9 @@ function buildAvailableQuota() {
     products.forEach(prod => fwEl.appendChild(makePill(prod, prod)));
   }
 
-  const activeFilter = fwEl ? fwEl._active : 'ALL';
+  /* Jatuh ke ALL kalau pilihannya kosong — badge nol tanpa sebab lebih buruk
+     daripada badge yang menjumlah seluruh baris. */
+  const activeFilter = (fwEl && fwEl._active) || 'ALL';
   // Filter rows by active product; for ALL show every row
   const filtered = activeFilter === 'ALL' ? rows : rows.filter(r => r.product === activeFilter);
 
