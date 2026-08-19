@@ -47,9 +47,11 @@ try {
                 $budgetAll  = sp_get_table($gs, $SID, 'budget_lines');
                 $headersAll = sp_get_table($gs, $SID, 'ps_headers');
                 $itemsAll   = sp_get_table($gs, $SID, 'ps_items');
+                // Peta alias produk — lihat catatan di sp_build_data().
+                $aliasAll   = sp_get_table($gs, $SID, 'product_aliases');
 
                 header('Cache-Control: private, max-age=5, must-revalidate');
-                json_out(sp_build_data($year, $actualsAll, $plansAll, $budgetAll, $headersAll, $itemsAll));
+                json_out(sp_build_data($year, $actualsAll, $plansAll, $budgetAll, $headersAll, $itemsAll, $aliasAll));
             }
 
             if ($method === 'POST') {

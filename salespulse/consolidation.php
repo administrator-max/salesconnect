@@ -183,7 +183,35 @@ function sp_id_number($n): string {
  *    guard reproduces the same *effective* JSON output without ever
  *    corrupting the 12-slot arrays into a PHP-encoded object.
  */
-function sp_build_data(int $year, array $actualsAll, array $plansAll, array $budgetAll, array $headersAll, array $itemsAll): array {
+function sp_build_data(int $year, array $actualsAll, array $plansAll, array $budgetAll, array $headersAll, array $itemsAll, array $aliasAll = []): array {
+    /* ── PETA ALIAS PRODUK ────────────────────────────────────────────────
+       Tab `product_aliases` sudah ada 44 baris dan memang dibuat untuk
+       menyatukan ejaan varian ke satu nama kanonik (GI-Z -> Galvanized,
+       SMLS -> Seamless Pipe, IWF -> Beam, dan seterusnya). Tapi konsolidasi
+       TIDAK PERNAH memakainya — tabelnya hanya terdefinisi di skema. Jadi tiap
+       ejaan varian diam-diam menjadi produk tersendiri di dashboard, dan tim
+       yang merapikan tabel itu tidak melihat perubahan apa pun.
+
+       Dilaporkan 2026-08-19: PSF26-IKM-000001 bertanda produk "Plate",
+       padahal barangnya GI-Z40 G550 "CUTTING PLATE ... COATING GALVANIZED" —
+       satu bagian dari Galvanized. Akibatnya Rp 784,78 juta terangkat sebagai
+       produk "Plate" tersendiri di Top 3 Products, tanpa tonase dan tanpa
+       revenue, dan tidak pernah muncul di grafik volume.
+
+       Dinyalakan di sini supaya tim bisa merapikannya sendiri lewat tab
+       `product_aliases` tanpa perlu deploy. Seluruh 11 nama produk yang
+       terpakai di data 2026 sudah kanonik, jadi menyalakannya TIDAK mengubah
+       satu angka pun hari ini — hanya membuka jalannya. */
+    $aliasMap = [];
+    foreach ($aliasAll as $r) {
+        $a = trim((string) ($r['alias'] ?? ''));
+        $c = trim((string) ($r['canonical_name'] ?? ''));
+        if ($a !== '' && $c !== '') $aliasMap[$a] = $c;
+    }
+    $prodKey = function ($v) use ($aliasMap): string {
+        $k = sp_prod_key($v);
+        return $aliasMap[$k] ?? $k;
+    };
     // server.js:236-242
     $budgetRows = array_values(array_filter($budgetAll, fn($r) => ($r['year'] ?? null) === $year));
     $headerRows = array_values(array_filter($headersAll, fn($h) => ($h['dashboard_year'] ?? null) === $year));
@@ -312,11 +340,11 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
     }));
     $actualByProduct = sp_group_reduce(
         $validMonthHeaders,
-        fn($h) => $h['dashboard_month_idx'] . '__' . sp_prod_key($h['product'] ?? null),
+        fn($h) => $h['dashboard_month_idx'] . '__' . $prodKey($h['product'] ?? null),
         fn() => ['month_idx' => null, 'product' => null, 'margin' => 0.0, 'revenue' => 0.0],
-        function (&$a, $h) use ($isExternalSaleLeg) {
+        function (&$a, $h) use ($isExternalSaleLeg, $prodKey) {
             $a['month_idx'] = $h['dashboard_month_idx'];
-            $a['product'] = sp_prod_key($h['product'] ?? null);
+            $a['product'] = $prodKey($h['product'] ?? null);
             $a['margin'] += sp_num($h['margin'] ?? null);
             if ($isExternalSaleLeg($h)) $a['revenue'] += sp_num($h['sales_revenue'] ?? null);
         }
@@ -336,7 +364,7 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
         $kg = 0.0;
         foreach (($itemsByPs[(string) ($h['ps_number'] ?? '')] ?? []) as $it) $kg += sp_num($it['total_weight_kg'] ?? null);
         if ($kg <= 0) continue;
-        $p = sp_prod_key($h['product'] ?? null);
+        $p = $prodKey($h['product'] ?? null);
         $ensureProd($p);
         $ACTUAL_PRODUCTS[$p]['volume'][$mi] += $kg / 1000.0;
     }
@@ -457,7 +485,9 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
         // Canonical product = consensus of ps_headers.product among the legs.
         $productCounts = [];
         foreach ($headers as $h) {
-            $p = $h['product'] ?? null;
+            /* Ikut dikanonikkan supaya produk rantai dan produk per-leg
+               tidak bisa menyebut nama berbeda untuk barang yang sama. */
+            $p = ($h['product'] ?? null) === null || trim((string) $h['product']) === '' ? null : $prodKey($h['product']);
             if ($p !== null && $p !== '') $productCounts[$p] = ($productCounts[$p] ?? 0) + 1;
         }
         $canonicalProduct = 'Projects';
