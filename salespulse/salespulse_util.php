@@ -64,10 +64,44 @@ function sp_num($v): float {
     return 0.0;
 }
 
-/** JS `prodKey`: trim; '' -> 'Projects'. */
+/* ── BUCKET UNTUK PS YANG PRODUKNYA BELUM DIISI ──────────────────────────────
+   Dulu product kosong dipetakan ke 'Projects'. Masalahnya 'Projects' adalah
+   produk NYATA di tab `products` (macro_category "projects") dan punya 12 baris
+   budget sendiri (Rp 250 juta margin/bulan). Jadi tiap PS yang field product-nya
+   belum terisi diam-diam menumpang di kategori yang memang sudah ada isinya —
+   angkanya tampak sah lengkap dengan achievement %, padahal itu lubang data.
+
+   Dilaporkan tim 2026-08-20: filter Juli 2026 memunculkan "Projects"
+   Rp 407,79 juta (163,12% dari budget) di Top 3 Products, padahal tidak ada satu
+   pun PS Juli berproduk Projects. Isinya 4 leg rantai SUMEC 01A/01B
+   (PSF26-ATL-000045.R1, PSF26-HKG-000002.R1, PSF26-ATL-000046.R1,
+   PSF26-JKT-000002.R2) yang product-nya kosong.
+
+   Sentinel ini sengaja pakai tanda kurung supaya tidak mungkin bertabrakan
+   dengan nama produk mana pun di master, dan langsung terbaca sebagai
+   "belum diisi" — bukan sebagai kategori bisnis. */
+const SP_PRODUK_BELUM_DIISI = '(Produk Belum Diisi)';
+
+/** JS `prodKey`: trim; '' -> sentinel produk belum diisi (BUKAN 'Projects'). */
 function sp_prod_key($v): string {
     $s = trim((string) $v);
-    return $s === '' ? 'Projects' : $s;
+    return $s === '' ? SP_PRODUK_BELUM_DIISI : $s;
+}
+
+/** Segment untuk sebuah produk kanonik; null kalau produknya tidak dikenal.
+    Dipakai jalur upload PS (api.php) DAN tool perbaikan data, supaya keduanya
+    tidak bisa memberi segment berbeda untuk produk yang sama. */
+function sp_segment_for_product(?string $product): ?string {
+    static $map = [
+        'Sheet Pile' => 'Long', 'ERW Pipe' => 'Long', 'Seamless Pipe' => 'Long', 'Angle' => 'Long',
+        'Bar' => 'Long', 'Beam' => 'Long', 'Channel' => 'Long', 'As Steel' => 'Long', 'Hollow' => 'Long',
+        'HRC' => 'Flat', 'HRPO' => 'Flat', 'Plate' => 'Flat', 'Chequered Plate' => 'Flat', 'Wear Plate' => 'Flat',
+        'Galvalume' => 'Coated', 'Galvanized' => 'Coated', 'PPGL' => 'Coated', 'Wiremesh' => 'Coated',
+        'Slab' => 'Semi-Finished', 'Billet' => 'Semi-Finished',
+        'HBI' => 'Raw Material', 'Scrap' => 'Raw Material',
+        'Projects' => 'Projects',
+    ];
+    return $product === null ? null : ($map[$product] ?? null);
 }
 
 /** Port of sheetsRepo.js parseCell (lines 142-163). */

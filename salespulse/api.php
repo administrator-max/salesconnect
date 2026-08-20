@@ -259,6 +259,11 @@ try {
                 $out = sp_with_lock(function () use ($gs, $SID, $header, $items) {
                     $parsedPoDate = sp_parse_project_sheet_date($header['poDate'] ?? null);
                     $monthIdx = $parsedPoDate['monthIdx'];
+                    /* PO Date yang tidak terbaca dibuang ke Januari. Itu keputusan lama yang
+                       dipertahankan supaya angka lama tidak bergeser, TAPI tidak boleh sunyi:
+                       PS-nya akan muncul di filter Januari tanpa ada yang tahu kenapa —
+                       persis kelas masalah yang sama dengan produk kosong jadi "Projects". */
+                    $monthFallback = ($monthIdx === null || $monthIdx < 0 || $monthIdx > 11);
                     if ($monthIdx === null) $monthIdx = 0;
                     if ($monthIdx < 0 || $monthIdx > 11) $monthIdx = 0;
 
@@ -267,42 +272,40 @@ try {
                         $psYear = $parsedPoDate['date'] ? (int) substr($parsedPoDate['date'], 0, 4) : (int) date('Y');
                     }
 
-                    // Detect canonical product from material/project name via product_aliases.
+                    /* Deteksi produk kanonik dari nama project + material item lewat
+                       tab `product_aliases`.
+
+                       Dulu blok ini dipagari `if (count($items) > 0)`, padahal
+                       haystack-nya sudah memuat projectName. Akibatnya PS yang masuk
+                       tanpa baris item — revisi .R1/.R2 termasuk — tidak pernah dicoba
+                       sama sekali dan product-nya tersimpan kosong tanpa jejak.
+                       Itu yang terjadi pada 4 leg SUMEC 01A/01B (upload 2026-08-03):
+                       kosong, lalu tertampung diam-diam di kategori "Projects" saat
+                       dashboard difilter ke Juli. Deteksi kini selalu dijalankan. */
                     $detectedProduct = null;
                     $detectedSegment = null;
-                    if (count($items) > 0) {
-                        $aliasRows = sp_get_table($gs, $SID, 'product_aliases');
-                        $aliases = [];
-                        foreach ($aliasRows as $r) {
-                            if (!empty($r['alias'])) {
-                                $aliases[] = ['alias' => strtolower((string) $r['alias']), 'canonical' => $r['canonical_name']];
-                            }
+                    $aliasRows = sp_get_table($gs, $SID, 'product_aliases');
+                    $aliases = [];
+                    foreach ($aliasRows as $r) {
+                        if (!empty($r['alias'])) {
+                            $aliases[] = ['alias' => strtolower((string) $r['alias']), 'canonical' => $r['canonical_name']];
                         }
-                        usort($aliases, fn($a, $b) => strlen($b['alias']) <=> strlen($a['alias'])); // longest alias first
+                    }
+                    usort($aliases, fn($a, $b) => strlen($b['alias']) <=> strlen($a['alias'])); // longest alias first
 
-                        $matStr = '';
-                        foreach (array_slice($items, 0, 5) as $it) {
-                            $matStr .= ' ' . ($it['material'] ?? '') . ' ' . ($it['size'] ?? '');
-                        }
-                        $haystack = strtolower(($header['projectName'] ?? '') . ' ' . $matStr);
-                        foreach ($aliases as $al) {
-                            if ($al['alias'] !== '' && strpos($haystack, $al['alias']) !== false) {
-                                $detectedProduct = $al['canonical'];
-                                break;
-                            }
+                    $matStr = '';
+                    foreach (array_slice($items, 0, 5) as $it) {
+                        $matStr .= ' ' . ($it['material'] ?? '') . ' ' . ($it['size'] ?? '');
+                    }
+                    $haystack = strtolower(($header['projectName'] ?? '') . ' ' . $matStr);
+                    foreach ($aliases as $al) {
+                        if ($al['alias'] !== '' && strpos($haystack, $al['alias']) !== false) {
+                            $detectedProduct = $al['canonical'];
+                            break;
                         }
                     }
                     if ($detectedProduct) {
-                        $segMap = [
-                            'Sheet Pile' => 'Long', 'ERW Pipe' => 'Long', 'Seamless Pipe' => 'Long', 'Angle' => 'Long',
-                            'Bar' => 'Long', 'Beam' => 'Long', 'Channel' => 'Long', 'As Steel' => 'Long', 'Hollow' => 'Long',
-                            'HRC' => 'Flat', 'HRPO' => 'Flat', 'Plate' => 'Flat', 'Chequered Plate' => 'Flat', 'Wear Plate' => 'Flat',
-                            'Galvalume' => 'Coated', 'Galvanized' => 'Coated', 'PPGL' => 'Coated', 'Wiremesh' => 'Coated',
-                            'Slab' => 'Semi-Finished', 'Billet' => 'Semi-Finished',
-                            'HBI' => 'Raw Material', 'Scrap' => 'Raw Material',
-                            'Projects' => 'Projects',
-                        ];
-                        $detectedSegment = $segMap[$detectedProduct] ?? null;
+                        $detectedSegment = sp_segment_for_product($detectedProduct);
                     }
 
                     $now = date('c');
@@ -369,14 +372,26 @@ try {
                     $agg = sp_reaggregate_actuals($actualsAll, $headersAll, $monthIdx, $psYear);
                     sp_replace_table($gs, $SID, 'monthly_actuals', $actualsAll);
 
-                    return ['monthIdx' => $monthIdx, 'year' => $psYear, 'mMIDR' => $agg['mMIDR'], 'rMIDR' => $agg['rMIDR']];
+                    return ['monthIdx' => $monthIdx, 'year' => $psYear, 'mMIDR' => $agg['mMIDR'], 'rMIDR' => $agg['rMIDR'],
+                            'product' => $detectedProduct, 'monthFallback' => $monthFallback];
                 });
 
+                /* Produk yang tidak terdeteksi TIDAK boleh lewat diam-diam: PS-nya
+                   tetap tersimpan (angkanya benar), tapi pengunggah harus tahu bahwa
+                   field Product-nya kosong dan perlu diisi manual — kalau tidak,
+                   nilainya menumpuk di bucket '(Produk Belum Diisi)' di dashboard. */
                 json_out([
                     'success' => true,
                     'message' => "Imported {$header['psNumber']}.",
                     'monthIdx' => $out['monthIdx'], 'year' => $out['year'],
                     'mMIDR' => $out['mMIDR'], 'rMIDR' => $out['rMIDR'],
+                    'product' => $out['product'],
+                    'productWarning' => $out['product'] === null
+                        ? "Produk tidak terdeteksi dari nama project maupun material — isi kolom Product pada PS ini."
+                        : null,
+                    'monthWarning' => $out['monthFallback']
+                        ? "PO Date tidak terbaca — PS ini ditempatkan di Januari. Perbaiki PO Date-nya."
+                        : null,
                 ]);
             }
 

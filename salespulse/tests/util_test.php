@@ -21,7 +21,9 @@ chk('ser json', sp_serialize_cell(['a'=>1],'json') === '{"a":1}');
 // num / prod_key
 chk('num nan->0', sp_num('abc') === 0.0);
 chk('num float', sp_num('12.5') === 12.5);
-chk('prodkey blank', sp_prod_key('  ') === 'Projects');
+chk('prodkey blank -> sentinel', sp_prod_key('  ') === '(Produk Belum Diisi)');
+chk('prodkey blank BUKAN Projects', sp_prod_key('') !== 'Projects');
+chk('prodkey Projects tetap Projects', sp_prod_key('Projects') === 'Projects');
 chk('prodkey keep', sp_prod_key('HRC') === 'HRC');
 
 echo $fail?"\n$fail FAILURES\n":"\nALL PASS\n"; exit($fail?1:0);

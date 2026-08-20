@@ -309,6 +309,12 @@ async function submitUploadToDb() {
   btn.className = 'upload-submit-btn loading';
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;animation:spin 1s linear infinite;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg> Menyimpan ${_uploadParsedFiles.length} file...`;
 
+  /* PS yang produknya tidak terdeteksi tetap tersimpan, tapi dikumpulkan di sini
+     supaya pengunggah langsung diberi tahu. Kalau dibiarkan kosong, nilainya jatuh
+     ke bucket '(Produk Belum Diisi)' di dashboard — dulu diam-diam ke 'Projects'. */
+  const psTanpaProduk  = [];
+  const psTanpaTanggal = [];
+
   try {
     // Submit satu per satu — server aggregates after each
     for (const payload of _uploadParsedFiles) {
@@ -325,12 +331,24 @@ async function submitUploadToDb() {
         const err = await res.json().catch(() => ({}));
         throw new Error(`${payload.header.psNumber}: ${err.error || res.status}`);
       }
+      const ok = await res.json().catch(() => ({}));
+      if (ok && ok.productWarning) psTanpaProduk.push(payload.header.psNumber);
+      if (ok && ok.monthWarning)   psTanpaTanggal.push(payload.header.psNumber);
     }
 
     const names = Object.values(_uploadGrouped).map(g => g.projectName).join(', ');
     btn.innerHTML = '✓ Tersimpan!';
     btn.className = 'upload-submit-btn success';
-    showToast(`✓ ${_uploadParsedFiles.length} PS disimpan (${Object.keys(_uploadGrouped).length} project)`);
+    /* satu toast saja — showToast menimpa pesan sebelumnya, jadi kalau ada PS
+       tanpa produk peringatannya yang ditampilkan (sudah memuat info tersimpan). */
+    const peringatan = [];
+    if (psTanpaProduk.length)  peringatan.push(`produk belum terisi pada ${psTanpaProduk.join(', ')} (nilainya masuk '(Produk Belum Diisi)')`);
+    if (psTanpaTanggal.length) peringatan.push(`PO Date tidak terbaca pada ${psTanpaTanggal.join(', ')} (ditempatkan di Januari)`);
+    if (peringatan.length) {
+      showToast(`${_uploadParsedFiles.length} PS tersimpan, tapi ${peringatan.join('; ')} — perbaiki dulu, kalau tidak angkanya salah tempat saat dashboard difilter.`, true);
+    } else {
+      showToast(`✓ ${_uploadParsedFiles.length} PS disimpan (${Object.keys(_uploadGrouped).length} project)`);
+    }
     setTimeout(() => { closeUploadModal(null, true); if (typeof initApp === 'function') initApp(); }, 900);
 
   } catch (err) {

@@ -490,7 +490,9 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
             $p = ($h['product'] ?? null) === null || trim((string) $h['product']) === '' ? null : $prodKey($h['product']);
             if ($p !== null && $p !== '') $productCounts[$p] = ($productCounts[$p] ?? 0) + 1;
         }
-        $canonicalProduct = 'Projects';
+        /* Rantai yang SEMUA leg-nya belum berproduk masuk ke sentinel, bukan ke
+           'Projects' — lihat SP_PRODUK_BELUM_DIISI di salespulse_util.php. */
+        $canonicalProduct = SP_PRODUK_BELUM_DIISI;
         if ($productCounts) {
             arsort($productCounts);
             $canonicalProduct = array_key_first($productCounts);
