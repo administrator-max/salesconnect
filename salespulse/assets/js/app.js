@@ -314,6 +314,7 @@ async function submitUploadToDb() {
      ke bucket '(Produk Belum Diisi)' di dashboard — dulu diam-diam ke 'Projects'. */
   const psTanpaProduk  = [];
   const psTanpaTanggal = [];
+  const psTanpaItem    = [];
 
   try {
     // Submit satu per satu — server aggregates after each
@@ -334,6 +335,7 @@ async function submitUploadToDb() {
       const ok = await res.json().catch(() => ({}));
       if (ok && ok.productWarning) psTanpaProduk.push(payload.header.psNumber);
       if (ok && ok.monthWarning)   psTanpaTanggal.push(payload.header.psNumber);
+      if (ok && ok.itemsWarning)   psTanpaItem.push(payload.header.psNumber);
     }
 
     const names = Object.values(_uploadGrouped).map(g => g.projectName).join(', ');
@@ -344,6 +346,7 @@ async function submitUploadToDb() {
     const peringatan = [];
     if (psTanpaProduk.length)  peringatan.push(`produk belum terisi pada ${psTanpaProduk.join(', ')} (nilainya masuk '(Produk Belum Diisi)')`);
     if (psTanpaTanggal.length) peringatan.push(`PO Date tidak terbaca pada ${psTanpaTanggal.join(', ')} (ditempatkan di Januari)`);
+    if (psTanpaItem.length)    peringatan.push(`tabel item kosong pada ${psTanpaItem.join(', ')} (tonase & revenue-nya nol, produknya tidak muncul di grafik volume)`);
     if (peringatan.length) {
       showToast(`${_uploadParsedFiles.length} PS tersimpan, tapi ${peringatan.join('; ')} — perbaiki dulu, kalau tidak angkanya salah tempat saat dashboard difilter.`, true);
     } else {

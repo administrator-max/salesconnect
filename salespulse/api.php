@@ -373,7 +373,8 @@ try {
                     sp_replace_table($gs, $SID, 'monthly_actuals', $actualsAll);
 
                     return ['monthIdx' => $monthIdx, 'year' => $psYear, 'mMIDR' => $agg['mMIDR'], 'rMIDR' => $agg['rMIDR'],
-                            'product' => $detectedProduct, 'monthFallback' => $monthFallback];
+                            'product' => $detectedProduct, 'monthFallback' => $monthFallback,
+                            'noItems' => count($items) === 0];
                 });
 
                 /* Produk yang tidak terdeteksi TIDAK boleh lewat diam-diam: PS-nya
@@ -391,6 +392,16 @@ try {
                         : null,
                     'monthWarning' => $out['monthFallback']
                         ? "PO Date tidak terbaca — PS ini ditempatkan di Januari. Perbaiki PO Date-nya."
+                        : null,
+                    /* PS tanpa baris item tetap tersimpan dan margin-nya tetap terhitung,
+                       TAPI tonase dan revenue-nya nol: volume dijumlahkan dari
+                       ps_items.total_weight_kg, dan revenue hanya diakui untuk leg
+                       eksternal yang MEMBAWA item (lihat $isExternalSaleLeg di
+                       consolidation.php). Akibatnya produknya hilang dari grafik volume
+                       walau margin-nya muncul — persis yang terjadi pada PPGL Juli 2026
+                       (rantai SUMEC 01A/01B diunggah tanpa tabel item). */
+                    'itemsWarning' => $out['noItems']
+                        ? "PS ini tersimpan tanpa satu pun baris item — margin terhitung, tapi tonase dan revenue-nya nol dan produknya tidak akan muncul di grafik volume."
                         : null,
                 ]);
             }
