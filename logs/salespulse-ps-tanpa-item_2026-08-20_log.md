@@ -27,8 +27,8 @@ Dua leg eksternal (HKG & JKT, keduanya jual ke PTJ) adalah yang menentukan volum
 Begitu item-nya ada, PPGL Juli akan membawa revenue **Rp 5,145 miliar** plus tonasenya.
 
 **Ini bukan kasus tunggal.** Dari 124 baris `ps_headers`, **22 PS tersimpan tanpa item**.
-Yang eksternal (jadi benar-benar hilang dari chart): 4 leg SUMEC di atas + **PSF26-SPA-000005**
-(Beam, April, Rp 5,95 miliar). Total revenue eksternal yang tidak terhitung: **Rp 11,09 miliar**.
+Yang benar-benar hilang dari chart hanya 4 leg SUMEC di atas: **Rp 5,145 miliar** revenue
+eksternal. (Lihat koreksi di bawah — `PSF26-SPA-000005` sempat ikut dihitung di sini, keliru.)
 
 ## Perubahan
 - `api.php`: respons upload menambah **`itemsWarning`** ketika PS masuk tanpa satu pun baris item.
@@ -61,8 +61,7 @@ percaya diri, padahal tonase dan revenue-nya baru saja menguap.
   saat kolom 3 berisi `TOTAL`. Kalau layout PS bergeser sedikit saja, seluruh tabel item terlewat
   dan hasilnya 0 item — konsisten dengan 22 PS yang tersimpan tanpa item. Kalau unggah ulang
   ternyata tetap 0 item, di situlah perbaikannya: cari baris header tabel item, jangan hardcode.
-- `PSF26-SPA-000005` (Beam, April, eksternal, Rp 5,95 miliar) mengalami hal yang sama dan belum
-  ditangani.
+- `PSF26-SPA-000005` (Beam, April) — lihat koreksi di bawah; ternyata TIDAK hilang dari chart.
 
 ---
 
@@ -105,6 +104,59 @@ Total margin **tidak bergeser**: tetap 5.108,30 M.
 - **Kode material bukan yang asli.** Diisi `PPGL` / `FLAT ROLLED PROD` sebagai deskripsi apa
   adanya, karena kode PS sebenarnya tidak tersedia (bandingkan SUMEC 02: `GI-Z40 G550-00038`).
   Kalau file PS-nya nanti ada, unggah ulang akan menimpanya dengan kode yang benar.
-- **PSF26-SPA-000005** (Beam, April, eksternal, Rp 5,95 miliar) masih tanpa item — belum ditangani.
+- **PSF26-SPA-000005** (Beam, April) — lihat koreksi di bawah.
 - **Dugaan parser masih berdiri**: `let rowIndex = 22` yang hardcode di `app.js` tetap tersangka
   utama kenapa 22 PS bisa tersimpan tanpa item. Butuh satu file PS contoh untuk dipastikan.
+
+---
+
+## Koreksi & penutup — konfirmasi tim (2026-08-20, sesi yang sama)
+
+### 1. `PSF26-SPA-000005` TIDAK hilang dari chart — koreksi atas catatan di atas
+Catatan awal log ini menyebut PSF26-SPA-000005 sebagai revenue eksternal Rp 5,95 miliar yang
+tidak terhitung, dan menjumlahkannya jadi "Rp 11,09 miliar". **Itu keliru.** Penjualannya
+sebenarnya sudah terhitung, hanya lewat PS kembarannya.
+
+Rantai `Hanwa 02 - Del. April 2026 - Artha Mas Graha Phase 1` berisi **tiga** leg, dan salah
+satunya adalah versi lama dari deal yang sama:
+
+| PS | Dibuat | Supplier | Customer | Revenue | Margin | Item |
+|---|---|---|---|---|---|---|
+| PSF26-SPA-000004 | 17 Apr | PT. Hanwa Indonesia | Artha Mas | 5.946.953.978 | 259.440.852 | 5 baris, 474.862 kg |
+| PSF26-GIS-000003 | 3 Mei | PT. Hanwa Indonesia | Selaras Prima | 5.804.227.083 | 116.713.957 | 0 |
+| PSF26-SPA-000005 | 3 Mei | PT. Gunung Inti Sempurna | Artha Mas | 5.946.953.978 | 142.726.895 | 0 |
+
+Deal ini direstrukturisasi dari 1 leg langsung menjadi 2 leg lewat GIS:
+- 116.713.957 + 142.726.895 = **259.440.852** — persis margin PS lama, sampai rupiah terakhir;
+- revenue SPA-000004 dan SPA-000005 identik ke rupiah, ke pelanggan yang sama;
+- purchase SPA-000005 (5.804.227.083) = revenue GIS-000003 — rantainya nyambung, sedangkan
+  SPA-000004 masih memakai rute lama (beli langsung dari Hanwa);
+- Phase 2 dari deal yang sama, dientri di batch yang sama 3 Mei, isinya persis 2 leg
+  (GIS-000004 → SPA-000006) dengan item hanya di leg SPA.
+
+Jadi tonase 474.862 kg dan revenue Rp 5,95 miliar **sudah masuk chart** lewat SPA-000004 —
+tidak ada yang hilang. Menambah item ke SPA-000005 justru akan menggandakannya: simulasi atas
+data live menunjukkan Beam April melonjak 809,7 → 1.284,6 MT dan 10.328,27 → 16.275,22 M revenue.
+
+Penyisiran seluruh 124 PS: **ini satu-satunya** pasangan leg kembar (subsidiary + customer +
+revenue identik) dan satu-satunya rantai yang margin satu leg-nya sama dengan jumlah leg lain.
+12 rantai 3-leg lainnya normal.
+
+### 2. Keputusan tim: April dibiarkan apa adanya
+Dikonfirmasi tim 2026-08-20: **"Beam di April sudah benar"**. Tidak ada perubahan data April
+yang dijalankan — tidak ada baris yang dipindah maupun dihapus.
+
+Satu hal yang tetap dicatat di sini sebagai temuan, bukan sebagai usulan: selama SPA-000004
+dan pasangan penggantinya sama-sama ada, margin penjualan Phase 1 terjumlah dua kali —
+Rp 518,88 juta untuk deal senilai Rp 259,44 juta. Tonase dan revenue tidak terpengaruh
+(hanya leg eksternal ber-item yang dihitung, dan itu cuma SPA-000004). Kalau suatu saat mau
+dirapikan, langkahnya: pindahkan 5 baris item SPA-000004 ke SPA-000005, lalu hapus SPA-000004 —
+hasilnya margin April 2.592,19 → 2.332,74 M, tonase & revenue tidak bergerak.
+
+### 3. SUMEC 02 memang Galvanized
+Dikonfirmasi tim. Sudah sesuai dengan isi sheet (PSF26-ATL-000050 & PSF26-SGD-000005 keduanya
+`product = Galvanized`, material `GI-Z40 G550`). Tidak ada perubahan.
+
+### 4. Tool yang tidak jadi dipakai
+`tools/salespulse_gantikan_ps_lama.php` sempat dibuat untuk skenario pemindahan+penghapusan di
+atas, lalu **dihapus** karena tidak jadi dijalankan. Analisisnya tersimpan di bagian ini.
