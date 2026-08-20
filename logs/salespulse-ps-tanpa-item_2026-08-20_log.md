@@ -63,3 +63,48 @@ percaya diri, padahal tonase dan revenue-nya baru saja menguap.
   ternyata tetap 0 item, di situlah perbaikannya: cari baris header tabel item, jangan hardcode.
 - `PSF26-SPA-000005` (Beam, April, eksternal, Rp 5,95 miliar) mengalami hal yang sama dan belum
   ditangani.
+
+---
+
+## Tindak lanjut — item SUMEC 01A/01B diisi (2026-08-20, sesi yang sama)
+Tim (Ridwan) memberi tonase: **SUMEC 01A + 01B = 350 MT total**. Pemecahannya diturunkan dari
+harga per kg, bukan ditebak — dengan 01A = 250 MT dan 01B = 100 MT, harga kedua rantai konsisten:
+
+| Leg | Rantai | Tonase | Revenue | Rp/kg |
+|---|---|---|---|---|
+| PSF26-HKG-000002.R1 (eksternal → PTJ) | 01A | 250 MT | 3.680.000.000 | 14.720 |
+| PSF26-JKT-000002.R2 (eksternal → PTJ) | 01B | 100 MT | 1.465.000.000 | 14.650 |
+| PSF26-ATL-000045.R1 (internal) | 01A | 250 MT | 3.158.600.000 | 12.634 |
+| PSF26-ATL-000046.R1 (internal) | 01B | 100 MT | 1.258.850.000 | 12.589 |
+
+Selisih harga antar rantai 0,5% di sisi jual dan 0,4% di sisi internal. Pemecahan lain
+mustahil: 200/150 misalnya menghasilkan Rp 18.400 vs Rp 9.767 untuk barang & pelanggan
+yang sama. Pembanding: SUMEC 02 (GI ke PTJ) Rp 14.100/kg dengan tonase bulat 300 MT.
+
+Tonase ditulis ke **keempat leg** — meniru pola SUMEC 02 yang menyimpan 300.000 kg di kedua
+leg-nya. Tidak dobel hitung: leg dengan customer internal dilewati saat menjumlah volume.
+
+Tool baru: `tools/salespulse_isi_item_ps.php` — menambah satu baris item ke PS yang benar-benar
+kosong, **menolak** PS yang sudah punya item (supaya tonase tidak tergandakan), uji kering default.
+
+### Hasil Juli 2026 (MTD) sesudahnya
+| # | Produk | Volume | Margin | Revenue |
+|---|---|---|---|---|
+| 1 | Galvanized | 2.800,0 MT (71,9%) | 3.424,10 M | 40.090,74 M |
+| 2 | **PPGL** | **350,0 MT (9,0%)** | 407,79 M | **5.145,00 M** |
+| 3 | Galvalume | 300,0 MT (7,7%) | 510,61 M | 4.690,73 M |
+| 4 | Seamless Pipe | 275,0 MT (7,1%) | 383,40 M | 3.754,38 M |
+| 5 | Wear Plate | 103,3 MT (2,7%) | 352,63 M | 2.027,68 M |
+| 6 | Beam | 54,5 MT (1,4%) | 27,52 M | 616,53 M |
+| 7 | Bar | 13,5 MT (0,3%) | 2,25 M | 136,80 M |
+
+Total actual naik **3.546 → 3.896 MT** (42,2% → **46,4%** dari budget 8.400 MT).
+Total margin **tidak bergeser**: tetap 5.108,30 M.
+
+### Yang masih menggantung
+- **Kode material bukan yang asli.** Diisi `PPGL` / `FLAT ROLLED PROD` sebagai deskripsi apa
+  adanya, karena kode PS sebenarnya tidak tersedia (bandingkan SUMEC 02: `GI-Z40 G550-00038`).
+  Kalau file PS-nya nanti ada, unggah ulang akan menimpanya dengan kode yang benar.
+- **PSF26-SPA-000005** (Beam, April, eksternal, Rp 5,95 miliar) masih tanpa item — belum ditangani.
+- **Dugaan parser masih berdiri**: `let rowIndex = 22` yang hardcode di `app.js` tetap tersangka
+  utama kenapa 22 PS bisa tersimpan tanpa item. Butuh satu file PS contoh untuk dipastikan.
