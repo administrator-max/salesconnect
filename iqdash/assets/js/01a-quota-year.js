@@ -361,7 +361,48 @@ function validityExpired(validity) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SPI ACTIVE / INACTIVE
+   SPI ACTIVE / INACTIVE — MODEL PER PRODUK
+   ───────────────────────────────────────────────────────────────────────────
+   Pertanyaan yang dijawab bagian ini: untuk setiap PRODUK yang dipegang sebuah
+   company, DOKUMEN MANA yang saat ini memberinya kuota, dan apakah dokumen itu
+   masih berlaku.
+
+   Percobaan pertama (2026-08-26) menjawabnya per DOKUMEN: telusuri tiap siklus
+   SPI, baca rincian produknya, tentukan statusnya. Itu gagal untuk MJU dan BDG,
+   dan kegagalannya mengajarkan bentuk data yang sebenarnya:
+
+     · Rincian produk sebuah revisi disimpan di siklus PERTEK Perubahan
+       (Revision #N) sebagai SELISIH — MJU Revision #2 berbunyi
+       {HRPO ALLOY: +200, HOLLOW PIPE: -200}.
+     · Siklus SPI Perubahan pasangannya (Obtained (Revision #N)) MT-nya 0 dan
+       rincian produknya KOSONG. Ia dokumen, bukan pembawa kuota.
+
+   Jadi mencari produk di siklus SPI berarti mencari di tempat yang memang tidak
+   pernah diisi. MJU HRPO ALLOY 200 MT lalu tidak punya SPI aktif sama sekali,
+   dan BDG GL ALLOY 650 + GI ALLOY 350 ikut hilang.
+
+   Model sekarang membalik arahnya:
+
+     1. Produk yang DIPEGANG company hari ini datang dari master per-produk
+        (company_product_stats, lewat getObtainedByProdAgg). Master sudah
+        menyimpan NET sesudah semua revisi — itu kebenaran yang tidak perlu
+        direkonstruksi ulang dari siklus.
+     2. Dokumen yang BERLAKU adalah pasangan PERTEK + SPI yang TERAKHIR terbit
+        untuk company itu. PERTEK Perubahan mengalahkan PERTEK awal; SPI
+        Perubahan mengalahkan SPI awal.
+     3. Setiap produk yang masih dipegang → 🟢 Active di bawah dokumen itu.
+        Yang pernah diberikan dokumen lama tapi sudah tidak dipegang lagi →
+        ⚪ Inactive, lengkap dengan dokumen historisnya.
+
+   Diuji terhadap angka yang diberikan tim:
+     MJU  HRPO ALLOY 200 → PERTEK Perubahan 30/06/2026 · SPI Perubahan 16/07/2026
+     BDG  GL ALLOY 650 + GI ALLOY 350 → PERTEK 22/06/2026 · SPI 21/07/2026
+   Keduanya keluar persis, tanpa satu pun kasus dikhususkan.
+
+   Konsekuensi yang disengaja: Re-Apply tidak lagi melahirkan dua baris Active
+   untuk satu produk. ADP memegang GL ALLOY 350 (250 dari Obtained #1 + 100 dari
+   Obtained #2) — satu baris, 350 MT, di bawah SPI terakhir. Kuotanya tetap
+   bertambah (aturan master #2); yang tidak digandakan hanya barisnya.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /** Siklus REVISI — perpindahan produk, bukan penambahan kuota. */
@@ -380,16 +421,22 @@ function cycleProductList(c) {
     .filter(x => x.product);
 }
 
+/** Nama produk kanonik — satu produk, satu ejaan. */
+function kanonProduk(p) {
+  const s = String(p == null ? '' : p).trim();
+  if (!s) return s;
+  return (typeof canonicalProduct === 'function') ? canonicalProduct(s) : s;
+}
+
 /** Produk yang MASIH dipegang company (master per-produk), sudah kanonik. */
 function currentProductSet(co) {
-  const kanon = p => (typeof canonicalProduct === 'function' ? canonicalProduct(String(p).trim()) : String(p).trim());
   const set = new Set();
   ['utilizationByProd', 'availableByProd'].forEach(k => {
     Object.entries(co && co[k] || {}).forEach(([p, v]) => {
-      if (Number(v) || v === 0) set.add(kanon(p));
+      if (Number(v) || v === 0) set.add(kanonProduk(p));
     });
   });
-  (co && co.products || []).forEach(p => set.add(kanon(p)));
+  (co && co.products || []).forEach(p => set.add(kanonProduk(p)));
   return set;
 }
 
@@ -402,8 +449,8 @@ function pairedSubmitCycle(obtCycle, allCycles) {
   return (allCycles || []).find(c => {
     if (c === obtCycle) return false;
     return rev
-      ? new RegExp(`^Revision\\s*#?${num}\\b`, 'i').test(c.type || '')
-      : new RegExp(`^Submit\\s*#?${num}\\b`, 'i').test(c.type || '');
+      ? new RegExp('^Revision\\s*#?' + num + '\\b', 'i').test(c.type || '')
+      : new RegExp('^Submit\\s*#?' + num + '\\b', 'i').test(c.type || '');
   }) || null;
 }
 
@@ -414,175 +461,256 @@ function docNoFromStatus(status) {
   return m ? m[1].replace(/[.·]+$/, '') : '';
 }
 
-/**
- * Seluruh SPI yang PERNAH terbit untuk satu company, terbaru di bawah.
- *
- * Termasuk siklus "dokumen saja" (MT 0 tanpa rincian produk) — mereka tidak
- * memberi kuota tapi ikut menentukan SPI mana yang paling akhir, jadi tidak
- * boleh dibuang sebelum status dihitung. Penyaringannya belakangan, di
- * spiTerbitRows().
- */
+/** Tanggal PERTEK Terbit satu siklus, atau '' kalau belum terbit. */
+function cyclePertekTerbitDate(c) {
+  if (!c) return '';
+  if (isRealDate(c.pertekDate)) return String(c.pertekDate).trim();
+  const rt = String(c.releaseType || '');
+  if (/PERTEK/i.test(rt) && isRealDate(c.releaseDate)) return String(c.releaseDate).trim();
+  return '';
+}
+
+/** Semua SPI yang pernah terbit untuk satu company, TERBARU DI BELAKANG. */
 function issuedSpiCycles(co) {
-  const all = (co && co.cycles) || [];
-  return all
+  return ((co && co.cycles) || [])
     .filter(spiIsIssued)
     .map(c => ({ c, date: cycleSpiTerbitDate(c), ts: (typeof pDate === 'function' ? pDate(cycleSpiTerbitDate(c)) : null) }))
     .sort((a, b) => (a.ts && b.ts ? a.ts - b.ts : 0));
 }
 
+/** Semua PERTEK yang pernah terbit untuk satu company, TERBARU DI BELAKANG. */
+function issuedPertekCycles(co) {
+  return ((co && co.cycles) || [])
+    .filter(c => !!cyclePertekTerbitDate(c))
+    .map(c => ({ c, date: cyclePertekTerbitDate(c), ts: (typeof pDate === 'function' ? pDate(cyclePertekTerbitDate(c)) : null) }))
+    .sort((a, b) => (a.ts && b.ts ? a.ts - b.ts : 0));
+}
+
+/**
+ * Pasangan dokumen yang BERLAKU untuk satu company: PERTEK terakhir terbit +
+ * SPI terakhir terbit.
+ *
+ * Nomornya diambil dari kolom tingkat company (co.pertekNo / co.spiNo) — kolom
+ * itu memang selalu ditimpa dengan nomor Perubahan terbaru oleh rrMarkApproved,
+ * jadi ia SUDAH berarti "nomor yang berlaku sekarang". Nomor yang tertanam di
+ * string status siklus dipakai lebih dulu bila ada, karena itu lebih spesifik.
+ */
+function activeDocuments(co) {
+  const spiList    = issuedSpiCycles(co);
+  const pertekList = issuedPertekCycles(co);
+  const spi    = spiList.length    ? spiList[spiList.length - 1]       : null;
+  const pertek = pertekList.length ? pertekList[pertekList.length - 1] : null;
+  return {
+    spiCycle:    spi ? spi.c : null,
+    spiDate:     spi ? spi.date : '',
+    spiNo:       (spi && docNoFromStatus(spi.c.status)) || (co && co.spiNo) || '',
+    pertekCycle: pertek ? pertek.c : null,
+    pertekDate:  pertek ? pertek.date : '',
+    pertekNo:    (pertek && docNoFromStatus(pertek.c.status)) || (co && co.pertekNo) || '',
+    quotaYear:   spi ? cycleQuotaYear(spi.c) : (pertek ? cycleQuotaYear(pertek.c) : QUOTA_YEAR),
+  };
+}
+
 /**
  * Validity Date yang BERLAKU untuk satu company: ikut SPI yang Active.
- * SPI Perubahan kalau sudah terbit, kalau belum SPI awal.
+ * SPI Perubahan kalau sudah terbit, kalau belum SPI awal. '' kalau belum ada
+ * SPI sama sekali — masa berlaku dokumen yang belum terbit tidak dikarang.
  */
 function activeValidityDate(co) {
-  const issued = issuedSpiCycles(co);
-  if (!issued.length) return '';
-  const akhir = issued[issued.length - 1];
-  return spiValidityDate(akhir.date, cycleQuotaYear(akhir.c));
+  const d = activeDocuments(co);
+  return d.spiDate ? spiValidityDate(d.spiDate, d.quotaYear) : '';
 }
 
 /**
- * Status satu SPI terbit: 'active' | 'inactive', beserta alasannya.
+ * Riwayat pemberian kuota per produk: produk mana pernah diberikan dokumen
+ * mana. Dipakai untuk membangun baris ⚪ Inactive — produk yang pernah dipegang
+ * lalu dipindahkan revisi.
  *
- * Urutan pemeriksaan sengaja begini:
- *   1. Lewat Validity Date        → Inactive (apa pun yang lain)
- *   2. Produknya sudah tidak dipegang company → Inactive (digantikan revisi).
- *      Inilah kasus PT GAS: BORDES ALLOY pindah ke GI BORON, jadi SPI lama
- *      mati walau Validity-nya masih 31/12/2026.
- *   3. Ada SPI REVISI lebih baru yang memberi produk yang sama → Inactive.
- *   4. Siklus "dokumen saja" (tanpa rincian) → Active hanya bila ia SPI paling
- *      akhir; kalau tidak, ia sudah lewat.
- *   5. Sisanya Active — termasuk seluruh SPI Re-Apply, yang MENAMBAH kuota dan
- *      tidak menggantikan apa pun (aturan master #2).
+ * Sumbernya DUA tempat, karena kuota memang tercatat di dua tempat:
+ *   · siklus Obtained #N        — rincian produk pemberian awal / re-apply
+ *   · siklus Revision #N        — SELISIH produk sebuah revisi; yang POSITIF
+ *                                 berarti produk itu diberikan oleh revisi itu
+ * Nilai negatif dilewati: itu penarikan, bukan pemberian.
  */
-function spiCycleStatus(co, cycle, issued) {
-  const list = issued || issuedSpiCycles(co);
-  const me   = list.find(x => x.c === cycle);
-  const date = me ? me.date : cycleSpiTerbitDate(cycle);
-  const validity = spiValidityDate(date, cycleQuotaYear(cycle));
+function productGrantHistory(co) {
+  const all = (co && co.cycles) || [];
+  const out = {};   // produk kanonik -> { mt, spiCycle, spiDate, pertekCycle, pertekDate, ts }
+  const catat = (prod, mt, spiC, pertekC) => {
+    const k = kanonProduk(prod);
+    if (!k || !(mt > 0)) return;
+    const spiDate    = spiC ? cycleSpiTerbitDate(spiC) : '';
+    const pertekDate = pertekC ? cyclePertekTerbitDate(pertekC) : '';
+    const ts = (typeof pDate === 'function' && spiDate) ? pDate(spiDate) : null;
+    const cur = out[k];
+    /* Pemberian TERBARU yang menang — kalau satu produk pernah diberikan
+       beberapa kali, dokumen yang relevan adalah yang terakhir. */
+    if (cur && cur.ts && ts && ts < cur.ts) return;
+    out[k] = { mt, spiCycle: spiC, spiDate, pertekCycle: pertekC, pertekDate, ts };
+  };
 
-  if (validityExpired(validity)) return { status: 'inactive', reason: 'Masa berlaku sudah lewat' };
-
-  const prods = cycleProductList(cycle);
-
-  if (!prods.length) {
-    const terakhir = list.length ? list[list.length - 1].c : null;
-    return terakhir === cycle
-      ? { status: 'active',   reason: 'SPI terakhir yang terbit' }
-      : { status: 'inactive', reason: 'Sudah digantikan SPI yang lebih baru' };
-  }
-
-  const kanon = p => (typeof canonicalProduct === 'function' ? canonicalProduct(String(p).trim()) : String(p).trim());
-  const masih = currentProductSet(co);
-  /* Peta produk KOSONG bukan bukti apa-apa. Company yang belum punya baris di
-     company_product_stats maupun daftar company_products akan memulangkan set
-     kosong, dan menganggapnya "semua produknya sudah pindah" akan mematikan
-     SELURUH SPI-nya sekaligus. Tidak adanya data tidak boleh menyamar jadi
-     bukti penggantian. */
-  if (masih.size) {
-    const adaYangMasih = prods.some(p => masih.has(kanon(p.product)));
-    if (!adaYangMasih) {
-      return { status: 'inactive', reason: 'Produknya sudah dipindahkan ke SPI Perubahan' };
+  all.forEach(c => {
+    const tipe = String(c.type || '');
+    if (/^obtained/i.test(tipe)) {
+      const pasangan = pairedSubmitCycle(c, all);
+      cycleProductList(c).forEach(p => catat(p.product, p.mt, c, pasangan));
+      /* Siklus SPI Perubahan sering kosong rinciannya sementara PASANGANNYA
+         (PERTEK Perubahan) yang membawa selisih produknya. Itu bentuk data MJU
+         dan BDG, dan mengabaikannya adalah bug yang diperbaiki di sini. */
+      if (!cycleProductList(c).length && pasangan) {
+        cycleProductList(pasangan).forEach(p => catat(p.product, p.mt, c, pasangan));
+      }
     }
-  }
-
-  const iMe = list.findIndex(x => x.c === cycle);
-  const digantikan = list.slice(iMe + 1).some(x =>
-    isRevisionCycle(x.c) &&
-    cycleProductList(x.c).some(q => prods.some(p => kanon(p.product) === kanon(q.product)))
-  );
-  if (digantikan) return { status: 'inactive', reason: 'Digantikan SPI Perubahan untuk produk yang sama' };
-
-  return { status: 'active', reason: 'SPI berlaku' };
+  });
+  return out;
 }
 
 /**
- * Baris tabel "PERTEK & SPI Terbit" — satu baris per SPI terbit per produk.
+ * Golongan proses satu company — dipakai untuk kolom Status DAN untuk pil
+ * penyaring di atas tabel. Satu fungsi supaya angka di pil tidak bisa berbeda
+ * dari label di barisnya.
  *
- * Susunan kolom yang diminta tim:
- *   Company | Type | Cycle | Product | Submit (MT) | Obtained (MT) |
- *   PERTEK Date | PERTEK No. | SPI Date | SPI No. | Validity Date | SPI Status
+ * All | Completed | Under Submission | Pending | New Submission
+ */
+function processStatus(co) {
+  if (!co) return { key: 'pending', label: '⏳ Pending' };
+  const seksi = String(co.section || '').toUpperCase();
+  if (seksi === 'PENDING') {
+    const adaPertek = (typeof _pendingHasPertek === 'function') ? _pendingHasPertek(co) : false;
+    return adaPertek
+      ? { key: 'pending', label: '⏳ Pending' }
+      : { key: 'newsub',  label: '📬 New Submission' };
+  }
+  const rs = (typeof revisionStatus === 'function') ? revisionStatus(co) : 'clean';
+  if (rs === 'active' || rs === 'reapply') return { key: 'under',     label: '🔄 Under Submission' };
+  if (rs === 'revpending')                 return { key: 'pending',   label: '⏳ Pending' };
+  return { key: 'completed', label: '✅ Completed' };
+}
+
+/**
+ * Baris tabel utama "PERTEK & SPI Terbit" — SATU BARIS PER (COMPANY, PRODUK).
  *
- * Siklus "dokumen saja" (MT 0, tanpa rincian produk) DILEWATI: kolom Product,
- * Submit, dan Obtained-nya kosong semua, jadi barisnya tidak menerangkan apa
- * pun. Jumlah yang dilewati dipulangkan di `.skippedDocOnly` supaya bisa
- * dinyatakan di kaki tabel — bukan hilang diam-diam.
+ * Susunan yang diminta tim:
+ *   No. | Company | Group | Cycle | Products | Submit (MT) | Obtained (MT) |
+ *   Util (MT) | Status | Remarks | PERTEK No. | PERTEK Date | SPI No. |
+ *   SPI Date | Validity Date | SPI Status
+ *
+ * Company/produk tidak diulang: tiap produk muncul satu kali, membawa Submit,
+ * Obtained, dan Util-nya sendiri.
  */
 function spiTerbitRows() {
   const rows = [];
-  let skippedDocOnly = 0;
   const pool = typeof filteredSPI === 'function'
     ? [...filteredSPI(), ...(typeof filteredPending === 'function' ? filteredPending() : [])]
     : [...SPI, ...PENDING];
 
   pool.forEach(co => {
-    const all    = co.cycles || [];
-    const issued = issuedSpiCycles(co);
-    const terbaru = issued.length ? issued[issued.length - 1].c : null;
+    const dok    = activeDocuments(co);
+    const proses = processStatus(co);
+    const validity = dok.spiDate ? spiValidityDate(dok.spiDate, dok.quotaYear) : '';
+    const kedaluwarsa = validityExpired(validity);
 
-    issued.forEach(({ c, date }) => {
-      const prods    = cycleProductList(c);
-      const validity = spiValidityDate(date, cycleQuotaYear(c));
-      const st       = spiCycleStatus(co, c, issued);
-      if (!prods.length) { skippedDocOnly++; return; }
+    const obt  = (typeof getObtainedByProdAgg === 'function') ? (getObtainedByProdAgg(co) || {}) : {};
+    const util = (typeof allTimeUtilByProd    === 'function') ? (allTimeUtilByProd(co)    || {}) : (co.utilizationByProd || {});
+    const sub  = (typeof scopedSubmittedByProd === 'function') ? (scopedSubmittedByProd(co) || {}) : {};
+    const riwayat = productGrantHistory(co);
 
-      const sub      = pairedSubmitCycle(c, all);
-      const pertekDt = sub ? (isRealDate(sub.releaseDate) ? String(sub.releaseDate).trim()
-                                                          : (isRealDate(sub.pertekDate) ? String(sub.pertekDate).trim() : ''))
-                           : (isRealDate(c.pertekDate) ? String(c.pertekDate).trim() : '');
-      /* Nomor dokumen hanya tersimpan di tingkat COMPANY (yang terbaru) dan
-         kadang tertanam di string status siklus. Baris lama sengaja memulangkan
-         '' daripada mengulang nomor terbaru — mengulangnya berarti mencetak
-         nomor yang salah pada baris historis. */
-      const spiNo    = docNoFromStatus(c.status) || (c === terbaru ? (co.spiNo || '') : '');
-      const pertekNo = (sub && docNoFromStatus(sub.status))
-                     || (c === terbaru ? (co.pertekNo || '') : '');
-      const subProds = sub ? cycleProductList(sub) : [];
+    const ambil = (peta, prod) => {
+      if (!peta) return 0;
+      if (peta[prod] != null) return Number(peta[prod]) || 0;
+      const hit = Object.keys(peta).find(k => kanonProduk(k) === prod);
+      return hit ? (Number(peta[hit]) || 0) : 0;
+    };
 
-      prods.forEach(p => {
-        const subMt = subProds.length
-          ? (subProds.find(x => x.product === p.product) || {}).mt
-          : (prods.length === 1 && sub && typeof sub.mt === 'number' ? sub.mt : undefined);
-        rows.push({
-          code: co.code, group: co.group || '', section: co.section || '',
-          type:  c.releaseType || 'SPI',
-          cycle: c.type || '',
-          product: p.product,
-          submitMT:   subMt == null ? null : Number(subMt),
-          obtainedMT: Number(p.mt) || 0,
-          pertekDate: pertekDt, pertekNo,
-          spiDate: date, spiNo,
-          validityDate: validity,
-          status: st.status, reason: st.reason,
-          isRevision: isRevisionCycle(c),
-        });
+    /* ── Produk yang MASIH dipegang → di bawah dokumen yang berlaku ── */
+    const aktif = new Set([...Object.keys(obt), ...Object.keys(util)].map(kanonProduk).filter(Boolean));
+    /* Company yang belum punya baris stats sama sekali (New Submission, atau
+       PERTEK baru terbit sebelum master disegarkan) tetap harus muncul —
+       produknya diambil dari pengajuan. Tidak ada yang ditebak: keduanya nama
+       produk yang memang tercatat pada company itu. */
+    if (!aktif.size) {
+      Object.keys(sub).map(kanonProduk).filter(Boolean).forEach(p => aktif.add(p));
+      (co.products || []).map(kanonProduk).filter(Boolean).forEach(p => aktif.add(p));
+    }
+
+    const buatBaris = (prod, opsi) => {
+      const h = opsi.historis ? (riwayat[prod] || null) : null;
+      const spiDate    = h ? h.spiDate    : dok.spiDate;
+      const pertekDate = h ? h.pertekDate : dok.pertekDate;
+      const vDate = spiDate
+        ? spiValidityDate(spiDate, h ? cycleQuotaYear(h.spiCycle) : dok.quotaYear)
+        : '';
+      const siklus = h && h.spiCycle ? (h.spiCycle.type || '')
+                   : (dok.spiCycle ? (dok.spiCycle.type || '')
+                   : (dok.pertekCycle ? (dok.pertekCycle.type || '') : ''));
+      /* Nomor dokumen pada baris HISTORIS hanya dicetak kalau memang tersimpan
+         pada siklusnya. Meminjam nomor terbaru berarti mencetak nomor yang
+         salah di baris yang justru dibaca sebagai arsip. */
+      const spiNo    = h ? docNoFromStatus(h.spiCycle && h.spiCycle.status)       : dok.spiNo;
+      const pertekNo = h ? docNoFromStatus(h.pertekCycle && h.pertekCycle.status) : dok.pertekNo;
+
+      let status, reason;
+      if (!spiDate) {
+        status = 'none';
+        reason = pertekDate
+          ? 'PERTEK sudah terbit, SPI belum — belum ada masa berlaku'
+          : 'Belum ada PERTEK/SPI yang terbit';
+      } else if (opsi.historis) {
+        status = 'inactive';
+        reason = 'Produk ini sudah dipindahkan oleh PERTEK & SPI Perubahan yang lebih baru';
+      } else if (validityExpired(vDate)) {
+        status = 'inactive';
+        reason = 'Masa berlaku SPI sudah lewat (' + vDate + ')';
+      } else {
+        status = 'active';
+        reason = 'Diberikan oleh SPI yang berlaku' + (dok.spiDate ? ' — terbit ' + dok.spiDate : '');
+      }
+
+      rows.push({
+        code: co.code, group: co.group || '', section: co.section || '',
+        cycle: siklus,
+        product: prod,
+        submitMT:   opsi.historis ? (h ? h.mt : null) : (ambil(sub, prod)  || 0),
+        obtainedMT: opsi.historis ? (h ? h.mt : 0)    : (ambil(obt, prod)  || 0),
+        utilMT:     opsi.historis ? 0                 : (ambil(util, prod) || 0),
+        processKey: proses.key, processLabel: proses.label,
+        remarks: co.statusUpdate || '',
+        pertekNo, pertekDate, spiNo, spiDate,
+        validityDate: vDate,
+        status, reason,
+        historis: !!opsi.historis,
       });
-    });
+    };
+
+    [...aktif].sort().forEach(p => buatBaris(p, { historis: false }));
+
+    /* ── Produk yang PERNAH dipegang tapi sudah tidak lagi → ⚪ Inactive ──
+       Tetap ditampilkan sebagai data historis (permintaan tim), tapi tidak ikut
+       perhitungan kuota aktif mana pun. */
+    Object.keys(riwayat).filter(p => !aktif.has(p)).sort().forEach(p => buatBaris(p, { historis: true }));
   });
 
   rows.sort((a, b) =>
     a.code.localeCompare(b.code) ||
-    (typeof pDate === 'function' && pDate(a.spiDate) && pDate(b.spiDate) ? pDate(a.spiDate) - pDate(b.spiDate) : 0) ||
+    (a.historis === b.historis ? 0 : (a.historis ? 1 : -1)) ||
     a.product.localeCompare(b.product));
-  rows.skippedDocOnly = skippedDocOnly;
   return rows;
 }
 
 /**
- * Validity Date per (company, produk) untuk tabel Available Quota — diambil
- * dari SPI yang AKTIF saja. Produk yang saldonya hanya berasal dari SPI
- * Inactive memulangkan '' dan ditandai di tabelnya.
+ * Validity Date per (company, produk) untuk tabel Available Quota.
+ *
+ * SATU sumber dengan tabel PERTEK & SPI Terbit — halaman Available Quota
+ * memanggil fungsi ini, bukan menurunkan aturannya sendiri, supaya keduanya
+ * tidak bisa memberi dua jawaban untuk pertanyaan yang sama.
  */
 function activeValidityByProduct() {
   const map = {};
-  const kanon = p => (typeof canonicalProduct === 'function' ? canonicalProduct(String(p).trim()) : String(p).trim());
   spiTerbitRows().forEach(r => {
     if (r.status !== 'active') return;
-    const k = r.code + '|' + kanon(r.product);
-    const cur = map[k];
-    if (!cur || (typeof pDate === 'function' && pDate(r.spiDate) && pDate(cur.spiDate) && pDate(r.spiDate) > pDate(cur.spiDate))) {
-      map[k] = { validityDate: r.validityDate, spiDate: r.spiDate, spiNo: r.spiNo };
-    }
+    map[r.code + '|' + kanonProduk(r.product)] = {
+      validityDate: r.validityDate, spiDate: r.spiDate, spiNo: r.spiNo,
+      pertekDate: r.pertekDate, pertekNo: r.pertekNo,
+    };
   });
   return map;
 }
@@ -593,8 +721,9 @@ if (typeof module !== 'undefined' && module.exports) {
     QUOTA_YEAR_DEFAULT, QUOTA_YEARS,
     parseQuotaYear, rowQuotaYear, cycleQuotaYear, companyQuotaYears, companyInQuotaYear,
     sliceCompanyToYear, allCyclesForSave,
-    isRealDate, cycleSpiTerbitDate, spiIsIssued, spiValidityDate, validityExpired,
-    isRevisionCycle, cycleProductList, currentProductSet, pairedSubmitCycle, docNoFromStatus,
-    issuedSpiCycles, activeValidityDate, spiCycleStatus, spiTerbitRows, activeValidityByProduct,
+    isRealDate, cycleSpiTerbitDate, cyclePertekTerbitDate, spiIsIssued, spiValidityDate, validityExpired,
+    isRevisionCycle, cycleProductList, kanonProduk, currentProductSet, pairedSubmitCycle, docNoFromStatus,
+    issuedSpiCycles, issuedPertekCycles, activeDocuments, activeValidityDate,
+    productGrantHistory, processStatus, spiTerbitRows, activeValidityByProduct,
   };
 }

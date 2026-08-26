@@ -112,37 +112,62 @@ ok(call(`validityExpired(spiValidityDate('16/12/2025', 2026))`) === false,
 ok(call(`spiValidityDate('10/11/2026', 2027)`) === '31/12/2027',
   'SPI kuota 2027 yang terbit lebih awal (10/11/2026) → Validity 31/12/2027');
 
-/* ── B. Active / Inactive ─────────────────────────────────────────────────── */
-console.log('\nB · Active / Inactive');
+/* ── B. Active / Inactive ─────────────────────────────────────────────────
+   MODEL PER PRODUK (2026-08-26). Satu baris per (company, produk), bukan per
+   dokumen SPI. Produk yang masih dipegang company berada di bawah PERTEK & SPI
+   yang TERAKHIR terbit; produk yang sudah dipindahkan revisi tetap tampil
+   sebagai arsip.
+
+   Model sebelumnya menelusuri tiap siklus SPI dan membaca rincian produk DI
+   SITU. Itu gagal untuk MJU dan BDG, karena rincian produk sebuah revisi
+   disimpan di siklus PERTEK Perubahan sebagai SELISIH, sementara siklus SPI
+   Perubahan pasangannya kosong. Kasus keduanya dikunci di
+   test_spi_terbit_render.cjs terhadap data sungguhan. */
+console.log('\nB · Active / Inactive (model per produk)');
 call(`QUOTA_YEAR = 2026; applyQuotaYearSlice();`);
-const gasRows = call(`JSON.stringify(spiTerbitRows().filter(r => r.code === 'GAS'))`);
-const gas = JSON.parse(gasRows);
-ok(gas.length === 2, `PT GAS menghasilkan 2 baris SPI (dapat ${gas.length})`, gasRows);
+const gas = JSON.parse(call(`JSON.stringify(spiTerbitRows().filter(r => r.code === 'GAS'))`));
+ok(gas.length === 2, `PT GAS menghasilkan 2 baris produk (dapat ${gas.length})`, JSON.stringify(gas.map(r => r.product)));
+
+/* Nama produk di baris SELALU kanonik — "GI BORON" dan "GI ALLOY" adalah satu
+   produk yang sama, dan menampilkannya sebagai dua adalah keluhan tim
+   2026-08-12 yang sudah pernah dibereskan. */
 const gasLama = gas.find(r => r.product === 'BORDES ALLOY');
-const gasBaru = gas.find(r => r.product === 'GI BORON');
+const gasBaru = gas.find(r => r.product === 'GI ALLOY');
+ok(!!gasBaru, 'produk hasil revisi tampil dengan nama kanonik GI ALLOY, bukan ejaan ledger GI BORON',
+  JSON.stringify(gas.map(r => r.product)));
 ok(!!gasLama && gasLama.status === 'inactive',
   'SPI lama BORDES ALLOY → ⚪ Inactive walau Validity 31/12/2026 belum lewat', gasLama && gasLama.status);
-ok(!!gasBaru && gasBaru.status === 'active',
-  'SPI baru GI BORON → 🟢 Active', gasBaru && gasBaru.status);
-ok(!!gasLama && gasLama.validityDate === '31/12/2026', 'baris Inactive tetap membawa Validity-nya sendiri (data historis)');
-ok(!!gasBaru && gasBaru.validityDate === '31/12/2026', 'baris Active Validity 31/12/2026');
+ok(!!gasBaru && gasBaru.status === 'active', 'produk GI ALLOY → 🟢 Active', gasBaru && gasBaru.status);
+ok(!!gasBaru && gasBaru.validityDate === '31/12/2026', 'baris Active Validity 31/12/2026', gasBaru && gasBaru.validityDate);
+ok(!!gasLama && gasLama.validityDate === '31/12/2026',
+  'baris Inactive tetap membawa Validity-nya sendiri (data historis)');
 ok(!!gasBaru && gasBaru.spiNo === '04.PI-05.26.0328.1',
-  'No. SPI Perubahan diambil dari status siklusnya, bukan dari kolom company', gasBaru && gasBaru.spiNo);
+  'No. SPI baris Active diambil dari status siklus SPI Perubahan', gasBaru && gasBaru.spiNo);
 ok(!!gasLama && gasLama.spiNo === '',
   'baris historis TIDAK mengulang nomor SPI terbaru — lebih baik kosong daripada nomor yang salah');
+ok(!!gasBaru && gasBaru.spiDate === '27/04/2026' && gasLama.spiDate === '09/01/2026',
+  'tiap baris membawa tanggal SPI-nya sendiri', gasBaru && `${gasBaru.spiDate} / ${gasLama.spiDate}`);
 
+/* Re-Apply: kuota BERTAMBAH, dokumennya satu, jadi barisnya juga satu. Yang
+   dulu menghasilkan dua baris Active untuk satu produk. */
 const adp = JSON.parse(call(`JSON.stringify(spiTerbitRows().filter(r => r.code === 'ADP'))`));
-ok(adp.length === 2, `ADP menghasilkan 2 baris SPI (dapat ${adp.length})`);
-ok(adp.every(r => r.status === 'active'),
-  'Re-Apply: KEDUA SPI ADP tetap Active — kuota bertambah, tidak digantikan (aturan master #2)',
-  adp.map(r => r.spiDate + '=' + r.status).join(', '));
+ok(adp.length === 1, `ADP: SATU baris produk (dapat ${adp.length})`, JSON.stringify(adp.map(r => r.product)));
+ok(adp[0] && adp[0].status === 'active',
+  'Re-Apply tetap Active — kuota bertambah, tidak digantikan (aturan master #2)', adp[0] && adp[0].status);
+ok(adp[0] && adp[0].spiDate === '14/07/2026' && adp[0].pertekDate === '06/07/2026',
+  'ADP memakai dokumen TERAKHIR terbit: PERTEK 06/07/2026 + SPI 14/07/2026',
+  adp[0] && `${adp[0].pertekDate} / ${adp[0].spiDate}`);
+ok(adp[0] && adp[0].obtainedMT === 350,
+  'Obtained ADP 350 MT — jumlah kedua siklus, bukan hanya yang terakhir', adp[0] && String(adp[0].obtainedMT));
+ok(adp[0] && adp[0].submitMT === 8750,
+  'Submit ADP 8.750 MT — Σ Submit #1 (6.000) + Submit #2 (2.750) untuk produk itu',
+  adp[0] && String(adp[0].submitMT));
 
-/* Kolom PERTEK diambil dari siklus Submit pasangannya, bukan dari baris SPI. */
-const adpBaru = adp.find(r => r.spiDate === '14/07/2026');
-ok(!!adpBaru && adpBaru.pertekDate === '06/07/2026',
-  'PERTEK Date baris Obtained #2 diambil dari Submit #2 (06/07/2026)', adpBaru && adpBaru.pertekDate);
-ok(!!adpBaru && adpBaru.submitMT === 2750,
-  'Submit (MT) diambil dari siklus Submit pasangannya', adpBaru && String(adpBaru.submitMT));
+/* Dokumen aktif = PERTEK terakhir + SPI terakhir, dibaca dari satu tempat. */
+{
+  const dok = JSON.parse(call(`JSON.stringify((({spiDate,pertekDate}) => ({spiDate,pertekDate}))(activeDocuments(SPI.find(c=>c.code==='GAS'))))`));
+  ok(dok.spiDate === '27/04/2026', 'activeDocuments() memulangkan SPI terakhir terbit', dok.spiDate);
+}
 
 /* ── C. Pemisahan tahun ───────────────────────────────────────────────────── */
 console.log('\nC · Pemisahan kuota 2026 vs 2027');

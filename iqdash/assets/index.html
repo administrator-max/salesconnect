@@ -24,7 +24,7 @@ window.ensureXLSX = function () {
   return window._xlsxPromise;
 };
 </script>
-<link rel="stylesheet" href="assets/css/style.css?v=6">
+<link rel="stylesheet" href="assets/css/style.css?v=7">
 </head>
 <body>
 <!-- ═══ TOPBAR ═══ -->
@@ -731,17 +731,24 @@ window.ensureXLSX = function () {
 <div id="page-spi" class="page">
 <div class="wrap">
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-    <div class="notice n-green" style="flex:1;min-width:155px"><strong id="ntcClean">✅ — Completed</strong> — SPI active, no revision.</div>
-    <div class="notice n-amber" style="flex:1;min-width:155px"><strong id="ntcActive">🔄 — Under Revision</strong> — Awaiting ministry approval.</div>
+    <div class="notice n-green" style="flex:1;min-width:155px"><strong id="ntcClean">✅ — Completed</strong> — SPI aktif, tidak ada revisi berjalan.</div>
+    <div class="notice n-amber" style="flex:1;min-width:155px"><strong id="ntcActive">🔄 — Under Submission</strong> — Menunggu persetujuan kementerian.</div>
     <div class="notice" style="flex:1;min-width:155px;background:var(--orange-bg);border-color:var(--orange-bd);color:var(--orange)"><strong id="ntcPending">⏳ — PENDING</strong> — PERTEK Terbit, SPI belum terbit <span id="ntcPendingCodes" style="font-weight:600">(—)</span>.</div>
     
   </div>
 
-  <!-- REVISION CHANGE TABLE -->
-  <div class="card mb14">
-    <div class="ch">
-      <div><div class="ct">Submission &amp; Revision Summary</div><div class="cs">Current revision only · no history · click row for full detail</div></div>
-    </div>
+  <!-- ══ RINGKASAN REVISI — COLLAPSIBLE ══════════════════════════════════════
+       Dilipat secara bawaan. Isinya rincian perubahan produk yang hanya
+       relevan untuk sebagian kecil company, sementara sebelumnya ia memakan
+       layar pertama dan mendorong tabel utama ke bawah lipatan. -->
+  <details class="card mb14" id="revSummaryCard">
+    <summary class="ch coll-sum">
+      <div>
+        <div class="ct"><span class="coll-caret">▸</span> Submission &amp; Revision Summary</div>
+        <div class="cs">Revisi yang sedang berjalan · klik baris untuk detail lengkap</div>
+      </div>
+      <span class="coll-hint">klik untuk buka <span class="fn" id="revSummaryCount">—</span></span>
+    </summary>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
@@ -760,20 +767,26 @@ window.ensureXLSX = function () {
         <tbody id="revDetailBody"></tbody>
       </table>
     </div>
-  </div>
+  </details>
 
-  <!-- ══ PERTEK & SPI TERBIT — satu baris per SPI terbit per produk ══ -->
-  <div class="card mb14">
+  <!-- ══ PERTEK & SPI TERBIT — TABEL UTAMA ════════════════════════════════════
+       Satu baris per (company, produk). Menggantikan DUA tabel lama sekaligus
+       (Full SPI Table + tabel Validity Date terpisah): datanya memang saling
+       terkait, dan memisahkannya memaksa nama company & produk dicetak dua
+       kali di halaman yang sama. -->
+  <div class="card">
     <div class="ch">
       <div>
         <div class="ct">PERTEK &amp; SPI Terbit</div>
-        <div class="cs">Satu baris per dokumen SPI yang sudah terbit · Validity Date = akhir tahun penerbitan SPI · SPI yang digantikan tetap tersimpan sebagai data historis</div>
+        <div class="cs">Satu baris per produk · Submit, Obtained, dan Util masing-masing · dokumen yang berlaku = PERTEK &amp; SPI terakhir terbit</div>
       </div>
     </div>
     <div class="f-bar" id="spiTerbitPills">
       <div class="fpill on" onclick="setSpiTerbitFilter('ALL',this)">All <span class="fn" id="stPillAll">—</span></div>
-      <div class="fpill" onclick="setSpiTerbitFilter('ACTIVE',this)">🟢 Active <span class="fn" id="stPillActive">—</span></div>
-      <div class="fpill" onclick="setSpiTerbitFilter('INACTIVE',this)">⚪ Inactive <span class="fn" id="stPillInactive">—</span></div>
+      <div class="fpill" onclick="setSpiTerbitFilter('COMPLETED',this)">✅ Completed <span class="fn" id="stPillCompleted">—</span></div>
+      <div class="fpill" onclick="setSpiTerbitFilter('UNDER',this)">🔄 Under Submission <span class="fn" id="stPillUnder">—</span></div>
+      <div class="fpill" onclick="setSpiTerbitFilter('PENDING',this)">⏳ Pending <span class="fn" id="stPillPending">—</span></div>
+      <div class="fpill" onclick="setSpiTerbitFilter('NEWSUB',this)">📬 New Submission <span class="fn" id="stPillNewsub">—</span></div>
       <div class="f-sep"></div>
       <div class="f-r">
         <div class="f-inp"><span style="color:var(--txt3)">⌕</span><input type="text" placeholder="Company / produk / no. dokumen…" id="spiTerbitQ" oninput="buildSpiTerbitTable()"></div>
@@ -782,66 +795,27 @@ window.ensureXLSX = function () {
     <div class="tbl-wrap">
       <table>
         <thead><tr>
+          <th class="no-sort t-r" style="width:34px">No.</th>
           <th class="no-sort">Company</th>
-          <th class="no-sort">Type</th>
-          <th class="no-sort">Cycle</th>
-          <th class="no-sort">Product</th>
+          <th class="no-sort">Group</th>
+          <th class="no-sort has-tip">Cycle<span class="tip">Siklus dokumen yang saat ini memberi kuota produk ini</span></th>
+          <th class="no-sort">Products</th>
           <th class="no-sort t-r">Submit (MT)</th>
           <th class="no-sort t-r">Obtained (MT)</th>
-          <th class="no-sort">PERTEK Date</th>
+          <th class="no-sort t-r">Util (MT)</th>
+          <th class="no-sort">Status</th>
+          <th class="no-sort has-tip" style="min-width:150px">Remarks<span class="tip">Status Note yang diinput CorpSec di Input Data — satu catatan per submission</span></th>
           <th class="no-sort">PERTEK No.</th>
-          <th class="no-sort">SPI Date</th>
+          <th class="no-sort">PERTEK Date</th>
           <th class="no-sort">SPI No.</th>
-          <th class="no-sort has-tip">Validity Date<span class="tip">31 Desember dari tahun SPI Terbit yang berlaku · SPI Perubahan kalau sudah terbit</span></th>
-          <th class="no-sort has-tip">SPI Status<span class="tip">🟢 Active = masih berlaku · ⚪ Inactive = digantikan SPI baru atau sudah lewat Validity Date</span></th>
+          <th class="no-sort">SPI Date</th>
+          <th class="no-sort has-tip">Validity Date<span class="tip">31 Desember tahun kuota · mengikuti SPI yang saat ini Active</span></th>
+          <th class="no-sort has-tip">SPI Status<span class="tip">🟢 Active = masih berlaku · ⚪ Inactive = sudah expired atau digantikan SPI Perubahan</span></th>
         </tr></thead>
         <tbody id="spiTerbitBody"></tbody>
       </table>
     </div>
     <div class="tbl-foot" id="spiTerbitFoot"></div>
-  </div>
-
-  <!-- FULL SPI TABLE -->
-  <div class="card">
-    <div class="f-bar">
-      <div class="fpill on" onclick="setSPIF('ALL',this)">All <span class="fn" id="pillAll">27</span></div>
-      <div class="fpill" onclick="setSPIF('CLEAN',this)">✅ Completed <span class="fn" id="pillClean">17</span></div>
-      <div class="fpill" onclick="setSPIF('REV',this)">🔄 Under Revision <span class="fn" id="pillRev">2</span></div>
-      <div class="fpill" style="display:none" onclick="setSPIF('REAPPLY',this)">📨 Re-Apply <span class="fn" id="pillReapply">3</span></div>
-      <div class="fpill" onclick="setSPIF('REVPENDING',this)">⏳ Pending <span class="fn" id="pillRevPending">2</span></div>
-      <div class="fpill" onclick="setSPIF('NEWSUB',this)">📬 New Submission <span class="fn" id="pillNewSub">4</span></div>
-      
-      <div class="f-sep"></div>
-      <div class="f-r">
-        <div class="f-inp"><span style="color:var(--txt3)">⌕</span><input type="text" placeholder="Search…" id="spiQ" oninput="renderSPI()"></div>
-      </div>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th onclick="sortS('code')">Company</th>
-          <th onclick="sortS('group')">Group</th>
-          <th class="no-sort">Products</th>
-          <th onclick="sortS('submit1')" class="t-r">Total Submit (MT)</th>
-          <th onclick="sortS('obtained')" class="t-r">Total Obtained (MT)</th>
-          <th class="no-sort t-r" style="color:#3b82f6">Util (MT)</th>
-          <th class="no-sort">Status</th>
-          <th class="no-sort">Current Status Only</th>
-          <th class="no-sort">Status Update</th>
-          <th class="no-sort">PERTEK No.</th>
-          <th class="no-sort">SPI No.</th>
-        </tr></thead>
-        <tbody id="spiBody"></tbody>
-      </table>
-    </div>
-    <div class="tbl-foot">
-      <span><span class="ldot" style="background:var(--green-bd)"></span>Completed</span>
-      <span><span class="ldot" style="background:var(--amber-bd)"></span>Under Revision</span>
-      <span><span class="ldot" style="background:var(--blue-bd)"></span>Re-Apply</span>
-      <span><span class="ldot" style="background:var(--violet-bd)"></span>Rev. Complete</span>
-      <span><span class="ldot" style="background:var(--red-bd)"></span>New Submission</span>
-      <span id="spiCount" style="margin-left:auto"></span>
-    </div>
   </div>
 </div>
 </div>
@@ -1693,12 +1667,12 @@ window.ensureXLSX = function () {
 <div id="pendingQuick" style="display:none"></div>
 <script defer src="assets/js/00-num.js?v=1"></script>
 <script defer src="assets/js/01-data.js?v=25"></script>
-<script defer src="assets/js/01a-quota-year.js?v=1"></script>
+<script defer src="assets/js/01a-quota-year.js?v=2"></script>
 <script defer src="assets/js/02-period-filter.js?v=8"></script>
 <script defer src="assets/js/03-kpis.js?v=13"></script>
 <script defer src="assets/js/04-charts.js?v=11"></script>
-<script defer src="assets/js/05-tables-spi.js?v=7"></script>
-<script defer src="assets/js/05a-spi-terbit.js?v=1"></script>
+<script defer src="assets/js/05-tables-spi.js?v=8"></script>
+<script defer src="assets/js/05a-spi-terbit.js?v=2"></script>
 <script defer src="assets/js/06-tables-util-ra.js?v=8"></script>
 <script defer src="assets/js/07-tables-main.js?v=3"></script>
 <script defer src="assets/js/08-drawer.js?v=17"></script>

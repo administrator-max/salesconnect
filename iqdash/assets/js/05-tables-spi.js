@@ -541,7 +541,15 @@ function _pendingHasPertek(d) {
 function renderSPI() {
   updateSPICounts();
   const q = (document.getElementById('spiQ')||{}).value||'';
-  const tbody = document.getElementById('spiBody'); tbody.innerHTML = '';
+  /* Tabel per-company ini DIGANTIKAN tabel gabungan di 05a-spi-terbit.js
+     (permintaan tim 2026-08-26: satu tabel, jangan ulangi company/produk).
+     Fungsinya sengaja TIDAK dihapus — updateSPICounts() di atas masih mengisi
+     angka di nav dan di strip notice, dan itu dipanggil dari belasan tempat.
+     Yang berhenti hanya pengisian barisnya, karena wadahnya memang sudah tidak
+     ada lagi di halaman. */
+  const tbody = document.getElementById('spiBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
   /* ── NEW SUBMISSION tab: shows PENDING companies WITHOUT PERTEK only ── */
   if (spiFilter === 'NEWSUB') {
