@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../lib/tool_guard.php';
+sc_require_tool('salespulse');
 // SalesPulse dashboard — serve the shell with per-file cache-busting: replace any
 // ?v=... (or add one) on assets/*.js|css with the file's mtime so a changed asset
 // always re-fetches after a deploy (no stale scripts / manual version bumps).

@@ -1,0 +1,13 @@
+# Kerangka HTML SPA hanya boleh disajikan lewat index.php / dashboard.php, yang
+# memasang penjaga login + hak akses. Tanpa aturan ini, /<modul>/assets/index.html
+# bisa dibuka langsung dan melewati penjaga itu (datanya memang tetap 401 dari
+# api.php, tapi tampilan aplikasinya seharusnya tidak muncul sama sekali).
+<FilesMatch "\.html$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../lib/tool_guard.php';
+sc_require_tool('salespulse');
 // SalesPulse executive — serve the shell with per-file cache-busting on any
 // assets/*.js|css references (executive.html is inline-only today; this future-proofs it).
 $html = file_get_contents(__DIR__ . '/assets/executive.html');

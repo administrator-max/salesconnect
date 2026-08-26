@@ -7,6 +7,8 @@
  *           PATCH/:id/accept, PATCH/:id/reject, PATCH/:id/done, DELETE/:id
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
+require_once __DIR__ . '/../lib/tool_guard.php';
+sc_require_tool_api('taskflow');
 
 $cfg = sc_config();
 $SID = $cfg['spreadsheets']['taskflow'];

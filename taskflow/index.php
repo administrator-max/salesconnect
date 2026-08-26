@@ -1,3 +1,9 @@
+<?php
+// Akses dikunci per dashboard: hanya orang yang terdaftar untuk modul ini
+// di lib/access.php yang boleh membuka halaman ini.
+require_once __DIR__ . '/../lib/tool_guard.php';
+sc_require_tool('taskflow');
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>

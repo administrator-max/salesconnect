@@ -25,7 +25,20 @@ Ringkas (detail: `DEPLOY.md`, `MIGRATE.md`):
 3. Inisialisasi data: **ATAU** `php setup.php` (mulai kosong + seed) **ATAU** migrasi Neon (`node tools/migrate_neon_to_sheets.js`, dijalankan di komputer lokal). Migrasi sudah membuat tab-nya, jadi tidak perlu keduanya.
 4. Ganti password admin (`php tools/hash.php 'baru'` → paste ke `config.php`), hapus `setup.php`.
 
-Login default: **admin / `SalesConnect#2026`** (WAJIB ganti).
+Login default: **admin / `SalesConnect#2026`** (WAJIB ganti) — sekarang hanya pintu darurat, lihat bagian berikut.
+
+## Login & hak akses (sejak 2026-08-26)
+Seluruh app **dikunci**. Login memakai **email kantor + kode sekali pakai (OTP)** yang dikirim lewat email — meniru HR Center, tapi tanpa MySQL.
+
+- **Siapa boleh apa** → `lib/access.php` (`people` + `access` per modul). Berkas ini **tanpa rahasia**, di-commit dan ikut `deploy.sh`; menambah orang = edit + deploy, tidak perlu menyentuh `config.php` di server.
+- **Kode OTP** disimpan sebagai **hash** di `cache/auth/otp_<sha1(email)>.json` (10 menit, sekali pakai, maks 5 percobaan, jeda kirim ulang 60 detik, maks 20 permintaan/IP/jam). Sheets sengaja tidak dipakai — biar login tidak memakan kuota API.
+- **Penjaga** ada di `lib/tool_guard.php`: `sc_require_tool('<modul>')` di halaman, `sc_require_tool_api('<modul>')` di `api.php`. **Keduanya wajib** — menjaga halaman saja percuma karena `/<modul>/api/...` punya URL sendiri.
+- **Kredensial SMTP tidak ada di repo.** `lib/mailer.php` mencarinya berurutan: `config.php['smtp']` → berkas rahasia di luar docroot (termasuk `/home/u5959765/hrcenter_private/secrets.php`, satu akun cPanel dengan HR Center) → `mail()` bawaan.
+- **`/diag.php`** (khusus admin) menampilkan sumber SMTP yang terpakai, apakah direktori OTP bisa ditulis, matriks hak akses, 25 peristiwa auth terakhir, dan tombol kirim email uji.
+- **Pintu darurat**: `config.php['users']` (username+password) lewat `/login.php?pw=1`, akses semua modul. Ada supaya gangguan SMTP tidak mengunci semua orang termasuk yang harus memperbaikinya. Kosongkan `users` untuk menutupnya.
+- Catatan audit: `cache/auth/auth.log` (login, kode salah, penolakan akses).
+- Cost Core tetap punya **PIN sendiri** di atas login ini (dua pintu, disengaja).
+- Uji: `php tools/tests/auth_test.php` (36 pemeriksaan; tidak menyentuh jaringan).
 
 ## Data source / DB (Google Sheets — "database terpisah")
 Service account: `salesconnect@eagle1-492706.iam.gserviceaccount.com` (project `eagle1-492706`). Key JSON di `secure/service_account.json`.
@@ -68,10 +81,13 @@ Tidak pakai `.env`. Konfigurasi di `config.php` (PHP, tidak diserve sebagai teks
 - `spreadsheets` — ID CIL & TaskFlow
 - `service_account` — path ke JSON key (default `secure/service_account.json`; lebih aman dipindah ke atas `public_html`)
 - `cache_ttl` — TTL cache baca (detik). Saat ini **10**.
-- `users` — `username => bcrypt hash` (buat hash: `php tools/hash.php`)
+- `users` — `username => bcrypt hash` (buat hash: `php tools/hash.php`). **Hanya pintu darurat admin** sejak login OTP; daftar orang yang sebenarnya ada di `lib/access.php`.
+- `auth_idle_minutes` — menit menganggur sebelum sesi berakhir (default 480)
+- `smtp` (opsional) — `host|port|secure|user|pass|from|helo`. Boleh dikosongkan kalau kredensial diambil dari berkas rahasia di luar docroot (lihat `lib/mailer.php`).
 
 ## File penting
-- `index.php` landing (butuh login) · `login.php` / `logout.php`
+- `index.php` landing (butuh login; kartu difilter per hak akses) · `login.php` (email→kode) · `verify.php` (masukkan kode) · `logout.php` · `diag.php` (diagnostik admin)
+- `lib/access.php` daftar orang + hak akses per dashboard · `lib/mailer.php` SMTP/OTP email · `lib/tool_guard.php` penjaga per modul
 - `config.php` konfigurasi · `setup.php` inisialisasi tab+seed (hapus setelah dipakai)
 - `lib/GoogleSheets.php` client Sheets (JWT, cache, batchGet/append/update/deleteRows)
 - `lib/auth.php` `guard.php` (page) `api_guard.php` (API 401) `helpers.php` `sheet_util.php`

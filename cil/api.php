@@ -11,6 +11,8 @@
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/../lib/config_util.php';
+require_once __DIR__ . '/../lib/tool_guard.php';
+sc_require_tool_api('cil');
 
 $cfg = sc_config();
 $SID = $cfg['spreadsheets']['cil'];

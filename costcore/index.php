@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../lib/tool_guard.php';
+sc_require_tool('costcore');
 // (re-uploaded 2026-07-21: prior bulk deploy truncated this file on the host)
 require_once __DIR__ . '/../lib/costcore_gate.php';
 

@@ -1,7 +1,14 @@
 <?php
-require_once __DIR__ . '/lib/auth.php';
-// Landing is OPEN. The login now gates ONLY Cost Core (see costcore/).
-$user = sc_current_user();   // null when not signed in
+/**
+ * SalesConnect — halaman depan.
+ * Wajib login. Kartu yang tampil hanya dashboard yang boleh dibuka user ini
+ * (lihat lib/access.php); dashboard lain tidak ditampilkan sama sekali.
+ */
+require_once __DIR__ . '/lib/tool_guard.php';
+sc_require_login_page();
+
+$user  = sc_user();
+$tools = $user['tools'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -20,7 +27,9 @@ $user = sc_current_user();   // null when not signed in
   .brand { font-weight: 700; font-size: 20px; letter-spacing: -0.02em; }
   .brand span { color: #38bdf8; }
   .user { font-size: 14px; color: #94a3b8; }
+  .user b { color: #e2e8f0; font-weight: 600; }
   .user a { color: #f87171; text-decoration: none; margin-left: 14px; font-weight: 500; }
+  .user a.mild { color: #64748b; }
   .user a:hover { text-decoration: underline; }
   main { flex: 1; display: flex; flex-direction: column; align-items: center;
          justify-content: center; padding: 40px 20px; }
@@ -35,6 +44,8 @@ $user = sc_current_user();   // null when not signed in
   .card .icon { font-size: 32px; margin-bottom: 16px; }
   .card h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
   .card p { font-size: 14px; color: #94a3b8; line-height: 1.5; }
+  .empty { background: #1e293b; border: 1px solid #334155; border-radius: 16px;
+           padding: 28px; max-width: 460px; color: #94a3b8; font-size: 14px; line-height: 1.6; }
   footer { text-align: center; padding: 20px; font-size: 12px; color: #475569; }
 </style>
 </head>
@@ -42,47 +53,30 @@ $user = sc_current_user();   // null when not signed in
   <header>
     <div class="brand">Sales<span>Connect</span></div>
     <div class="user">
-      <?php if ($user): ?>
-        <?= htmlspecialchars($user) ?>
-        <a href="logout.php">Keluar</a>
+      <b><?= htmlspecialchars($user['name']) ?></b>
+      <?php if (!empty($user['admin'])): ?>
+        <a class="mild" href="diag.php">Diagnostik</a>
       <?php endif; ?>
+      <a href="logout.php">Keluar</a>
     </div>
   </header>
   <main>
     <h1>Tools Centre</h1>
     <p class="sub">Pilih aplikasi yang ingin kamu buka.</p>
-    <div class="grid">
-      <a class="card" href="cil/">
-        <div class="icon">📇</div>
-        <h2>Client Interaction Log</h2>
-        <p>Catat komunikasi &amp; complaint pelanggan untuk tim sales.</p>
-      </a>
-      <a class="card" href="taskflow/">
-        <div class="icon">✅</div>
-        <h2>TaskFlow</h2>
-        <p>Penugasan task antar staff dengan status &amp; deadline.</p>
-      </a>
-      <a class="card" href="costcore/">
-        <div class="icon">🧮</div>
-        <h2>Cost Core</h2>
-        <p>Hitung costing produk baja (import &amp; domestic), simpan ke Sheet.</p>
-      </a>
-      <a class="card" href="scot/">
-        <div class="icon">🚢</div>
-        <h2>Shipment Control Tower</h2>
-        <p>Pantau shipment: BL, vessel, clearance, delivery &amp; alerts.</p>
-      </a>
-      <a class="card" href="salespulse/">
-        <div class="icon">📈</div>
-        <h2>Sales Pulse</h2>
-        <p>Dashboard sales eksekutif: budget vs actual, margin, konsolidasi PS.</p>
-      </a>
-      <a class="card" href="iqdash/">
-        <div class="icon">📊</div>
-        <h2>Import Quota Monitor</h2>
-        <p>Steel import quota (PERTEK/SPI) lifecycle &amp; realization tracking.</p>
-      </a>
-    </div>
+    <?php if ($tools): ?>
+      <div class="grid">
+        <?php foreach ($tools as $t): $m = sc_tool_meta($t); ?>
+          <a class="card" href="<?= htmlspecialchars($m['href'], ENT_QUOTES) ?>">
+            <div class="icon"><?= $m['icon'] ?></div>
+            <h2><?= htmlspecialchars($m['title']) ?></h2>
+            <p><?= $m['desc'] ?></p>
+          </a>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <div class="empty">Akun <b><?= htmlspecialchars($user['email']) ?></b> belum diberi akses
+        ke dashboard mana pun. Hubungi admin SalesConnect.</div>
+    <?php endif; ?>
   </main>
   <footer>SalesConnect · data tersimpan di Google Sheets</footer>
 </body>

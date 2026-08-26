@@ -22,13 +22,32 @@ return [
     'cache_ttl' => 10,
     'cache_dir' => __DIR__ . '/cache',
 
-    // Akun login: username => bcrypt hash.
+    // ── Login ────────────────────────────────────────────────────────────
+    // Login normal memakai EMAIL + kode sekali pakai (OTP). Siapa boleh masuk
+    // dan boleh membuka dashboard apa diatur di lib/access.php, BUKAN di sini.
+    //
+    // 'users' di bawah tinggal jadi PINTU DARURAT admin (/login.php?pw=1) untuk
+    // dipakai kalau pengiriman email sedang mati. Akun ini dapat akses semua
+    // dashboard. Kosongkan array-nya untuk menutup pintu itu sama sekali.
     // Buat hash: php tools/hash.php 'PasswordKamu'  → tempel hasilnya di bawah.
     'users' => [
         'admin' => 'GANTI_DENGAN_HASH_BCRYPT',
     ],
 
     'session_name' => 'salesconnect_sess',
+
+    // Menit tanpa aktivitas sebelum sesi berakhir. Default 480 (8 jam) — sesi
+    // juga selalu berakhir saat browser ditutup. Turunkan kalau perlu lebih ketat.
+    'auth_idle_minutes' => 480,
+
+    // SMTP untuk mengirim kode OTP. BOLEH DIKOSONGKAN: kalau host ini bisa
+    // membaca berkas rahasia HR Center (/home/u5959765/hrcenter_private/
+    // secrets.php), kredensialnya diambil dari sana dan tidak perlu ditulis
+    // ulang di sini. Cek mana yang terpakai di /diag.php.
+    // 'smtp' => [
+    //     'host' => 'smtp.gmail.com', 'port' => 587, 'secure' => 'tls',
+    //     'user' => '', 'pass' => '', 'from' => '', 'helo' => 'tapworkspace.com',
+    // ],
 
     // Gemini OCR (untuk modul SCOT)
     'gemini_api_key' => '',

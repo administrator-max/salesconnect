@@ -1,5 +1,7 @@
 <?php
-// SCOT — Shipment Control Tower (open access, no login guard).
+require_once __DIR__ . '/../lib/tool_guard.php';
+sc_require_tool('scot');
+// SCOT — Shipment Control Tower. Akses dikunci per dashboard (lib/access.php).
 // Serve the SPA shell with per-file cache-busting on JS/CSS: append ?v=<mtime>
 // (each asset versioned by its OWN modified time) so a changed file always
 // re-fetches after a deploy, avoiding stale cached scripts.

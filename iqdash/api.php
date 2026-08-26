@@ -22,6 +22,8 @@ require_once __DIR__ . '/iqdash_util.php';
 require_once __DIR__ . '/iqdash_data.php';
 require_once __DIR__ . '/iqdash_insights.php';
 require_once __DIR__ . '/iqdash_write.php';
+require_once __DIR__ . '/../lib/tool_guard.php';
+sc_require_tool_api('iqdash');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $parts  = array_values(array_filter(explode('/', trim(sc_route(), '/')), fn($p) => $p !== ''));
