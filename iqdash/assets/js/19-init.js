@@ -670,7 +670,7 @@ function buildAvqTable() {
     return `<tr>
       <td><div class="t-code" onclick="openDrawer('${r.code}')">${r.code}</div></td>
       <td style="font-size:11.5px;font-weight:600">${r.grp}</td>
-      <td><span class="chip" style="background:#f0f9ff;color:#0369a1;font-size:10px;padding:2px 7px">${r.prod}</span></td>
+      <td><span class="chip" style="background:#f0f9ff;color:#0369a1;font-size:10px;padding:2px 7px">${typeof prodLabel === 'function' ? prodLabel(r.prod) : r.prod}</span></td>
       <td style="font-size:10.5px;font-family:'DM Mono',monospace;${hsHl}">${r.hs}</td>
       <td class="t-r t-mono">${fmtMt(r.obt)}</td>
       <td class="t-r t-mono" style="color:var(--green)">${r.util > 0 ? fmtMt(r.util) : '<span style="color:var(--txt3)">—</span>'}</td>
@@ -681,6 +681,11 @@ function buildAvqTable() {
            dari SPI yang sudah digantikan — dua hal yang perlu ditanyakan,
            bukan ditutup dengan tanggal tebakan. */
         if (!r.hasActiveSpi) {
+          /* Peringatan hanya kalau ada yang dipertaruhkan. Tiga dari empat
+             baris tanpa SPI aktif bersaldo NOL — memberi tanda ⚠ pada 0 MT
+             melatih orang mengabaikan tanda itu, dan yang benar-benar perlu
+             dilihat (DIOR 100 MT) ikut tenggelam. */
+          if (!(r.avq > 0.001)) return `<td style="font-size:10px;color:var(--txt3)">—</td>`;
           return `<td style="font-size:10px;color:var(--amber)" title="Belum ada SPI berstatus Active untuk produk ini — cek tab PERTEK & SPI Terbit">⚠ tanpa SPI aktif</td>`;
         }
         const kedaluwarsa = (typeof validityExpired === 'function') && validityExpired(r.validity);
@@ -710,7 +715,7 @@ function buildAvqTable() {
     const tUtil = rows.reduce((s,r) => s + r.util, 0);
     const tAvq  = rows.reduce((s,r) => s + r.avq,  0);
     const tCo   = new Set(rows.map(r => r.code)).size;
-    const tTanpaSpi = rows.filter(r => !r.hasActiveSpi).length;
+    const tTanpaSpi = rows.filter(r => !r.hasActiveSpi && r.avq > 0.001).length;
     const tPct  = tObt > 0 ? (tUtil / tObt * 100) : 0;
     const disaring = !!(_avqTableHsFilter || _avqTableHsSearch);
     foot.innerHTML = `<tr style="background:var(--bg2);border-top:2px solid var(--navy);font-weight:700">

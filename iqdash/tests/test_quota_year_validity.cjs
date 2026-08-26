@@ -48,7 +48,12 @@ const cyc = (type, mt, o) => Object.assign({ type, mt, products: {} }, o || {});
 const FIX = [
   { code: 'GAS', section: 'SPI', group: 'AB', products: ['GI ALLOY'],
     obtained: 200, spiNo: '04.PI-05.26.0328', pertekNo: '1080/ILMATE',
-    utilizationByProd: { 'GI ALLOY': 200 }, availableByProd: { 'GI ALLOY': 0 },
+    /* Master TIDAK menghapus produk yang sudah dipindahkan revisi — ia
+       menyisakannya sebagai entri bernilai NOL. Bentuk inilah yang ada di data
+       hidup, dan versi pertama model per-produk membacanya sebagai "masih
+       dipegang" lalu menandai BORDES ALLOY 🟢 Active dengan Obtained kosong. */
+    utilizationByProd: { 'GI ALLOY': 200, 'BORDES ALLOY': 0 },
+    availableByProd:   { 'GI ALLOY': 0,   'BORDES ALLOY': 0 },
     cycles: [
       cyc('Submit #1', 6000, { products: { 'BORDES ALLOY': 6000 }, submitDate: '27/10/2025', releaseType: 'PERTEK', releaseDate: '11/11/2025', pertekDate: '11/11/2025' }),
       cyc('Obtained #1', 200, { products: { 'BORDES ALLOY': 200 }, submitDate: '22/12/2025', releaseType: 'SPI', releaseDate: '09/01/2026', spiDate: '09/01/2026' }),
@@ -147,6 +152,11 @@ ok(!!gasLama && gasLama.spiNo === '',
   'baris historis TIDAK mengulang nomor SPI terbaru — lebih baik kosong daripada nomor yang salah');
 ok(!!gasBaru && gasBaru.spiDate === '27/04/2026' && gasLama.spiDate === '09/01/2026',
   'tiap baris membawa tanggal SPI-nya sendiri', gasBaru && `${gasBaru.spiDate} / ${gasLama.spiDate}`);
+
+/* Produk bersaldo NOL bukan produk yang dipegang. */
+ok(!gas.some(r => r.status === 'active' && !(r.obtainedMT > 0) && !(r.utilMT > 0)),
+  'produk yang saldonya nol di master tidak boleh tampil Active',
+  gas.map(r => `${r.product}=${r.status}/${r.obtainedMT}`).join(', '));
 
 /* Re-Apply: kuota BERTAMBAH, dokumennya satu, jadi barisnya juga satu. Yang
    dulu menghasilkan dua baris Active untuk satu produk. */

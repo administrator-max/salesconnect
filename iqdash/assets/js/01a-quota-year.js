@@ -632,8 +632,21 @@ function spiTerbitRows() {
       return hit ? (Number(peta[hit]) || 0) : 0;
     };
 
-    /* ── Produk yang MASIH dipegang → di bawah dokumen yang berlaku ── */
-    const aktif = new Set([...Object.keys(obt), ...Object.keys(util)].map(kanonProduk).filter(Boolean));
+    /* ── Produk yang MASIH dipegang → di bawah dokumen yang berlaku ──
+       Diambil dari NILAI-nya, bukan dari kunci petanya. Master TIDAK menghapus
+       produk yang sudah dipindahkan revisi — ia menyisakannya sebagai entri
+       bernilai NOL. GAS masih punya "BORDES ALLOY": util 0 / avail 0, begitu
+       juga MJU. Membaca kunci saja membuat produk yang sudah lama pindah tetap
+       terhitung dipegang, lalu tampil 🟢 Active dengan kolom Obtained kosong —
+       persis kebalikan dari yang diminta tim.
+
+       Ketahuan hanya saat halaman ini benar-benar dirender atas data hidup;
+       cache uji (10 Agu) belum memuat entri nol itu. Karena itu bentuknya
+       sekarang dikunci uji tersendiri, bukan disandarkan pada cache. */
+    const aktif = new Set();
+    [obt, util].forEach(peta => Object.entries(peta || {}).forEach(([p, v]) => {
+      if ((Number(v) || 0) > 0) { const k = kanonProduk(p); if (k) aktif.add(k); }
+    }));
     /* Company yang belum punya baris stats sama sekali (New Submission, atau
        PERTEK baru terbit sebelum master disegarkan) tetap harus muncul —
        produknya diambil dari pengajuan. Tidak ada yang ditebak: keduanya nama
