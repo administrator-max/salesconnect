@@ -1373,6 +1373,20 @@ function productTotals() {
    dan — untuk agregasi per produk — SESUDAH dijumlahkan (2026-08-10). */
 function availableQuotaRows() {
   const hsOf = p => (typeof prodHS === 'function' ? prodHS(p) : '—');
+  /* Validity Date diambil dari SPI yang saat ini ACTIVE untuk (company,
+     produk) — bukan dari SPI mana pun yang kebetulan terbit paling akhir.
+     Aturannya tinggal di 01a-quota-year.js supaya halaman ini dan tabel
+     "PERTEK & SPI Terbit" tidak bisa memberi dua jawaban berbeda untuk satu
+     pertanyaan yang sama.
+
+     Saldo per produk SENGAJA tidak diubah di sini. Angkanya berasal dari
+     master (company_product_stats), yang sudah menyimpan NET SESUDAH revisi:
+     produk yang dipindahkan revisi memang sudah tidak lagi punya saldo di
+     sana. Menyaring ulang di sisi tampilan berarti memotong dua kali, dan itu
+     melanggar aturan master #1 (total dari master yang menang). Yang ditambah
+     hanya PENANDA: baris tanpa SPI aktif ditandai, tidak dihapus diam-diam. */
+  const validMap = (typeof activeValidityByProduct === 'function') ? activeValidityByProduct() : {};
+  const kanonProd = p => (typeof canonicalProduct === 'function' ? canonicalProduct(String(p).trim()) : String(p).trim());
   const rows = [];
   availablePool().forEach(co => {
     const obt  = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
@@ -1380,6 +1394,7 @@ function availableQuotaRows() {
     const avq  = cumulativeAvailByProd(co);
     const spi  = (typeof getSPI === 'function') ? getSPI(co.code) : null;
     Object.keys(avq).forEach(p => {
+      const v = validMap[co.code + '|' + kanonProd(p)] || null;
       rows.push({
         code:        co.code,
         group:       co.group || (spi && spi.group) || '',
@@ -1388,6 +1403,9 @@ function availableQuotaRows() {
         obtained:    Number(obt[p])  || 0,
         utilMT:      Number(util[p]) || 0,
         avq:         Number(avq[p])  || 0,
+        validityDate: v ? v.validityDate : '',
+        activeSpiNo:  v ? v.spiNo        : '',
+        hasActiveSpi: !!v,
         updatedBy:   co.updatedBy   || '',
         updatedDate: co.updatedDate || '',
       });
@@ -1587,7 +1605,7 @@ function applyPeriodFilter() {
      yang lain tetap segar. Urutannya persis seperti semula.
      ════════════════════════════════════════════════════════════════════════ */
   const URUTAN = [
-    'renderSPI', 'renderUtilTable', 'renderRATable', 'renderMain',
+    'renderSPI', 'buildSpiTerbitTable', 'renderUtilTable', 'renderRATable', 'renderMain',
     'buildPipeline', 'buildProductDonut', 'buildTopCo', 'buildCmpChart',
     'buildCmpList', 'buildRevList', 'buildPendingQuick',
     'buildRevSummaryStrip', 'buildPendingSummaryStrip', 'buildPendingTable',
@@ -1599,6 +1617,9 @@ function applyPeriodFilter() {
        dipanggil ulang saat filter berubah. Aman dipanggil walau tabnya
        tersembunyi — masing-masing keluar lebih awal bila wadahnya tidak ada. */
     'buildAvqProdGrid', 'buildAvqTable', 'buildAvqProdChart', 'buildUtilChart',
+    /* Pemilih tahun + spanduk "tahun ini kosong" ikut disegarkan: keduanya
+       melaporkan keadaan data yang baru saja dirender. */
+    'renderQuotaYearUI',
   ];
   const gagal = [];
   URUTAN.forEach(nama => {

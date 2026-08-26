@@ -16,6 +16,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     Chart.defaults.responsiveAnimationDuration = 0;
   }
 
+  /* ── Tahun kuota dipulihkan SEBELUM data dimuat ────────────────────────
+     loadData() langsung mengiris payload ke tahun yang sedang dipilih, jadi
+     pilihan tersimpan harus sudah terbaca saat itu. Kalau tidak, halaman
+     sempat menampilkan 2026 lalu melompat ke 2027 sesudahnya — kedipan yang
+     terbaca sebagai angka berubah sendiri. */
+  if (typeof loadQuotaYearPref === 'function') loadQuotaYearPref();
+  if (typeof renderQuotaYearUI === 'function') renderQuotaYearUI();
+
   // ── Load data from PostgreSQL API ──────────────────────────
   // The server is the single source of truth for display. We never
   // merge localStorage into SPI/PENDING/RA anymore — that used to mask
@@ -126,6 +134,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   requestAnimationFrame(() => {
     // Group A — table renders for other tabs (cheap, immediate)
     renderSPI();
+    buildSpiTerbitTable();
     renderMain();
     buildRevList();
     buildPendingQuick();
@@ -618,6 +627,7 @@ function buildAvqTable() {
   const allRows = availableQuotaRows().map(r => ({
     code: r.code, grp: r.group, prod: r.product, hs: r.hs,
     obt: r.obtained, util: r.utilMT, avq: r.avq,
+    validity: r.validityDate, hasActiveSpi: r.hasActiveSpi, activeSpiNo: r.activeSpiNo,
     updBy: r.updatedBy, updDate: r.updatedDate,
   }));
   allRows.sort((a,b) => b.avq - a.avq);
@@ -665,6 +675,19 @@ function buildAvqTable() {
       <td class="t-r t-mono">${fmtMt(r.obt)}</td>
       <td class="t-r t-mono" style="color:var(--green)">${r.util > 0 ? fmtMt(r.util) : '<span style="color:var(--txt3)">—</span>'}</td>
       <td class="t-r t-mono" style="color:#0891b2;font-weight:700">${fmtMt(r.avq)}</td>
+      ${(() => {
+        /* Tanpa SPI aktif, tanggalnya TIDAK dikarang. Baris ini bisa muncul
+           karena saldonya berasal dari PERTEK yang SPI-nya belum terbit, atau
+           dari SPI yang sudah digantikan — dua hal yang perlu ditanyakan,
+           bukan ditutup dengan tanggal tebakan. */
+        if (!r.hasActiveSpi) {
+          return `<td style="font-size:10px;color:var(--amber)" title="Belum ada SPI berstatus Active untuk produk ini — cek tab PERTEK & SPI Terbit">⚠ tanpa SPI aktif</td>`;
+        }
+        const kedaluwarsa = (typeof validityExpired === 'function') && validityExpired(r.validity);
+        const warna = kedaluwarsa ? 'var(--red2)' : 'var(--navy)';
+        const teks  = (typeof fmtDateStd === 'function' ? fmtDateStd(r.validity) : r.validity) || '—';
+        return `<td style="font-size:10.5px;font-weight:700;color:${warna};white-space:nowrap" title="${r.activeSpiNo ? 'SPI ' + r.activeSpiNo : ''}">${teks}${kedaluwarsa ? ' ⚠' : ''}</td>`;
+      })()}
       <td>
         <div style="display:flex;align-items:center;gap:6px">
           <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
@@ -687,6 +710,7 @@ function buildAvqTable() {
     const tUtil = rows.reduce((s,r) => s + r.util, 0);
     const tAvq  = rows.reduce((s,r) => s + r.avq,  0);
     const tCo   = new Set(rows.map(r => r.code)).size;
+    const tTanpaSpi = rows.filter(r => !r.hasActiveSpi).length;
     const tPct  = tObt > 0 ? (tUtil / tObt * 100) : 0;
     const disaring = !!(_avqTableHsFilter || _avqTableHsSearch);
     foot.innerHTML = `<tr style="background:var(--bg2);border-top:2px solid var(--navy);font-weight:700">
@@ -696,6 +720,7 @@ function buildAvqTable() {
       <td class="t-r t-mono">${fmtMt(tObt)}</td>
       <td class="t-r t-mono" style="color:var(--green)">${fmtMt(tUtil)}</td>
       <td class="t-r t-mono" style="color:#0891b2">${fmtMt(tAvq)}</td>
+      <td style="font-size:9.5px;color:var(--txt3);font-weight:600">${tTanpaSpi ? `${tTanpaSpi} tanpa SPI aktif` : 'ikut SPI aktif'}</td>
       <td style="font-size:10.5px;color:var(--txt3)">${tPct.toFixed(0)}%</td>
       <td style="font-size:9.5px;color:var(--txt3);font-weight:600">saldo kumulatif</td>
     </tr>`;

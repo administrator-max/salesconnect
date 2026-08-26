@@ -500,7 +500,12 @@ function buildRevDetailTable() {
 
 /* SPI table */
 let spiFilter = 'ALL', spiSortS = {col:null,dir:1};
-function setSPIF(f, el) { spiFilter=f; document.querySelectorAll('#page-spi .fpill').forEach(p=>p.classList.remove('on')); el.classList.add('on'); renderSPI(); }
+/* Selektornya dipersempit ke bilah filter tabel INI. Sejak tabel "PERTEK & SPI
+   Terbit" ikut duduk di halaman yang sama, '#page-spi .fpill' juga menjangkau
+   pil tabel itu — mengklik filter di sini akan mematikan tanda aktif di sana,
+   dan pembacanya melihat dua tabel yang seolah tak terfilter apa pun padahal
+   keduanya sedang terfilter. */
+function setSPIF(f, el) { spiFilter=f; document.querySelectorAll('#page-spi .f-bar:not(#spiTerbitPills) .fpill').forEach(p=>p.classList.remove('on')); el.classList.add('on'); renderSPI(); }
 function sortS(col) { if(spiSortS.col===col)spiSortS.dir*=-1; else{spiSortS.col=col;spiSortS.dir=1;} renderSPI(); }
 function updateSPICounts() {
   const base = filteredSPI();

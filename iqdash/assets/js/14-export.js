@@ -130,14 +130,17 @@ function exportExecutivePDF() {
     : 'In Progress';
 
   /* ── B. FILENAME ─────────────────────────────────────────────────── */
+  /* Tahun kuota masuk ke NAMA BERKAS, bukan cuma ke isinya. Dua PDF bernama
+     sama tapi beda tahun akan tercampur begitu keluar dari dashboard, dan
+     tidak ada cara membedakannya lagi dari daftar berkas. */
   let pdfName;
   if (PERIOD.active && PERIOD.from && PERIOD.to) {
     const fd = d => d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'');
-    pdfName = `Executive_Summary_${fd(PERIOD.from)}_${fd(PERIOD.to)}.pdf`;
+    pdfName = `Executive_Summary_${QUOTA_YEAR}_${fd(PERIOD.from)}_${fd(PERIOD.to)}.pdf`;
   } else if (PERIOD.active) {
-    pdfName = `Executive_Summary_${PERIOD.label.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`;
+    pdfName = `Executive_Summary_${QUOTA_YEAR}_${PERIOD.label.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`;
   } else {
-    pdfName = 'Executive_Summary_FullData.pdf';
+    pdfName = `Executive_Summary_${QUOTA_YEAR}_FullData.pdf`;
   }
 
   /* ── C. SVG HELPERS ──────────────────────────────────────────────── */
@@ -322,7 +325,7 @@ function exportExecutivePDF() {
     <div class="mhd">
       <div>
         <div class="mhd-lbl">Executive Summary</div>
-        <div class="mhd-ttl">Import Quota Management</div>
+        <div class="mhd-ttl">Import Quota Management ${QUOTA_YEAR}</div>
       </div>
       <div class="mhd-r">
         <div class="ppill">📅 ${periodLabel}</div>
@@ -863,7 +866,7 @@ function exportExecutivePDF() {
     <div class="mhd" style="margin-bottom:11px;padding-bottom:7px">
       <div>
         <div class="mhd-lbl">Executive Summary</div>
-        <div class="mhd-ttl" style="font-size:14pt">Import Quota Management</div>
+        <div class="mhd-ttl" style="font-size:14pt">Import Quota Management ${QUOTA_YEAR}</div>
       </div>
       <div class="mhd-r">
         <div class="ppill" style="font-size:7pt;padding:3px 9px">📅 ${periodLabel}</div>
@@ -1035,8 +1038,8 @@ function doExportCSV() { const hd=['Code','Group','Products','Submit_MT','Obtain
   const real=t?t.berat:(ra?(Number(ra.berat)||0):0);
   const obt=Number(ra&&ra.obtained)||0;
   const pct=obt>0?real/obt:(ra?(Number(ra.realPct)||0):0);
-  return[d.code,d.group,d.products.map(prodLabel).join(';'),d.submit1,d.obtained,ra?real:'',ra?(pct*100).toFixed(1)+'%':'',d.revType,statusBadge(d).replace(/<[^>]+>/g,''),d.spiRef,ra?(ra.cargoArrived&&pct>=0.6&&!isReapplySubmitted(ra)?'Yes':'No'):''];}), ...filteredPending().map(d=>[d.code,d.group,d.products.map(prodLabel).join(';'),d.mt,0,'','','pending',d.status,'',''])]; const csv=[hd,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='quota_monitoring_2026.csv';a.click(); }
-function doExportJSON() { const d={metadata:{date:'2026-02-26',note:'Realization% = berat/obtained. Eligibility: Realization >= 60%'},spi:filteredSPI(),pending:filteredPending(),reapply:filteredRA()}; const a=document.createElement('a');a.href='data:application/json,'+encodeURIComponent(JSON.stringify(d,null,2));a.download='quota_data_2026.json';a.click(); }
+  return[d.code,d.group,d.products.map(prodLabel).join(';'),d.submit1,d.obtained,ra?real:'',ra?(pct*100).toFixed(1)+'%':'',d.revType,statusBadge(d).replace(/<[^>]+>/g,''),d.spiRef,ra?(ra.cargoArrived&&pct>=0.6&&!isReapplySubmitted(ra)?'Yes':'No'):''];}), ...filteredPending().map(d=>[d.code,d.group,d.products.map(prodLabel).join(';'),d.mt,0,'','','pending',d.status,'',''])]; const csv=[hd,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'); const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download=`quota_monitoring_${QUOTA_YEAR}.csv`;a.click(); }
+function doExportJSON() { const d={metadata:{date:'2026-02-26',quotaYear:QUOTA_YEAR,note:'Realization% = berat/obtained. Eligibility: Realization >= 60%'},spi:filteredSPI(),pending:filteredPending(),reapply:filteredRA()}; const a=document.createElement('a');a.href='data:application/json,'+encodeURIComponent(JSON.stringify(d,null,2));a.download=`quota_data_${QUOTA_YEAR}.json`;a.click(); }
 
 /* ══════════════════════════════════════════════════
    EXPORT TO EXCEL — AUDIT-READY, FILTER-AWARE
@@ -1128,9 +1131,10 @@ async function doExportXLSX() {
 
   const modeLabel = FILTER_MODE==='submit'?'Submit Date Only':FILTER_MODE==='release'?'Release Date Only':'Submit + Release Date';
   const summaryRows = [
-    ['Import Quota Monitor 2026 — Export Report'],
+    [`Import Quota Monitor ${QUOTA_YEAR} — Export Report`],
     [],
     ['Generated On', new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})],
+    ['Quota Year', String(QUOTA_YEAR) + ' — hanya data tahun ini; kuota tahun lain tidak ikut dihitung'],
     ['Period Filter', PERIOD.active ? PERIOD.label : 'All Time (No Filter)'],
     ['Filter Mode',  modeLabel],
     ['Data Source',  'Claude_-_Timeline_Submission.xlsx · 26 Feb 2026'],
@@ -1361,9 +1365,36 @@ async function doExportXLSX() {
   const ws4 = makeSheet(pendRows, 1);
   XLSX.utils.book_append_sheet(wb, ws4, 'New Submission');
 
+  /* ─────────────────────────────────────────────────────
+     SHEET 5: PERTEK & SPI TERBIT — satu baris per SPI terbit per produk.
+
+     Sumbernya spiTerbitRows(), FUNGSI YANG SAMA dengan tabel di layar. Sengaja
+     tidak dihitung ulang di sini: setiap kali ekspor menurunkan angkanya
+     sendiri, salinannya melenceng dari layar dan yang melenceng justru berkas
+     yang dikirim ke manajemen (kejadian 2026-08-12).
+  ───────────────────────────────────────────────────── */
+  const stRows = [[
+    'Company','Group','Type','Cycle','Product','Submit (MT)','Obtained (MT)',
+    'PERTEK Date','PERTEK No.','SPI Date','SPI No.','Validity Date','SPI Status','Keterangan Status',
+  ]];
+  (typeof spiTerbitRows === 'function' ? spiTerbitRows() : []).forEach(r => {
+    stRows.push([
+      r.code, r.group, r.type, r.cycle, prodLabel(r.product),
+      r.submitMT == null ? '' : r.submitMT,
+      r.obtainedMT,
+      r.pertekDate || '', r.pertekNo || '',
+      r.spiDate || '', r.spiNo || '',
+      r.validityDate || '',
+      r.status === 'active' ? 'Active' : 'Inactive',
+      r.reason || '',
+    ]);
+  });
+  const ws5 = makeSheet(stRows, 1);
+  XLSX.utils.book_append_sheet(wb, ws5, 'PERTEK & SPI Terbit');
+
   /* ── Set number format on MT columns using cell-level format ── */
   // For sheets 2,3,4 — find MT numeric cells and apply number format
-  [ws2, ws3, ws4].forEach(ws => {
+  [ws2, ws3, ws4, ws5].forEach(ws => {
     const ref = ws['!ref'];
     if (!ref) return;
     const range = XLSX.utils.decode_range(ref);
@@ -1386,7 +1417,7 @@ async function doExportXLSX() {
     ? PERIOD.label.replace(/[/\\:*?"<>| ]/g, '_')
     : 'AllTime';
   const dateTag = new Date().toISOString().slice(0,10);
-  const filename = `QuotaMonitor_${periodTag}_${dateTag}.xlsx`;
+  const filename = `QuotaMonitor_${QUOTA_YEAR}_${periodTag}_${dateTag}.xlsx`;
 
   /* ── Download ── */
   XLSX.writeFile(wb, filename);

@@ -1111,7 +1111,7 @@ async function rrRecordObtainedTerbit(code) {
     for (const [product, mt] of prods) {
       const res = await fetch(`api/company/${encodeURIComponent(code)}/record-obtained`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cycleType: 'Obtained #2', product, mt: Number(mt), terbitDate: terbit, updatedBy: co.updatedBy || '' }),
+        body: JSON.stringify({ cycleType: 'Obtained #2', product, mt: Number(mt), terbitDate: terbit, updatedBy: co.updatedBy || '', quotaYear: QUOTA_YEAR }),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || ('HTTP ' + res.status)); }
     }
@@ -1315,8 +1315,8 @@ function rrSaveReapply(code) {
     const co = getSPI(code);
     if (!co) return;
     const obtMT = co.obtained || 0;
-    ra = { code, product: co.products.join(' + '), berat: 0, obtained: obtMT, realPct: 0, target: mt || null, period: '—', pertek: '', spi: '', catatan: '', eta: '—' };
-    RA.push(ra);
+    ra = { code, product: co.products.join(' + '), berat: 0, obtained: obtMT, realPct: 0, target: mt || null, period: '—', pertek: '', spi: '', catatan: '', eta: '—', quotaYear: QUOTA_YEAR };
+    RA.push(ra); RA_ALL.push(ra);
   }
 
   if (status) ra.reapplyStatus     = status;
@@ -1479,7 +1479,8 @@ function saveEdit() {
     const pi = PENDING.findIndex(p => p.code === c);
     if (pi >= 0) {
       if (_hasPERTEK && _autoPertekDate) {
-        const pr = PENDING.splice(pi, 1)[0];
+        const pr = PENDING[pi];
+        unregisterCompanyRecord(pr.code, 'PENDING');
         const prods = pr.products || [];
         const submitMT  = newSubmitMT   != null ? newSubmitMT   : (pr.mt || 0);
         const obtMT     = newObtainedMT != null ? newObtainedMT : 0;
@@ -1523,7 +1524,7 @@ function saveEdit() {
               status: hasSPI ? `SPI TERBIT ${newSpiDate}` : `PERTEK Terbit: ${_pertekDateFinal} · SPI: belum terbit` },
           ],
         };
-        SPI.push(newRec);
+        registerCompanyRecord(newRec, 'SPI');
         co = newRec;
         promotedFromPending = true;
       } else {
@@ -1716,7 +1717,7 @@ function saveEdit() {
       if (latestPIB)  ra.pibReleaseDate = latestPIB;
     } else if (totalUtil > 0 || totalReal > 0) {
       // No RA record yet — create one from shipment data
-      RA.push({
+      const _raBaru = {
         code: c, product: (co.products || []).join(' + '),
         berat: anyArrived ? totalReal : totalUtil,
         obtained: co.obtained || 0,
@@ -1729,7 +1730,9 @@ function saveEdit() {
         reapplyEst: '', target: null,
         pertek: co.pertekNo || '', spi: co.spiNo || '',
         catatan: '',
-      });
+        quotaYear: QUOTA_YEAR,
+      };
+      RA.push(_raBaru); RA_ALL.push(_raBaru);
     }
   }
 

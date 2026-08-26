@@ -84,6 +84,21 @@ function iq_present($v): bool {
     return $v !== null && $v !== '';
 }
 
+/**
+ * Tahun kuota satu baris sheet — kolom `quota_year`.
+ *
+ * Kolomnya BOLEH belum ada di tab. Baris tanpa kolom itu memulangkan null,
+ * dan frontend memperlakukan null sebagai tahun bawaan (QUOTA_YEAR_DEFAULT,
+ * 2026) — persis keadaan seluruh data hari ini. Jadi dukungan tahun ini TIDAK
+ * mengubah satu angka pun sebelum ada baris 2027 yang benar-benar ditandai.
+ * Penambah kolomnya: tools/add_quota_year_columns.php.
+ */
+function iq_quota_year($v): ?int {
+    if (!iq_present($v)) return null;
+    $s = trim((string) $v);
+    return preg_match('/^\d{4}$/', $s) ? (int) $s : null;
+}
+
 /** Sort a list of rows by numeric `sort_order` ascending (stable — PHP 8 usort is stable). */
 function iq_sort_by_sort_order(array $rows): array {
     $copy = array_values($rows);
@@ -169,6 +184,7 @@ function iq_get_cycles_for(array $codeSet, array $cyclesRows, array $cycleProduc
             'pertekDate'  => $c['pertek_date'] ?? '',
             'spiDate'     => $c['spi_date'] ?? '',
             '_fromRevReq' => $c['from_rev_req'] ?? false,
+            'quotaYear'   => iq_quota_year($c['quota_year'] ?? null),
         ];
     }
     return $byCode;
@@ -350,6 +366,7 @@ function iq_build_company_obj(
     $realizationByProd = [];
     $etaByProd         = [];
     $arrivedByProd     = [];
+    $statsYearByProd   = [];
     foreach ($stats as $s) {
         $prod = $s['product'] ?? '';
         if (iq_present($s['utilization_mt'] ?? null)) $utilizationByProd[$prod] = iq_num($s['utilization_mt']);
@@ -357,6 +374,13 @@ function iq_build_company_obj(
         if (iq_present($s['realization_mt'] ?? null)) $realizationByProd[$prod] = iq_num($s['realization_mt']);
         if (($s['eta_jkt'] ?? null) !== null)          $etaByProd[$prod]         = $s['eta_jkt'];
         $arrivedByProd[$prod] = $s['arrived'] ?? false;
+        /* Tahun kuota dititipkan pada KUNCI (produk), bukan sebagai peta
+           nilai per tahun: iq_sync_util_with_cycles() di bawah menulis ulang
+           NILAI utilizationByProd/availableByProd dari utilCycles, jadi peta
+           nilai bertahun akan jadi basi diam-diam. Kunci produk tidak pernah
+           ditulis ulang, dan frontend mengiris petanya lewat peta ini. */
+        $sy = iq_quota_year($s['quota_year'] ?? null);
+        if ($sy !== null) $statsYearByProd[$prod] = $sy;
     }
 
     /* Utilisasi per siklus per produk — sumber pengirisan periode sejak
@@ -369,10 +393,11 @@ function iq_build_company_obj(
         $mt = iq_num($u['util_mt'] ?? 0);
         if ($mt <= 0) continue;
         $utilCycles[] = [
-            'cycle'   => (string) ($u['cycle_type'] ?? ''),
-            'product' => (string) ($u['product'] ?? ''),
-            'mt'      => $mt,
-            'date'    => (string) ($u['util_date'] ?? ''),
+            'cycle'     => (string) ($u['cycle_type'] ?? ''),
+            'product'   => (string) ($u['product'] ?? ''),
+            'mt'        => $mt,
+            'date'      => (string) ($u['util_date'] ?? ''),
+            'quotaYear' => iq_quota_year($u['quota_year'] ?? null),
         ];
     }
 
@@ -438,6 +463,7 @@ function iq_build_company_obj(
         'reapplyTargets'  => array_values($reapplyTargets),
     ];
     if (count($utilCycles))        $obj['utilCycles']        = $utilCycles;
+    if (count($statsYearByProd))   $obj['statsYearByProd']   = $statsYearByProd;
     if (count($realizationByProd)) $obj['realizationByProd'] = $realizationByProd;
     if (count($etaByProd))         $obj['etaByProd']         = $etaByProd;
     if (count($arrivedByProd))     $obj['arrivedByProd']     = $arrivedByProd;
@@ -571,6 +597,7 @@ function iq_build_payload_raw(array $t): array {
             'realMT'       => iq_num($s['real_mt'] ?? 0),
             'pibDate'      => $s['pib_date'] ?? '',
             'cargoArrived' => $s['cargo_arrived'] ?? false,
+            'quotaYear'    => iq_quota_year($s['quota_year'] ?? null),
         ];
     }
 
@@ -619,6 +646,7 @@ function iq_build_payload_raw(array $t): array {
             'pertek'               => $r['pertek'] ?? null,
             'spi'                  => $r['spi'] ?? null,
             'catatan'              => $r['catatan'] ?? null,
+            'quotaYear'            => iq_quota_year($r['quota_year'] ?? null),
         ];
     }
 
@@ -676,6 +704,7 @@ function iq_build_payload_raw(array $t): array {
                 'reapplyEst' => '', 'reapplyStage' => 1, 'reapplyProduct' => null, 'reapplyNewTotal' => null,
                 'reapplyPrevObtained' => null, 'reapplyAdditional' => null, 'reapplySubmitDate' => null,
                 'reapplyStatus' => null, 'target' => null, 'pertek' => null, 'spi' => null, 'catatan' => null,
+                'quotaYear' => null,
             ];
         }
     }

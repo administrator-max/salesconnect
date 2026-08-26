@@ -403,6 +403,27 @@ async function createPendingOnServer(payload) {
 async function patchToServer(co) {
   if (!co || !co.code) return;
 
+  /* ── Pagar tahun kuota ───────────────────────────────────────────────────
+     Payload di bawah menulis KOLOM TINGKAT COMPANY: obtained, utilizationMT,
+     availableQuota, shipments, products. Kolom-kolom itu satu per company —
+     lintas tahun — sementara `co` di sini bisa berupa IRISAN satu tahun.
+     Menyimpannya apa adanya akan menimpa total lintas-tahun dengan angka satu
+     tahun saja, dan yang hilang adalah tahun yang sedang tidak dilihat siapa
+     pun. Karena itu penyimpanan dihentikan, bukan diteruskan dengan angka yang
+     mungkin salah.
+
+     Hari ini kondisi ini TIDAK PERNAH tercapai: seluruh siklus setiap company
+     ada di satu tahun, jadi irisannya adalah objek aslinya sendiri. Pagar ini
+     untuk saat company pertama benar-benar memegang kuota 2026 dan 2027
+     sekaligus — dan ia harus sudah berdiri sebelum hari itu, bukan sesudah. */
+  if (co._quotaYearSliced) {
+    const pesan = `Simpan ${co.code} dibatalkan — company ini punya kuota lebih dari satu tahun, `
+      + `dan kolom total (Obtained / Utilization / Available) berlaku lintas tahun. `
+      + `Menyimpannya dari tampilan satu tahun akan menimpa angka tahun lain.`;
+    if (typeof showToast === 'function') showToast('⚠ ' + pesan, 'error');
+    throw new Error(pesan);
+  }
+
   // Build reapplyTargets array from co.reapplyByProd (or existing reapplyTargets)
   const reapplyTargets = co.reapplyByProd
     ? Object.entries(co.reapplyByProd).map(([product, targetMT]) => ({
@@ -562,8 +583,23 @@ async function patchToServer(co) {
 /* ── Patch cycles array to server (cycles table) ── */
 async function patchCyclesToServer(co) {
   if (!co || !co.code || !Array.isArray(co.cycles)) return;
+  /* ── SELURUH tahun, bukan cuma yang sedang tampil ────────────────────────
+     PATCH /cycles MENGGANTI semua baris siklus company ini. Mengirim hasil
+     irisan tahun akan MENGHAPUS siklus tahun lain dari sheet — kehilangan data
+     diam-diam yang baru ketahuan saat tahunnya diganti kembali.
+     allCyclesForSave() memulangkan siklus tahun yang tampil + tahun lainnya. */
+  const sumber = (typeof allCyclesForSave === 'function') ? allCyclesForSave(co) : co.cycles;
+
+  /* Siklus yang baru dibuat di layar belum bertahun. Dicap di sini — satu
+     gerbang yang dilewati SEMUA jalur simpan — supaya tidak ada alur pembuat
+     siklus yang bisa lupa. Dicap pada objeknya, bukan cuma pada salinan
+     payload, supaya tampilan sesudah simpan langsung ikut tahun yang benar. */
+  if (typeof parseQuotaYear === 'function') {
+    sumber.forEach(c => { if (c && parseQuotaYear(c.quotaYear) == null) c.quotaYear = QUOTA_YEAR; });
+  }
+
   // Only send cycles that have meaningful data (not empty shells)
-  const payload = co.cycles.map(c => ({
+  const payload = sumber.map(c => ({
     type:        c.type        || '',
     mt:          c.mt          != null ? c.mt : null,
     submitType:  c.submitType  || '',
@@ -576,6 +612,7 @@ async function patchCyclesToServer(co) {
     pertekDate:  c.pertekDate  || '',
     spiDate:     c.spiDate     || '',
     _fromRevReq: c._fromRevReq || false,
+    quotaYear:   c.quotaYear   || null,
   }));
   const res = await fetchWithRetry(`api/company/${encodeURIComponent(co.code)}/cycles`, {
     method:  'PATCH',

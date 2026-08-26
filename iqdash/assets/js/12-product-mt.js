@@ -599,7 +599,7 @@ function loadEdit() {
         ],
         _isNew: true,
       };
-      PENDING.push(co);
+      registerCompanyRecord(co, 'PENDING');
     }
   }
   const ra  = getRA(c);

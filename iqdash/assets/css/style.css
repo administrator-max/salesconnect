@@ -101,6 +101,16 @@ body { font-family:'DM Sans','Calibri','Segoe UI',sans-serif; background:var(--b
 .pf-b-clear { margin-left:auto; font-size:10.5px; font-weight:600; color:rgba(255,255,255,.8); background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:var(--r); padding:3px 10px; cursor:pointer; transition:all .13s }
 .pf-b-clear:hover { background:rgba(255,255,255,.22); color:#fff }
 
+/* ── QUOTA YEAR ──────────────────────────────────────────────────────────
+   Sengaja meminjam bentuk .pf-wrap: keduanya penyaring global di topbar, dan
+   membuatnya terlihat berbeda akan menyiratkan keduanya bekerja berbeda. */
+.qy-wrap { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:var(--r); padding:4px 10px; transition:all .15s }
+.qy-wrap:hover { background:rgba(255,255,255,.15); border-color:rgba(255,255,255,.35) }
+.qy-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.9px; color:rgba(255,255,255,.45); white-space:nowrap }
+.qy-sel { font-size:11.5px; font-weight:700; color:#fff; background:transparent; border:none; outline:none; cursor:pointer; padding:0 2px }
+.qy-sel option { color:#182644; background:#fff }
+.qy-banner { background:linear-gradient(90deg,#7c2d12,#b45309); border-bottom:1px solid rgba(255,255,255,.1); padding:7px 28px; align-items:center; gap:10px; flex-wrap:wrap; color:#fff }
+
 /* ── GLOBAL SEARCH ── */
 .g-search { display:flex; align-items:center; gap:7px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18); border-radius:var(--r); padding:0 11px; transition:all .15s }
 .g-search:focus-within { background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.36) }

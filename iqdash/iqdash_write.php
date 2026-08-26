@@ -157,6 +157,21 @@ function iq_js_or($v, $default) {
     return $falsy ? $default : $v;
 }
 
+/**
+ * Tahun kuota yang DITULIS ke sheet: 'YYYY' bila klien mengirim tahun yang
+ * masuk akal, '' bila tidak.
+ *
+ * '' — bukan tahun bawaan — supaya baris lama tetap tak bertahun dan pembacanya
+ * (iq_quota_year() di iqdash_data.php) yang memutuskan artinya. Menulis '2026'
+ * ke ribuan baris lama akan menyamarkan mana yang benar-benar sudah ditandai
+ * tim dan mana yang cuma kena tebakan sistem.
+ */
+function iq_quota_year_in($v): string {
+    if ($v === null || $v === '' || $v === false) return '';
+    $s = trim((string) $v);
+    return preg_match('/^\d{4}$/', $s) ? $s : '';
+}
+
 /** ISO-8601 UTC "now", matching JS `new Date().toISOString()` shape (…SSSZ). */
 function iq_iso_now(): string {
     $now = microtime(true);
@@ -207,6 +222,7 @@ function iq_realization_build(string $code, array $row, array $defaults, $id): a
         'source'           => iq_js_or($defaults['source'] ?? null, iq_js_or($row['source'] ?? null, 'manual')),
         'source_file'      => iq_js_or($defaults['sourceFile'] ?? null, ''),
         'imported_by'      => iq_js_or($defaults['importedBy'] ?? null, ''),
+        'quota_year'       => iq_quota_year_in($row['quotaYear'] ?? ($defaults['quotaYear'] ?? null)),
         'created_at'       => $now,
         'updated_at'       => $now,
         'source_program'   => 'B',
@@ -735,6 +751,18 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
                         $row['util_date'] = '';
                     }
 
+                    /* Tahun kuota lot: aturan ABSEN != KOSONG yang sama.
+                       Penyimpan lama tidak mengirim field ini sama sekali, dan
+                       menuliskannya '' akan melepas lot 2027 kembali ke tahun
+                       bawaan tanpa ada yang meminta. */
+                    if (array_key_exists('quotaYear', $lot)) {
+                        $row['quota_year'] = iq_quota_year_in($lot['quotaYear']);
+                    } elseif ($exIdx !== null) {
+                        $row['quota_year'] = $ship[$exIdx]['quota_year'] ?? '';
+                    } else {
+                        $row['quota_year'] = '';
+                    }
+
                     if ($exIdx !== null) {
                         $ship[$exIdx] = array_merge($ship[$exIdx], $row);
                     } else {
@@ -1075,7 +1103,8 @@ function iq_create_company(GoogleSheets $gs, string $sid, array $body): array {
             'id' => $cyId, 'company_code' => $code, 'cycle_type' => 'Submit #1', 'mt' => (string) iq_js_or($mt, 0),
             'submit_type' => 'Submit MOI', 'submit_date' => iq_js_or($body['submitDate'] ?? null, ''),
             'release_type' => 'PERTEK', 'release_date' => '', 'status' => iq_js_or($body['statusUpdate'] ?? null, ''),
-            'sort_order' => 0, 'pertek_date' => '', 'spi_date' => '', 'from_rev_req' => false, 'source_program' => 'B',
+            'sort_order' => 0, 'pertek_date' => '', 'spi_date' => '', 'from_rev_req' => false,
+            'quota_year' => iq_quota_year_in($body['quotaYear'] ?? null), 'source_program' => 'B',
         ]);
 
         if ($prodList) {
@@ -1230,6 +1259,11 @@ function iq_build_cycles_replacement(array $allCycleRows, array $allCycleProduct
             'pertek_date' => $norm($c['pertekDate'] ?? null),
             'spi_date' => $norm($c['spiDate'] ?? null),
             'from_rev_req' => iq_js_truthy($c['_fromRevReq'] ?? null),
+            /* Tahun kuota ikut siklusnya. PATCH /cycles MENGGANTI seluruh baris
+               company ini, jadi klien wajib mengirim siklus SEMUA tahun (lihat
+               allCyclesForSave() di 01a-quota-year.js) — kalau tidak, menyimpan
+               sambil filter 2027 aktif akan menghapus siklus 2026. */
+            'quota_year' => iq_quota_year_in($c['quotaYear'] ?? null),
             'source_program' => 'B',
         ]);
 
@@ -1336,6 +1370,7 @@ function iq_replace_cycle_utilization(GoogleSheets $gs, string $sid, string $cod
                 'product'        => iq_js_or($x['product'] ?? null, ''),
                 'util_mt'        => $mt,
                 'util_date'      => iq_js_or($x['date'] ?? null, ''),
+                'quota_year'     => iq_quota_year_in($x['quotaYear'] ?? null),
                 'source_program' => 'B',
             ];
         }
@@ -1537,7 +1572,8 @@ function iq_record_obtained(GoogleSheets $gs, string $sid, string $code, array $
                 'id' => (string) ($maxCyId + 1), 'company_code' => $code, 'cycle_type' => $cycleType, 'mt' => $mt,
                 'submit_type' => 'Submit MOT (Submit #2) Perubahan', 'submit_date' => '', 'release_type' => 'SPI Perubahan',
                 'release_date' => '', 'status' => '', 'sort_order' => $sortOrder,
-                'pertek_date' => '', 'spi_date' => '', 'from_rev_req' => false, 'source_program' => 'B',
+                'pertek_date' => '', 'spi_date' => '', 'from_rev_req' => false,
+                'quota_year' => iq_quota_year_in($body['quotaYear'] ?? null), 'source_program' => 'B',
             ];
             $cycles[] = $cyc;
             $cyIdx = count($cycles) - 1;

@@ -869,7 +869,12 @@ async function mdApply() {
         const r = await fetch(`api/company/${encodeURIComponent(code)}/cycle-utilization`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rows: utilChange.rows }),
+          /* Tahun kuota ikut baris utilisasinya. Import master menulis
+             ulang SELURUH baris company ini, jadi tanpa cap tahun baris 2027
+             akan kembali jatuh ke tahun bawaan setiap kali master diimpor. */
+          body: JSON.stringify({
+            rows: utilChange.rows.map(r => Object.assign({ quotaYear: QUOTA_YEAR }, r)),
+          }),
         });
         if (!r.ok) {
           const e = await r.json().catch(() => ({}));

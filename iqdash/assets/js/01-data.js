@@ -23,6 +23,11 @@
    DATA — Loaded from PostgreSQL via API
    (replaces hardcoded SPI / PENDING / RA arrays)
 ══════════════════════════════════════════════════ */
+/* IRISAN tahun kuota yang sedang dipilih — BUKAN seluruh isi server.
+   Data mentahnya ada di SPI_ALL / PENDING_ALL / RA_ALL (01a-quota-year.js),
+   dan applyQuotaYearSlice() yang mengisi ketiga variabel ini. Setiap pembaca
+   dashboard tetap membaca SPI/PENDING/RA seperti sebelumnya, jadi tidak ada
+   permukaan yang bisa lupa menyaring tahunnya. */
 let SPI     = [];
 let PENDING = [];
 let RA      = [];
@@ -163,8 +168,12 @@ async function loadRealizations() {
     const res = await fetch('api/realizations', { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
-    REALIZATIONS = Array.isArray(data && data.realizations) ? data.realizations : [];
-    window.REALIZATIONS = REALIZATIONS;
+    REALIZATIONS_ALL = Array.isArray(data && data.realizations) ? data.realizations : [];
+    /* Muat paralel dengan /api/data, jadi urutan selesainya tidak pasti.
+       applyQuotaYearSlice() idempoten — memanggilnya dari kedua sisi menjamin
+       irisannya lengkap siapa pun yang mendarat belakangan. */
+    if (typeof applyQuotaYearSlice === 'function') applyQuotaYearSlice();
+    else { REALIZATIONS = REALIZATIONS_ALL; window.REALIZATIONS = REALIZATIONS; }
   } catch (err) {
     console.warn('loadRealizations failed:', err);
   }
@@ -179,9 +188,9 @@ async function loadData() {
       const seen = new Set();
       return arr.filter(c => { if (seen.has(c.code)) return false; seen.add(c.code); return true; });
     };
-    SPI     = _dedup(data.spi     || []);
-    PENDING = _dedup(data.pending || []);
-    RA      = data.ra      || [];
+    SPI_ALL     = _dedup(data.spi     || []);
+    PENDING_ALL = _dedup(data.pending || []);
+    RA_ALL      = data.ra      || [];
     // Server-provided data-edit time (same for every device). Rendered as the
     // "Last update" label — replaces the old per-device wall clock.
     window.LAST_DATA_UPDATE = data.lastUpdate || null;
@@ -189,7 +198,7 @@ async function loadData() {
     // Capture concurrency token (server's updated_at). Used by patchToServer
     // as `_ifUpdatedAt` so server can reject stale writes (HTTP 409) when
     // another user has modified the row since this fetch.
-    [SPI, PENDING].forEach(arr => arr.forEach(co => {
+    [SPI_ALL, PENDING_ALL].forEach(arr => arr.forEach(co => {
       if (co && co.updatedAt) co._updatedAt = co.updatedAt;
     }));
     // Product master metadata — index by name for O(1) lookup
@@ -213,7 +222,7 @@ async function loadData() {
        Ini normalisasi DI MEMORI. Baris DB baru ikut kanonik kalau company itu
        memang di-save; tidak ada penulisan massal. Idempoten — memanggilnya
        ulang atas data yang sudah kanonik tidak mengubah apa pun. */
-    [SPI, PENDING].forEach(arr => arr.forEach(co => {
+    [SPI_ALL, PENDING_ALL].forEach(arr => arr.forEach(co => {
       (co.cycles || []).forEach(c => {
         if (!c || !c.products) return;
         const rapi = {};
@@ -236,7 +245,7 @@ async function loadData() {
        dikembalikan ke fieldnya sendiri di sini; kalau tidak, sanitasi di
        buildRevisionRequestTable() membuangnya karena tidak punya `requested`,
        dan pilihan type Sales hilang tiap kali halaman dimuat ulang. */
-    [SPI, PENDING].forEach(arr => arr.forEach(co => {
+    [SPI_ALL, PENDING_ALL].forEach(arr => arr.forEach(co => {
       const env = co.salesRevRequest;
       if (env && typeof env === 'object') {
         if (env._revisionType) {
@@ -267,7 +276,7 @@ async function loadData() {
        `product` dipakai canonProdInText(), bukan canonicalProduct(): sebagian
        baris berisi GABUNGAN produk dalam satu sel — "GI BORON + ERW PIPE" —
        yang tidak akan pernah cocok sebagai kunci alias utuh. */
-    (RA || []).forEach(r => {
+    (RA_ALL || []).forEach(r => {
       if (!r) return;
       if (r.product)        r.product        = canonProdInText(String(r.product).trim());
       if (r.reapplyProduct) r.reapplyProduct = canonProdInText(String(r.reapplyProduct).trim());
@@ -300,7 +309,7 @@ async function loadData() {
     // totals (Obtained #1 + Obtained #2 + …, Submit #1 + Submit #2 + Revision #N).
     // Per request 30-Apr-2026: every dashboard section should reflect the
     // aggregate, not just the legacy single-cycle DB column.
-    [SPI, PENDING].forEach(arr => arr.forEach(co => {
+    [SPI_ALL, PENDING_ALL].forEach(arr => arr.forEach(co => {
       const canonObt = canonicalObtained(co);
       if (canonObt > 0) {
         co._canonicalObtained = canonObt;
@@ -322,7 +331,7 @@ async function loadData() {
     // console anytime for the list. Re-sync via "📌 Catat Terbit" (record-obtained).
     try {
       const _drift = [];
-      [SPI, PENDING].forEach(arr => arr.forEach(co => {
+      [SPI_ALL, PENDING_ALL].forEach(arr => arr.forEach(co => {
         const cyc = Number(canonicalObtained(co)) || 0;
         const agg = getObtainedByProdAgg(co) || {};
         let st = 0; Object.values(agg).forEach(v => st += Number(v) || 0);
@@ -334,6 +343,13 @@ async function loadData() {
       }
     } catch (e) { /* a guard must never break data loading */ }
     window.__auditObtained = () => (typeof window.__obtainedDrift !== 'undefined' ? window.__obtainedDrift : []);
+
+    /* Iris ke tahun kuota yang sedang dipilih. HARUS setelah kanonikalisasi
+       dan penurunan total di atas: irisan menghitung ulang obtained/submitted
+       dari siklus tahun itu, dan itu hanya benar kalau nama produknya sudah
+       kanonik. */
+    applyQuotaYearSlice();
+    if (typeof renderQuotaYearUI === 'function') renderQuotaYearUI();
 
     _dataLoaded = true;
   } catch(err) {
