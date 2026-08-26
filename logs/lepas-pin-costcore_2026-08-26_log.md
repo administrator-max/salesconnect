@@ -47,6 +47,9 @@ keamanan, dan menambah satu rahasia lagi yang harus dibagikan ke orang baru.
   berubah: Cost Core tetap 11 orang).
 - Sesudah deploy, dari luar: `/costcore/` → 302 ke `login.php?next=%2Fcostcore%2F`,
   `/costcore/api/costings/import` → 401. Tidak ada respons 500.
+- **Dikonfirmasi Aldi (sesudah login):** Cost Core langsung masuk aplikasi, tidak
+  ada lagi layar PIN. Ini bagian yang tidak bisa diuji dari luar karena butuh
+  sesi; sisanya di atas diuji tanpa login.
 
 ## Dampak untuk pengguna
 - 11 orang yang berhak: buka `/costcore/`, tidak ada lagi layar PIN.
