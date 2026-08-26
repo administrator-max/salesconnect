@@ -81,27 +81,45 @@ Aldi & Ridwan ditandai `admin` — itu **hanya** membuka halaman diagnostik
   `otp_unknown`, `denied`, `denied_api`, `logout`, `mail_fail`.
 
 ## Verifikasi
-- `php -l` bersih untuk 23 berkas PHP yang disentuh.
-- `php tools/tests/auth_test.php` → **36 lulus, 0 gagal**, mencakup: jumlah orang
-  per dashboard sesuai daftar Direktur, Putri tidak ada di SCOT, Jeany & Maya
-  hanya SCOT, email besar-kecil, email asing ditolak, kode salah menaikkan
-  penghitung, kode benar membuat sesi lalu hangus, kode kadaluarsa ditolak,
-  kunci setelah 5 kali salah, dan kunci orang yang salah ketik di `access`.
-- **BELUM diuji di server.** Yang belum bisa diverifikasi dari lokal: apakah host
-  SalesConnect benar-benar bisa membaca `hrcenter_private/secrets.php` (asumsinya
-  satu akun cPanel `u5959765`) dan benar-benar bisa mengirim email. Itu yang
-  dijawab `/diag.php` sesudah deploy.
+### Lokal (sebelum deploy)
+- `php -l` bersih untuk 26 berkas PHP yang disentuh.
+- `php tools/tests/auth_test.php` → **38 lulus, 0 gagal**, mencakup: jumlah orang
+  per dashboard sesuai daftar Direktur, Liwa memegang semua modul, Putri tidak
+  ada di SCOT, Jeany & Maya hanya SCOT, email besar-kecil, email asing ditolak,
+  kode salah menaikkan penghitung, kode benar membuat sesi lalu hangus, kode
+  kadaluarsa ditolak, kunci setelah 5 kali salah, dan kunci orang yang salah
+  ketik di `access`.
 
-## Langkah sesudah deploy (WAJIB, urut)
-1. Deploy: `./deploy.sh` (semua berkas — banyak modul tersentuh).
-2. Buka `/login.php?pw=1`, masuk sebagai admin.
-3. Buka `/diag.php`. Pastikan: sumber SMTP bukan "fallback mail() PHP", dan
-   direktori OTP bisa ditulis. Kirim email uji ke diri sendiri.
-4. Kalau sumbernya masih "fallback mail() PHP" → host tidak bisa membaca berkas
-   rahasia HR Center. Isi `config.php['smtp']` di server dengan kredensial SMTP,
-   lalu ulangi langkah 3.
-5. Setelah email uji sampai, uji login OTP dari email sendiri, lalu kabari 11
-   orang lainnya.
+### Di server (sesudah deploy, 26 Agustus 2026)
+Deploy ditargetkan ke berkas yang berubah saja (27 berkas, lalu 1 berkas untuk
+Liwa); `deploy.sh` memverifikasi ukuran byte tiap unggahan — semuanya cocok.
+
+- Seluruh halaman modul (`/cil/`, `/taskflow/`, `/costcore/`, `/scot/`,
+  `/salespulse/`, `/salespulse/dashboard.php`, `/iqdash/`) → **302** ke
+  `login.php?next=…`. `/` dan `/diag.php` juga.
+- Tujuh endpoint API diuji (`cil/api/companies`, `taskflow/api/staff`,
+  `costcore/api/costings/import`, `scot|salespulse|iqdash/api/health`,
+  `iqdash/api/data`) → **401** `{"error":"Unauthorized"}`.
+- Kerangka SPA (`scot|salespulse|iqdash/assets/*.html`) → **403**.
+- Aset JS/CSS tetap **200** (tampilan tidak rusak).
+- **Tidak ada satu pun respons 500** — kode berjalan bersih di host.
+- **Login OTP end-to-end BERHASIL** (dikonfirmasi Aldi): kode masuk ke email dan
+  bisa dipakai masuk. Ini sekaligus membuktikan asumsi yang tidak bisa diuji dari
+  lokal: PHP SalesConnect **memang bisa membaca**
+  `/home/u5959765/hrcenter_private/secrets.php` — kedua situs satu akun cPanel —
+  sehingga tidak ada salinan kredensial SMTP baru yang perlu dibuat, dan
+  `config.php['smtp']` tidak perlu diisi.
+
+## Kalau suatu saat email OTP berhenti sampai
+Gejalanya: semua orang tertahan di halaman verifikasi. Urutan pemeriksaan:
+1. Masuk lewat pintu darurat `/login.php?pw=1` (username+password `config.php`).
+2. Buka `/diag.php`. Lihat baris **Sumber konfigurasi**.
+   - Masih menunjuk `hrcenter_private/secrets.php` tapi kirim uji gagal →
+     kredensial SMTP-nya sendiri yang bermasalah (mis. app-password Gmail
+     dicabut). Perbaiki di HR Center; SalesConnect ikut sembuh.
+   - Berubah jadi `fallback mail() PHP` → berkas rahasia tidak lagi terbaca
+     (path berubah / akun dipisah). Isi `config.php['smtp']` di server.
+3. Kirim email uji dari `/diag.php` sampai berhasil sebelum mengabari tim.
 
 ## Sisa / risiko
 - **Sesi habis di tengah SPA.** Kalau sesi berakhir saat halaman modul terbuka,
