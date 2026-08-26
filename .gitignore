@@ -32,6 +32,13 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Config ekstensi "FTP/SFTP/SSH Sync" (oorzc.ssh-tools). Defaultnya ditulis
+# di ROOT proyek, BUKAN di .vscode/, dan berisi user + PASSWORD FTP dalam
+# teks polos. Tanpa baris ini file itu ikut ter-commit DAN ter-upload ke web
+# root oleh deploy.sh (yang meng-upload seluruh `git ls-files`).
+sync_config.jsonc
+sync_tools.jsonc
+
 # ── CATATAN ──────────────────────────────────────────────────────────
 # - logs/ SENGAJA TIDAK diabaikan: file [update]_[date]_log.md adalah
 #   riwayat perubahan dan harus ikut ter-commit.
