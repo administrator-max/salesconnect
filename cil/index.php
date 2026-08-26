@@ -19,6 +19,7 @@ sc_require_tool('cil');
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <!-- App Stylesheet -->
   <link rel="stylesheet" href="assets/css/styles.css?v=<?= @filemtime(__DIR__ . '/assets/css/styles.css') ?: '1' ?>">
+<?= sc_session_watch() ?>
 </head>
 <body>
 

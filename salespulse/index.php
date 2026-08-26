@@ -13,4 +13,7 @@ $html = preg_replace_callback(
     },
     $html
 );
+// Sesi habis di tengah SPA -> panggilan api.php menjawab 401; penangkapnya
+// ada di sc_session_watch() (lib/tool_guard.php), disisipkan ke <head>.
+$html = str_replace("</head>", sc_session_watch() . "</head>", $html);
 echo $html;

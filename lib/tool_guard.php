@@ -64,6 +64,32 @@ function sc_require_tool_api(string $tool) {
     exit;
 }
 
+/**
+ * Penangkap 401 sisi-klien, disisipkan ke <head> tiap modul.
+ *
+ * Penjaga PHP hanya bekerja saat halaman dimuat. Kalau sesi berakhir saat SPA
+ * sudah terbuka, panggilan api.php berikutnya menjawab 401 dan aplikasi lama
+ * memperlakukannya seperti gangguan biasa — muncul error atau tabel kosong,
+ * padahal yang terjadi cuma "sesi Anda habis".
+ *
+ * Ditambal di lapisan window.fetch supaya berlaku untuk SELURUH pemanggilan
+ * modul tanpa menyentuh satu pun berkas JS aplikasi (CIL saja ~2300 baris).
+ * Kelima modul memakai fetch, tidak ada XMLHttpRequest — sudah diperiksa.
+ *
+ * Memuat ulang URL yang sama (bukan lompat ke login.php) supaya penjaga PHP
+ * yang menentukan tujuannya; ?next= jadi terisi halaman persis yang sedang
+ * dibuka, sehingga sesudah masuk pengguna kembali ke tempatnya semula.
+ * Bendera `gone` memastikan sepuluh permintaan yang gagal berbarengan hanya
+ * memicu satu kali pindah halaman.
+ */
+function sc_session_watch(): string {
+    return "<script>/* SalesConnect: sesi habis -> kembali ke halaman masuk */"
+         . "(function(){var f=window.fetch&&window.fetch.bind(window);if(!f)return;var gone=false;"
+         . "window.fetch=function(u,o){return f(u,o).then(function(r){"
+         . "if(r&&r.status===401&&!gone){gone=true;location.replace(location.href);}"
+         . "return r;});};})();</script>";
+}
+
 /** Halaman "tidak punya akses" — menawarkan jalan keluar, bukan jalan buntu. */
 function sc_render_denied(string $tool) {
     $u     = sc_user();

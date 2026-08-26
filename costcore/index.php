@@ -122,6 +122,7 @@ tbody tr:hover{background:var(--bg)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="../assets/config-admin.js"></script>
+<?= sc_session_watch() ?>
 </head>
 <body>
 <noscript><div style="padding:20px;background:#e03e3e;color:#fff;text-align:center;font-family:sans-serif"><strong>JavaScript is required.</strong> Please enable JavaScript to use Cost Core.</div></noscript>
@@ -277,8 +278,6 @@ function apiHeaders(withAuth){return {"Content-Type":"application/json"};}
 function showApp(){var l=document.getElementById("lockScreen");if(l)l.style.display="none";document.getElementById("app").style.display="block";}
 function scLogout(){window.location.href="../logout.php";}   // PIN dilepas: tombol ini keluar dari SalesConnect
 var _unlocked=true;
-// If the SalesConnect session expires mid-use, any API call returns 401 -> back to login.
-(function(){var f=window.fetch.bind(window);window.fetch=function(u,o){return f(u,o).then(function(res){if(res&&res.status===401){window.location.href="./";}return res;});};})();
 // Boot straight into the app (render() is defined later in this file).
 document.addEventListener("DOMContentLoaded",function(){loadCostcoreConfig().then(function(){showApp();render();});});
 
