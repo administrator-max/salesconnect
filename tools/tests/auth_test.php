@@ -14,19 +14,22 @@ function t(string $name, $got, $want) {
 
 // ── Daftar orang & hak akses ─────────────────────────────────────────────
 $a = sc_access();
-t('jumlah orang terdaftar', count($a['people']), 12);
-t('akses cil',        count($a['access']['cil']), 7);
-t('akses taskflow',   count($a['access']['taskflow']), 7);
-t('akses costcore',   count($a['access']['costcore']), 10);
-t('akses salespulse', count($a['access']['salespulse']), 10);
-t('akses iqdash',     count($a['access']['iqdash']), 10);
-t('akses scot',       count($a['access']['scot']), 11);
+t('jumlah orang terdaftar', count($a['people']), 13);
+t('akses cil',        count($a['access']['cil']), 8);
+t('akses taskflow',   count($a['access']['taskflow']), 8);
+t('akses costcore',   count($a['access']['costcore']), 11);
+t('akses salespulse', count($a['access']['salespulse']), 11);
+t('akses iqdash',     count($a['access']['iqdash']), 11);
+t('akses scot',       count($a['access']['scot']), 12);
 t('Putri TIDAK di scot', in_array('putri', $a['access']['scot'], true), false);
 t('Jeany hanya di scot', sc_person_by_email('operations2@gunungprisma.com')['tools'], ['scot']);
 t('Maya hanya di scot',  sc_person_by_email('maya.ristiana@gunungprisma.com')['tools'], ['scot']);
 t('Putri: 3 dashboard',  sc_person_by_email('putri.aulia@gunungprisma.com')['tools'],
                          ['costcore', 'salespulse', 'iqdash']);
 t('David: 6 dashboard',  count(sc_person_by_email('davidadi.nugroho@gunungprisma.com')['tools']), 6);
+t('Liwa: SEMUA dashboard', sc_person_by_email('liwa.s@gunungprisma.com')['tools'],
+                           array_keys($a['access']));
+t('Liwa bukan admin', !empty(sc_person_by_email('liwa.s@gunungprisma.com')['admin']), false);
 t('email besar-kecil',   sc_person_by_email('  JERI@GunungPrisma.com ')['name'], 'Ko Jeri');
 t('email asing ditolak', sc_person_by_email('orang.luar@example.com'), null);
 t('Aldi admin',   !empty(sc_person_by_email('aldi.pratantio@gunungcapital.com')['admin']), true);

@@ -35,23 +35,25 @@ return [
         'aldi'   => ['name' => 'Aldi',    'email' => 'aldi.pratantio@gunungcapital.com',   'admin' => true],
         'ridwan' => ['name' => 'Ridwan',  'email' => 'ridwan.abdillah@gunungcapital.com',  'admin' => true],
         'trian'  => ['name' => 'Trian',   'email' => 'komangtrian.mp@gunungcapital.com'],
+        'liwa'   => ['name' => 'Liwa',    'email' => 'liwa.s@gunungprisma.com'],
     ],
 
     // ── Hak akses per dashboard ──────────────────────────────────────────
     // Kunci = nama folder modul. Nilai = daftar kunci orang di atas.
-    // Sesuai arahan Direktur (26 Agustus 2026).
+    // Sesuai arahan Direktur (26 Agustus 2026); Liwa ditambahkan ke SEMUA
+    // dashboard pada hari yang sama.
     'access' => [
         // Client Interaction Log & Task Flow — tim sales inti
-        'cil'      => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian'],
-        'taskflow' => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian'],
+        'cil'      => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa'],
+        'taskflow' => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa'],
 
         // Cost Core, Sales Pulse, IQ Dash — tim sales inti + Irma, Angely, Putri
-        'costcore'   => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian'],
-        'salespulse' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian'],
-        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian'],
+        'costcore'   => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
+        'salespulse' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
+        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
 
         // SCOT — tim sales inti + Irma, Angely, Jeany, Maya (TANPA Putri)
-        'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian'],
+        'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian', 'liwa'],
     ],
 
     // ── Label & deskripsi kartu di halaman depan ─────────────────────────

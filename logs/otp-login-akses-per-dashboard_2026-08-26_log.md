@@ -14,12 +14,15 @@ terbuka untuk siapa pun yang tahu alamatnya.
 ## Hak akses yang dipasang
 | Dashboard | Orang |
 |---|---|
-| Client Interaction Log, TaskFlow | David, Luzy, Anne, Ko Jeri, Aldi, Ridwan, Trian (7) |
-| Cost Core, Sales Pulse, IQ Dash | + Irma, Angely, Putri (10) |
-| SCOT | David, Luzy, Anne, Ko Jeri, Irma, Angely, Jeany, Maya, Aldi, Ridwan, Trian (11 — tanpa Putri) |
+| Client Interaction Log, TaskFlow | David, Luzy, Anne, Ko Jeri, Aldi, Ridwan, Trian, Liwa (8) |
+| Cost Core, Sales Pulse, IQ Dash | + Irma, Angely, Putri (11) |
+| SCOT | David, Luzy, Anne, Ko Jeri, Irma, Angely, Jeany, Maya, Aldi, Ridwan, Trian, Liwa (12 — tanpa Putri) |
 
-Total 12 orang terdaftar. Aldi & Ridwan ditandai `admin` — itu **hanya** membuka
-halaman diagnostik `/diag.php`, tidak menambah akses dashboard di luar tabel.
+Total 13 orang terdaftar. **Liwa** (`liwa.s@gunungprisma.com`) ditambahkan
+sesudah deploy pertama dan diberi akses **semua** dashboard.
+
+Aldi & Ridwan ditandai `admin` — itu **hanya** membuka halaman diagnostik
+`/diag.php`, tidak menambah akses dashboard di luar tabel.
 
 ## Perubahan
 ### Baru
