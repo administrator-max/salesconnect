@@ -38,7 +38,7 @@ Seluruh app **dikunci**. Login memakai **email kantor + kode sekali pakai (OTP)*
 - **Pintu darurat**: `config.php['users']` (username+password) lewat `/login.php?pw=1`, akses semua modul. Ada supaya gangguan SMTP tidak mengunci semua orang termasuk yang harus memperbaikinya. Kosongkan `users` untuk menutupnya.
 - Catatan audit: `cache/auth/auth.log` (login, kode salah, penolakan akses).
 - **Sesi habis di tengah SPA** ditangani `sc_session_watch()` (di `lib/tool_guard.php`): tambalan `window.fetch` yang disisipkan ke `<head>` KEENAM modul; begitu ada respons 401 halaman memuat ulang dirinya sendiri, penjaga PHP melemparnya ke login, dan `?next=` membawanya kembali. Tiap modul baru WAJIB ikut memasangnya — diuji oleh `tools/tests/session_watch_test.php`.
-- **Perhatian:** hak akses disalin ke sesi saat login. Mencabut akses di `lib/access.php` baru berlaku setelah sesi orang itu habis (maks 8 jam) atau ia keluar — bukan seketika.
+- **Hak akses berlaku seketika.** `sc_user()` membaca ulang `lib/access.php` (dan `config.php['users']` untuk pintu darurat) di SETIAP permintaan lewat `sc_refresh_access()`; salinan di sesi tidak pernah dipercaya. Menghapus orang dari `access.php` + deploy langsung memutus sesinya yang sedang berjalan; menambah akses langsung terasa tanpa perlu keluar-masuk. **Jangan** mengubahnya jadi memercayai `$_SESSION['sc_user']['tools']` — itu membuat pencabutan akses menganggur sampai 8 jam.
 - **PIN Cost Core sudah dilepas** (2026-08-26). Modul itu kini persis seperti yang lain: satu pintu, `sc_require_tool('costcore')`. `lib/costcore_gate.php` dihapus; kunci `costcore_pin` di `config.php` server tinggal sisa yang tidak dibaca siapa pun.
 - Uji: `php tools/tests/auth_test.php` (36 pemeriksaan; tidak menyentuh jaringan).
 

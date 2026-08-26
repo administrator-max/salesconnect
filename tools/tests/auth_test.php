@@ -86,6 +86,51 @@ $r = sc_otp_verify($email, '222222');
 t('kode terkunci setelah 5x salah', $r['ok'], false);
 t('kode terkunci ikut dihapus', sc_otp_read($email), null);
 
+// ── Hak akses dibaca ulang tiap permintaan ───────────────────────────────
+// Inti aturannya: salinan hak akses yang menempel di sesi TIDAK PERNAH
+// dipercaya. Diuji dengan cara merusak salinan itu, lalu memastikan jawabannya
+// tetap mengikuti lib/access.php — persis yang terjadi kalau access.php diubah
+// sementara sesi seseorang masih berjalan.
+sc_logout();
+sc_start_session_for($jeany, 'otp');          // Jeany: hanya SCOT
+
+sc_session_start();
+$_SESSION['sc_user']['tools'] = ['iqdash', 'cil'];      // seolah dulu ia berhak
+t('hak lama di sesi diabaikan (iqdash)', sc_user_can('iqdash'), false);
+t('hak lama di sesi diabaikan (cil)',    sc_user_can('cil'), false);
+t('hak asli tetap berlaku (scot)',       sc_user_can('scot'), true);
+t('sesi ikut dikoreksi',                 sc_user()['tools'], ['scot']);
+
+$_SESSION['sc_user']['tools'] = [];                     // seolah haknya dikosongkan
+t('hak yang ada dipulihkan dari berkas', sc_user_can('scot'), true);
+
+$_SESSION['sc_user']['admin'] = true;                   // seolah ia mengangkat diri jadi admin
+t('status admin ikut disegarkan', sc_user()['admin'], false);
+
+$_SESSION['sc_user']['name'] = 'Bukan Jeany';
+t('nama ikut disegarkan', sc_user()['name'], 'Jeany');
+
+// Orang yang dihapus dari access.php: sesinya ditutup pada permintaan berikutnya.
+$_SESSION['sc_user']['email'] = 'sudah.dihapus@gunungprisma.com';
+t('akun dihapus -> sesi ditutup', sc_user(), null);
+t('benar-benar keluar',           sc_current_user(), null);
+
+// Pintu darurat: sumbernya config.php['users'], bukan access.php.
+$cfgUsers = array_keys(sc_config()['users'] ?? []);
+if ($cfgUsers) {
+    sc_logout();
+    sc_start_session_for(['key' => $cfgUsers[0], 'name' => $cfgUsers[0], 'email' => $cfgUsers[0],
+                          'admin' => true, 'tools' => []], 'password');
+    t('pintu darurat: dapat semua modul', sc_user()['tools'], array_keys($a['access']));
+
+    sc_session_start();
+    $_SESSION['sc_user']['key'] = 'akun-yang-sudah-dihapus';
+    t('akun darurat dihapus -> sesi ditutup', sc_user(), null);
+} else {
+    echo "LEWAT config.php['users'] kosong — dua uji pintu darurat dilewati\n";
+}
+sc_logout();
+
 // ── Penyimpanan ──────────────────────────────────────────────────────────
 t('direktori auth bisa ditulis', is_writable(sc_auth_dir()), true);
 

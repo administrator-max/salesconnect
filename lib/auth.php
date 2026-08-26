@@ -60,6 +60,16 @@ function sc_session_start() {
 /**
  * Data lengkap user yang sedang masuk, atau null.
  * ['key','name','email','admin','tools','via'] — 'via' = 'otp' | 'password'.
+ *
+ * Hak akses SELALU dibaca ulang dari lib/access.php di sini, tidak pernah
+ * dipercaya dari salinan di sesi. Kalau tidak, mencabut akses seseorang jadi
+ * tidak berarti apa-apa sampai sesinya habis (bisa 8 jam): ia tetap bisa
+ * membuka modul yang sudah dihapus dari haknya, dengan salinan lama yang
+ * menempel di sesinya. Untuk pengaturan yang gunanya justru mengunci akses,
+ * jeda seperti itu adalah lubang, bukan sekadar ketidaknyamanan.
+ *
+ * Efeknya dua arah dan langsung: hak yang dicabut hilang pada permintaan
+ * berikutnya, hak yang ditambahkan muncul tanpa perlu keluar-masuk lagi.
  */
 function sc_user() {
     sc_session_start();
@@ -75,7 +85,46 @@ function sc_user() {
             return null;
         }
     }
+
+    $u = sc_refresh_access($u);
+    if (!$u) return null;
+
     $_SESSION['sc_last'] = time();
+    return $u;
+}
+
+/**
+ * Samakan hak akses di sesi dengan sumbernya yang sekarang.
+ * Mengembalikan data user yang sudah segar, atau null bila akunnya sudah tidak
+ * berhak sama sekali (sesinya sekalian ditutup).
+ */
+function sc_refresh_access(array $u) {
+    if (($u['via'] ?? '') === 'password') {
+        // Pintu darurat: sumbernya config.php['users'], bukan access.php.
+        // Menghapus akunnya dari sana menutup pintu ini seketika juga.
+        $cfg = sc_config();
+        if (!isset($cfg['users'][$u['key']])) {
+            sc_auth_log('session_revoked', (string) $u['key'], 'akun darurat dihapus dari config');
+            sc_logout();
+            return null;
+        }
+        $fresh = ['tools' => array_keys(sc_access()['access']), 'admin' => true];
+    } else {
+        $p = sc_person_by_email((string) $u['email']);
+        if (!$p) {
+            sc_auth_log('session_revoked', (string) $u['email'], 'dihapus dari access.php');
+            sc_logout();
+            return null;
+        }
+        $fresh = ['key' => $p['key'], 'name' => $p['name'], 'tools' => $p['tools'], 'admin' => $p['admin']];
+    }
+
+    foreach ($fresh as $k => $v) {
+        if (($u[$k] ?? null) !== $v) {
+            $u[$k] = $v;
+            $_SESSION['sc_user'][$k] = $v;
+        }
+    }
     return $u;
 }
 

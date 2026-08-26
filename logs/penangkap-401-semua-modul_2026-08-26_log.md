@@ -65,5 +65,7 @@ lagi.
   (baca ulang `sc_access()` tiap permintaan di `sc_user()` alih-alih memercayai
   salinan di sesi), tapi itu mengubah perilaku auth dan belum diminta — jadi
   dicatat, bukan dikerjakan diam-diam.
+  **Diperbaiki hari itu juga** atas permintaan Aldi — lihat
+  `hak-akses-seketika_2026-08-26_log.md`.
 - Layar `lockScreen` mati di `costcore/index.php` masih ada (lihat
   `lepas-pin-costcore_2026-08-26_log.md`).
