@@ -37,7 +37,7 @@ Seluruh app **dikunci**. Login memakai **email kantor + kode sekali pakai (OTP)*
 - **`/diag.php`** (khusus admin) menampilkan sumber SMTP yang terpakai, apakah direktori OTP bisa ditulis, matriks hak akses, 25 peristiwa auth terakhir, dan tombol kirim email uji.
 - **Pintu darurat**: `config.php['users']` (username+password) lewat `/login.php?pw=1`, akses semua modul. Ada supaya gangguan SMTP tidak mengunci semua orang termasuk yang harus memperbaikinya. Kosongkan `users` untuk menutupnya.
 - Catatan audit: `cache/auth/auth.log` (login, kode salah, penolakan akses).
-- Cost Core tetap punya **PIN sendiri** di atas login ini (dua pintu, disengaja).
+- **PIN Cost Core sudah dilepas** (2026-08-26). Modul itu kini persis seperti yang lain: satu pintu, `sc_require_tool('costcore')`. `lib/costcore_gate.php` dihapus; kunci `costcore_pin` di `config.php` server tinggal sisa yang tidak dibaca siapa pun.
 - Uji: `php tools/tests/auth_test.php` (36 pemeriksaan; tidak menyentuh jaringan).
 
 ## Data source / DB (Google Sheets — "database terpisah")

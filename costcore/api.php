@@ -13,13 +13,11 @@
  *   PUT    costings/{id} {customer,data}   update
  *   DELETE costings/{id}                   delete
  */
-require_once __DIR__ . '/../lib/costcore_gate.php';
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/../lib/config_util.php';
 require_once __DIR__ . '/../lib/costcore_store.php';
 require_once __DIR__ . '/../lib/tool_guard.php';
 sc_require_tool_api('costcore');
-if (!costcore_pin_ok()) { json_out(['error' => 'Unauthorized'], 401); }
 
 $cfg = sc_config();
 $SID = $cfg['spreadsheets']['costcore'];

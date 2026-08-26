@@ -2,45 +2,9 @@
 require_once __DIR__ . '/../lib/tool_guard.php';
 sc_require_tool('costcore');
 // (re-uploaded 2026-07-21: prior bulk deploy truncated this file on the host)
-require_once __DIR__ . '/../lib/costcore_gate.php';
-
-// "Lock" action (header button): clear the PIN and show the gate again.
-if (isset($_GET['lock'])) { costcore_lock(); header('Location: ./'); exit; }
-
-// Handle PIN submission.
-$err = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pin'])) {
-    if (costcore_verify_pin($_POST['pin'])) { header('Location: ./'); exit; }
-    $err = 'PIN salah. Coba lagi.';
-}
-
-// Locked -> render the PIN screen and stop (the app below never loads).
-if (!costcore_pin_ok()) {
-    $e = htmlspecialchars($err, ENT_QUOTES);
-    echo '<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">'
-       . '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
-       . '<meta name="robots" content="noindex, nofollow"><title>Cost Core — PIN</title><style>'
-       . '*{box-sizing:border-box;margin:0;padding:0}'
-       . 'body{font-family:system-ui,Segoe UI,sans-serif;background:#f0f4f8;color:#1a2744;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}'
-       . '.box{background:#fff;border:1px solid #b8c7db;border-radius:16px;padding:2.2rem;width:100%;max-width:360px;box-shadow:0 8px 30px rgba(0,0,0,.08);text-align:center}'
-       . '.logo{width:64px;height:64px;border-radius:14px;background:#1a73e8;margin:0 auto .7rem;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.6rem;font-weight:700}'
-       . 'h1{font-size:1.15rem;margin-bottom:.2rem}p.t{color:#7b8fa8;font-size:.8rem;margin-bottom:1.2rem}'
-       . 'input{width:100%;padding:.6rem .8rem;font-size:1.1rem;text-align:center;letter-spacing:.3em;border:1px solid #b8c7db;border-radius:9px;background:#f0f4f8;outline:none}'
-       . 'input:focus{border-color:#1a73e8}'
-       . 'button{width:100%;margin-top:1rem;padding:.6rem;border:none;border-radius:9px;background:#1a73e8;color:#fff;font-weight:600;font-size:.95rem;cursor:pointer}'
-       . 'button:hover{background:#1557b0}'
-       . '.err{background:#fdecea;color:#e03e3e;border:1px solid rgba(224,62,62,.2);border-radius:8px;padding:.45rem;font-size:.8rem;margin-top:.9rem}'
-       . '.bk{display:inline-block;margin-top:1.1rem;font-size:.8rem;font-weight:600;color:#1a73e8;text-decoration:none;padding:.4rem .85rem;border:1px solid #c7d2fe;border-radius:8px;background:#eef2ff}.bk:hover{background:#e0e7ff}'
-       . '</style></head><body>'
-       . '<form class="box" method="post" action="">'
-       . '<div class="logo">CC</div><h1>Cost Core</h1><p class="t">Masukkan PIN untuk lanjut</p>'
-       . '<input type="password" name="pin" inputmode="numeric" autocomplete="current-password" autofocus placeholder="&bull;&bull;&bull;&bull;">'
-       . ($e !== '' ? '<div class="err">' . $e . '</div>' : '')
-       . '<button type="submit">Buka</button>'
-       . '<a class="bk" href="../">🏠 SalesConnect</a>'
-       . '</form></body></html>';
-    exit;
-}
+// PIN Cost Core dilepas 2026-08-26: sejak login OTP + hak akses per dashboard
+// dipasang, PIN jadi pintu kedua untuk kelompok orang yang sama. Yang berhak
+// membuka modul ini ada di lib/access.php.
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -311,7 +275,7 @@ function openCostcoreSettings(){
 var API_BASE=".";                                 // page at /costcore/ -> "./api/..."
 function apiHeaders(withAuth){return {"Content-Type":"application/json"};}
 function showApp(){var l=document.getElementById("lockScreen");if(l)l.style.display="none";document.getElementById("app").style.display="block";}
-function showLock(){window.location.href="./?lock=1";}   // "Lock" = clear Cost Core PIN
+function scLogout(){window.location.href="../logout.php";}   // PIN dilepas: tombol ini keluar dari SalesConnect
 var _unlocked=true;
 // If the SalesConnect session expires mid-use, any API call returns 401 -> back to login.
 (function(){var f=window.fetch.bind(window);window.fetch=function(u,o){return f(u,o).then(function(res){if(res&&res.status===401){window.location.href="./";}return res;});};})();
@@ -573,7 +537,7 @@ function render(){
 
     h+='<span style="width:1px;height:22px;background:var(--bdr);margin:0 .15rem"></span>';
     
-    h+='<button class="btn btn-o btn-sm" onclick="showLock()" title="Lock & Logout">\uD83D\uDD12 Lock</button>';
+    h+='<button class="btn btn-o btn-sm" onclick="scLogout()" title="Keluar dari SalesConnect">\uD83D\uDEAA Keluar</button>';
     h+='<button class="btn btn-sm" onclick="resetAll()" title="Clear Form" style="background:#e03e3e;color:#fff;font-weight:700;margin-left:auto">\u21BA Reset</button>';
     h+='</div></div></div></div>';
 
