@@ -531,6 +531,14 @@ function activeValidityDate(co) {
  *   · siklus Revision #N        — SELISIH produk sebuah revisi; yang POSITIF
  *                                 berarti produk itu diberikan oleh revisi itu
  * Nilai negatif dilewati: itu penarikan, bukan pemberian.
+ *
+ * Siklus yang BELUM TERBIT dilewati seluruhnya, lewat gerbang yang sama persis
+ * dengan canonicalObtained() — _isObtainedTerbit(). Tanpa gerbang itu, CGK
+ * Obtained #2 (300 MT GL ALLOY, PERTEK dan SPI sama-sama masih kosong) muncul
+ * sebagai baris ber-300 MT, sementara kartu Obtained dengan benar tidak
+ * menghitungnya. Dua angka untuk satu hal — kelas kegagalan yang paling sering
+ * berulang di dashboard ini, dan satu-satunya obatnya adalah memakai gerbang
+ * yang sama, bukan gerbang yang mirip.
  */
 function productGrantHistory(co) {
   const all = (co && co.cycles) || [];
@@ -551,6 +559,9 @@ function productGrantHistory(co) {
   all.forEach(c => {
     const tipe = String(c.type || '');
     if (/^obtained/i.test(tipe)) {
+      /* Gerbang TERBIT — sama dengan canonicalObtained(). Siklus yang kuotanya
+         belum terbit belum memberi apa-apa. */
+      if (typeof _isObtainedTerbit === 'function' && !_isObtainedTerbit(c, all)) return;
       const pasangan = pairedSubmitCycle(c, all);
       cycleProductList(c).forEach(p => catat(p.product, p.mt, c, pasangan));
       /* Siklus SPI Perubahan sering kosong rinciannya sementara PASANGANNYA

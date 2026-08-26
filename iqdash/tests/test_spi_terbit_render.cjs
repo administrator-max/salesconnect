@@ -143,6 +143,30 @@ ok(adp.length === 1 && adp[0].obtainedMT === 350,
   'ADP: SATU baris GL ALLOY 350 MT — Re-Apply menambah kuota, bukan menggandakan baris',
   adp.map(r => `${r.product}=${r.obtainedMT}`).join(', '));
 
+/* GERBANG TERBIT — regresi yang sudah pernah terjadi sekali.
+   CGK Obtained #2 memberi 300 MT GL ALLOY tapi PERTEK dan SPI-nya sama-sama
+   masih kosong. Kartu Obtained (canonicalObtained) dengan benar tidak
+   menghitungnya; versi pertama tabel ini memunculkannya sebagai baris ber-300
+   MT — dua angka untuk satu hal. Sekarang keduanya memakai gerbang yang SAMA,
+   _isObtainedTerbit(). */
+{
+  const cgk = rows.filter(r => r.code === 'CGK');
+  ok(!cgk.some(r => r.product === 'GL ALLOY'),
+    'CGK: siklus yang PERTEK & SPI-nya belum terbit tidak melahirkan baris ber-MT',
+    cgk.map(r => r.product + '=' + r.obtainedMT).join(', '));
+
+  /* Lebih luas: Σ Obtained baris yang bukan Inactive tidak boleh melebihi
+     Σ obtained per company dari master. Selisih yang tersisa hanya boleh dari
+     company yang memang sudah ditandai drift guard bawaan repo. */
+  const perCo = {};
+  rows.filter(r => r.status !== 'inactive').forEach(r => { perCo[r.code] = (perCo[r.code] || 0) + r.obtainedMT; });
+  const stats = JSON.parse(call(`JSON.stringify([...SPI,...PENDING].map(co=>{const a=getObtainedByProdAgg(co)||{};let s=0;Object.values(a).forEach(v=>s+=Number(v)||0);return [co.code, Math.round(s)];}))`));
+  const beda = stats.filter(([code, st]) => Math.abs((perCo[code] || 0) - st) > 0.5);
+  ok(beda.length === 0,
+    'Σ Obtained baris non-Inactive tiap company = Σ master per-produk company itu',
+    beda.slice(0, 3).map(([c, st]) => `${c}: tabel ${perCo[c] || 0} vs master ${st}`).join(', '));
+}
+
 /* Tidak ada company/produk yang muncul dua kali. */
 {
   const kunci = rows.map(r => r.code + '|' + r.product);
