@@ -87,6 +87,17 @@ foreach (TABS as $tab) {
     $cell = "$tab!{$col}1";
 
     if ($apply) {
+        /* Grid tab bisa PAS sebanyak kolom yang terpakai — `realizations` mentok
+           di 28 kolom — dan Sheets menolak menulis di luar grid dengan
+           "exceeds grid limits", bukan memperlebarnya sendiri. Jadi gridnya
+           dilebarkan dulu satu kolom. Aman diulang: memperlebar tab yang sudah
+           cukup lebar tidak mengubah apa pun yang terlihat. */
+        $gid = $gs->sheetMeta($sid)[$tab] ?? null;
+        if ($gid !== null) {
+            $gs->batchUpdate($sid, [[
+                'appendDimension' => ['sheetId' => $gid, 'dimension' => 'COLUMNS', 'length' => 1],
+            ]]);
+        }
         $gs->updateRange($sid, $cell, [['quota_year']]);
         printf("  +   %-24s quota_year ditulis di %s\n", $tab, $cell);
     } else {
