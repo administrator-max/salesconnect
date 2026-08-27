@@ -36,6 +36,7 @@ return [
         'ridwan' => ['name' => 'Ridwan',  'email' => 'ridwan.abdillah@gunungcapital.com',  'admin' => true],
         'trian'  => ['name' => 'Trian',   'email' => 'komangtrian.mp@gunungcapital.com'],
         'liwa'   => ['name' => 'Liwa',    'email' => 'liwa.s@gunungprisma.com'],
+        'herdiani' => ['name' => 'Herdiani', 'email' => 'herdiani@gunungprisma.com'],
     ],
 
     // ── Hak akses per dashboard ──────────────────────────────────────────
@@ -50,7 +51,8 @@ return [
         // Cost Core, Sales Pulse, IQ Dash — tim sales inti + Irma, Angely, Putri
         'costcore'   => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
         'salespulse' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
-        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
+        // Herdiani: IQ Dash saja.
+        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'herdiani'],
 
         // SCOT — tim sales inti + Irma, Angely, Jeany, Maya (TANPA Putri)
         'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian', 'liwa'],
