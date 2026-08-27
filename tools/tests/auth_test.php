@@ -19,10 +19,11 @@ t('akses cil',        count($a['access']['cil']), 8);
 t('akses taskflow',   count($a['access']['taskflow']), 8);
 t('akses costcore',   count($a['access']['costcore']), 11);
 t('akses salespulse', count($a['access']['salespulse']), 11);
-t('akses iqdash',     count($a['access']['iqdash']), 12);
+t('akses iqdash',     count($a['access']['iqdash']), 13);
 t('akses scot',       count($a['access']['scot']), 12);
 t('Putri TIDAK di scot', in_array('putri', $a['access']['scot'], true), false);
-t('Jeany hanya di scot', sc_person_by_email('operations2@gunungprisma.com')['tools'], ['scot']);
+t('Jeany: iqdash + scot', sc_person_by_email('operations2@gunungprisma.com')['tools'],
+                          ['iqdash', 'scot']);
 t('Maya hanya di scot',  sc_person_by_email('maya.ristiana@gunungprisma.com')['tools'], ['scot']);
 t('Putri: 3 dashboard',  sc_person_by_email('putri.aulia@gunungprisma.com')['tools'],
                          ['costcore', 'salespulse', 'iqdash']);
@@ -66,13 +67,14 @@ t('kode hangus sesudah dipakai', sc_otp_read($email), null);
 t('boleh buka iqdash', sc_user_can('iqdash'), true);
 t('boleh buka cil',    sc_user_can('cil'), true);
 
-// Jeany: hanya SCOT.
+// Jeany: SCOT + IQ Dash, bukan yang lain.
 sc_logout();
 $jeany = sc_person_by_email('operations2@gunungprisma.com');
 sc_start_session_for($jeany, 'otp');
-t('Jeany boleh scot',        sc_user_can('scot'), true);
-t('Jeany tidak boleh iqdash', sc_user_can('iqdash'), false);
-t('Jeany tidak boleh cil',    sc_user_can('cil'), false);
+t('Jeany boleh scot',           sc_user_can('scot'), true);
+t('Jeany boleh iqdash',         sc_user_can('iqdash'), true);
+t('Jeany tidak boleh cil',      sc_user_can('cil'), false);
+t('Jeany tidak boleh costcore', sc_user_can('costcore'), false);
 sc_logout();
 t('sesudah logout tidak ada user', sc_current_user(), null);
 t('tanpa sesi tidak boleh apa pun', sc_user_can('scot'), false);
@@ -93,8 +95,11 @@ t('kode terkunci ikut dihapus', sc_otp_read($email), null);
 // dipercaya. Diuji dengan cara merusak salinan itu, lalu memastikan jawabannya
 // tetap mengikuti lib/access.php — persis yang terjadi kalau access.php diubah
 // sementara sesi seseorang masih berjalan.
+// Dipakai Maya, bukan Jeany: uji ini butuh orang yang hanya punya SATU modul,
+// supaya modul lain jadi kontrol yang jelas. Jeany kini punya dua.
 sc_logout();
-sc_start_session_for($jeany, 'otp');          // Jeany: hanya SCOT
+$maya = sc_person_by_email('maya.ristiana@gunungprisma.com');
+sc_start_session_for($maya, 'otp');           // Maya: hanya SCOT
 
 sc_session_start();
 $_SESSION['sc_user']['tools'] = ['iqdash', 'cil'];      // seolah dulu ia berhak
@@ -109,8 +114,8 @@ t('hak yang ada dipulihkan dari berkas', sc_user_can('scot'), true);
 $_SESSION['sc_user']['admin'] = true;                   // seolah ia mengangkat diri jadi admin
 t('status admin ikut disegarkan', sc_user()['admin'], false);
 
-$_SESSION['sc_user']['name'] = 'Bukan Jeany';
-t('nama ikut disegarkan', sc_user()['name'], 'Jeany');
+$_SESSION['sc_user']['name'] = 'Bukan Maya';
+t('nama ikut disegarkan', sc_user()['name'], 'Maya');
 
 // Orang yang dihapus dari access.php: sesinya ditutup pada permintaan berikutnya.
 $_SESSION['sc_user']['email'] = 'sudah.dihapus@gunungprisma.com';

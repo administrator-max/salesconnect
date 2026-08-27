@@ -48,11 +48,13 @@ return [
         'cil'      => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa'],
         'taskflow' => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa'],
 
-        // Cost Core, Sales Pulse, IQ Dash — tim sales inti + Irma, Angely, Putri
+        // Cost Core & Sales Pulse — tim sales inti + Irma, Angely, Putri
         'costcore'   => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
         'salespulse' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
-        // Herdiani: IQ Dash saja.
-        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'herdiani'],
+
+        // IQ Dash — sama seperti dua di atas, DITAMBAH Herdiani & Jeany
+        // (keduanya ditambahkan menyusul, 26 Agustus 2026).
+        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'herdiani', 'jeany'],
 
         // SCOT — tim sales inti + Irma, Angely, Jeany, Maya (TANPA Putri)
         'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian', 'liwa'],
