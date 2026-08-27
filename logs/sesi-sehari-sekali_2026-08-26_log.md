@@ -82,11 +82,16 @@ permintaan, jadi memperpanjang sesi tidak memperlambat pencabutan.
 - Sesudah deploy, dari luar: `Set-Cookie` untuk `salesconnect_sess` membawa
   `Max-Age=86400` (bukan cookie sesi lagi), semua halaman 302, API 401, tanpa
   respons 500.
+- **Dikonfirmasi Aldi lewat `/diag.php`:** `gc_maxlifetime` **86400, hijau**.
+  Host menerima `ini_set` untuk pengaturan sesi. Ini bagian yang tidak bisa
+  diperiksa dari luar, dan sekaligus penyebab nomor 2 — yang paling mungkin
+  jadi biang keluhan aslinya. Ketiganya kini benar-benar tertutup, bukan dua.
 
 ## Sisa
 - Sesi yang sedang berjalan saat deploy tidak ikut diperpanjang — cookie lama
   mereka masih cookie sesi. Semua orang perlu **satu kali login lagi**; sesudah
   itu baru berlaku aturan 24 jam.
-- Angka sebenarnya di server sebaiknya dilihat sekali di `/diag.php` bagian
-  "Masa berlaku sesi" — beberapa host mengunci `ini_set` untuk pengaturan sesi,
-  dan halaman itu akan menandainya merah kalau `gc_maxlifetime` tetap pendek.
+- Kalau suatu saat host berubah dan mengunci `ini_set` untuk sesi, gejalanya
+  akan kembali persis seperti semula (diminta kode lagi di tengah hari).
+  Tempat memeriksanya tetap `/diag.php` bagian "Masa berlaku sesi": baris
+  `gc_maxlifetime` akan berubah merah.
