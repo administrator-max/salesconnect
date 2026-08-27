@@ -135,11 +135,38 @@ if (is_file($logFile)) {
       <tr><td>Bisa ditulis</td><td><?= is_writable($authDir)
           ? '<span class="ok">ya</span>' : '<span class="bad">TIDAK — login OTP akan gagal</span>' ?></td></tr>
       <tr><td>Kode aktif saat ini</td><td><?= count((array) glob($authDir . '/otp_*.json')) ?></td></tr>
-      <tr><td>Sesi menganggur maks.</td><td><?= sc_idle_minutes() ?> menit</td></tr>
       <tr><td>Umur kode</td><td><?= SC_OTP_TTL_MIN ?> menit · maks <?= SC_OTP_MAX_ATTEMPTS ?> percobaan
         · jeda kirim ulang <?= SC_OTP_RESEND_SEC ?> detik</td></tr>
     </table>
   </section>
+
+  <section>
+    <h2>Masa berlaku sesi</h2>
+    <table>
+      <tr><td>Satu login berlaku</td><td><b><?= sc_session_hours() ?> jam</b> sejak masuk
+        (mutlak, tidak digeser oleh aktivitas)</td></tr>
+      <tr><td>Cookie kedaluwarsa</td><td><?= (int) ini_get('session.cookie_lifetime') ?> detik
+        <?= (int) ini_get('session.cookie_lifetime') > 0
+            ? '<span class="ok">— bertahan meski browser ditutup</span>'
+            : '<span class="bad">— 0 berarti mati saat browser ditutup</span>' ?></td></tr>
+      <tr><td>Berkas sesi disimpan di</td><td>
+        <?php $sd = sc_session_dir(); ?>
+        <?php if ($sd !== ''): ?>
+          <code><?= htmlspecialchars($sd) ?></code> <span class="ok">(milik sendiri)</span>
+        <?php else: ?>
+          <code><?= htmlspecialchars(session_save_path() ?: '(bawaan PHP)') ?></code>
+          <span class="warn">— bawaan host, bisa disapu pembersih milik akun lain</span>
+        <?php endif; ?>
+      </td></tr>
+      <tr><td>gc_maxlifetime</td><td><?= (int) ini_get('session.gc_maxlifetime') ?> detik
+        <?= (int) ini_get('session.gc_maxlifetime') >= sc_session_ttl()
+            ? '<span class="ok">— cukup</span>'
+            : '<span class="bad">— LEBIH PENDEK dari umur sesi; berkas sesi bisa dibuang lebih awal</span>' ?></td></tr>
+      <tr><td>Sesi ini masuk pada</td><td><?= date('Y-m-d H:i:s', (int) ($_SESSION['sc_login_at'] ?? 0)) ?>
+        · sisa <?= max(0, (int) round((sc_session_ttl() - (time() - (int) ($_SESSION['sc_login_at'] ?? time()))) / 60)) ?> menit</td></tr>
+    </table>
+  </section>
+
 
   <section>
     <h2>Kirim email uji</h2>

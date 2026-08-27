@@ -138,8 +138,45 @@ if ($cfgUsers) {
 }
 sc_logout();
 
+// ── Masa berlaku sesi ────────────────────────────────────────────────────
+// Aturannya: berlaku sekian jam sejak MASUK, dan tidak digeser oleh aktivitas.
+// Dua sifat itu diuji terpisah karena keduanya mudah rusak sendiri-sendiri.
+t('umur sesi default 24 jam', sc_session_hours(), 24);
+t('umur sesi dalam detik',    sc_session_ttl(), 24 * 3600);
+
+sc_logout();
+sc_start_session_for($maya, 'otp');
+t('sesi baru langsung sah', sc_current_user(), 'maya.ristiana@gunungprisma.com');
+
+// Menganggur lama TIDAK memutus sesi — inti dari keluhan "buka lagi siang,
+// disuruh masuk lagi". Yang menentukan hanya waktu login.
+sc_session_start();
+$_SESSION['sc_last']     = time() - 6 * 3600;      // 6 jam tidak menyentuh apa pun
+$_SESSION['sc_login_at'] = time() - 6 * 3600;      // login 6 jam lalu
+t('6 jam menganggur tetap sah', sc_current_user(), 'maya.ristiana@gunungprisma.com');
+
+// Lewat batas: harus keluar.
+$_SESSION['sc_login_at'] = time() - (sc_session_ttl() + 60);
+t('lewat 24 jam -> sesi berakhir', sc_user(), null);
+t('benar-benar keluar sesudah kedaluwarsa', sc_current_user(), null);
+
+// Aktivitas TIDAK memperpanjang: sesi yang hampir habis tetap habis walau
+// barusan dipakai. Kalau ini gagal, "sekali sehari" diam-diam jadi
+// "sekali selamanya" untuk orang yang membuka dashboard tiap hari.
+sc_logout();
+sc_start_session_for($maya, 'otp');
+sc_session_start();
+$_SESSION['sc_login_at'] = time() - (sc_session_ttl() - 30);   // sisa 30 detik
+t('hampir habis masih sah', sc_current_user(), 'maya.ristiana@gunungprisma.com');
+$_SESSION['sc_login_at'] = time() - (sc_session_ttl() - 30) - 60;
+t('aktivitas tidak memperpanjang', sc_user(), null);
+
+t('email yang diingat kosong tanpa cookie', sc_remembered_email(), '');
+sc_logout();
+
 // ── Penyimpanan ──────────────────────────────────────────────────────────
 t('direktori auth bisa ditulis', is_writable(sc_auth_dir()), true);
+t('direktori sesi bisa ditulis', sc_session_dir() !== '', true);
 
 echo "\n$pass lulus, $fail gagal\n";
 exit($fail ? 1 : 0);

@@ -60,7 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$prefill = (string) ($_SESSION['otp_email'] ?? '');
+// Sudah terisi dari login terakhir di browser ini — satu kali ketik lebih sedikit
+// saat kodenya perlu diminta lagi keesokan harinya.
+$prefill = (string) ($_SESSION['otp_email'] ?? '') ?: sc_remembered_email();
 ?>
 <!DOCTYPE html>
 <html lang="id">

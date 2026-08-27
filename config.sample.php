@@ -36,9 +36,11 @@ return [
 
     'session_name' => 'salesconnect_sess',
 
-    // Menit tanpa aktivitas sebelum sesi berakhir. Default 480 (8 jam) — sesi
-    // juga selalu berakhir saat browser ditutup. Turunkan kalau perlu lebih ketat.
-    'auth_idle_minutes' => 480,
+    // Berapa JAM satu kali login berlaku, dihitung sejak masuk (bukan sejak
+    // aktivitas terakhir). Default 24 = "kode sekali sehari": masuk pagi, buka
+    // lagi siang/sore tanpa kode baru, dan tetap bertahan meski browser ditutup.
+    // Turunkan (mis. 8) kalau ingin lebih ketat.
+    'auth_session_hours' => 24,
 
     // SMTP untuk mengirim kode OTP. BOLEH DIKOSONGKAN: kalau host ini bisa
     // membaca berkas rahasia HR Center (/home/u5959765/hrcenter_private/

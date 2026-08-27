@@ -31,24 +31,66 @@ const SC_OTP_RESEND_SEC   = 60;   // jeda minimum antar permintaan kode
 const SC_OTP_MAX_ATTEMPTS = 5;    // salah ketik sebelum kode dianggap hangus
 const SC_IP_MAX_PER_HOUR  = 20;   // batas permintaan kode per IP per jam
 
-/** Menit tanpa aktivitas sebelum sesi berakhir (0 = nonaktif). */
-function sc_idle_minutes(): int {
+/**
+ * Berapa jam satu kali login berlaku. Default 24 — "sekali sehari": masuk pagi,
+ * buka lagi siang atau sore tanpa kode baru.
+ *
+ * Ini batas MUTLAK sejak login, bukan hitungan menganggur. Dipilih begitu
+ * supaya bisa diterangkan dalam satu kalimat ("kodenya sekali sehari") dan
+ * supaya masa berlaku cookie di browser sama persis dengan masa berlaku sesi di
+ * server — kalau yang satu menggeser dan yang lain tidak, keduanya bisa
+ * kedaluwarsa di waktu berbeda dan gejalanya sulit ditebak.
+ */
+function sc_session_hours(): int {
     $cfg = sc_config();
-    return (int) ($cfg['auth_idle_minutes'] ?? 480);
+    return max(1, (int) ($cfg['auth_session_hours'] ?? 24));
+}
+
+/** Umur sesi dalam detik. */
+function sc_session_ttl(): int {
+    return sc_session_hours() * 3600;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sesi
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Mulai sesi. Tiga hal di sini yang membuat login bertahan seharian; ketiganya
+ * harus benar, karena satu saja meleset tetap memaksa orang minta kode baru:
+ *
+ * 1. **Cookie punya masa berlaku.** Dulu `lifetime => 0` — cookie sesi, mati
+ *    begitu browser ditutup. Siapa pun yang menutup browser saat istirahat
+ *    harus minta kode lagi sesudahnya.
+ * 2. **Berkas sesi disimpan di direktori sendiri.** Di shared hosting,
+ *    save_path bawaan dipakai bersama akun lain dan disapu pembersih milik
+ *    host. Berkas sesi bisa lenyap jauh sebelum waktunya, dan gejalanya persis
+ *    seperti "tiba-tiba diminta login lagi" tanpa pola yang jelas.
+ * 3. **gc_maxlifetime disamakan dengan umur sesi kita.** Bawaan PHP 1440 detik
+ *    (24 menit). Tanpa ini, pembersih PHP boleh membuang berkas sesi yang
+ *    menganggur lewat 24 menit — inilah penyebab paling mungkin dari keluhan
+ *    "buka lagi siang, disuruh masuk lagi", karena tidak ada hubungannya dengan
+ *    menutup browser.
+ */
 function sc_session_start() {
     if (session_status() === PHP_SESSION_ACTIVE) return;
-    $cfg = sc_config();
+    $cfg    = sc_config();
+    $ttl    = sc_session_ttl();
     $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+
+    // Berkas sesi milik kita sendiri, di direktori yang sudah diblokir dari web.
+    $dir = sc_session_dir();
+    if ($dir !== '') {
+        @ini_set('session.save_path', $dir);
+        @ini_set('session.gc_probability', '1');
+        @ini_set('session.gc_divisor', '100');
+    }
+    @ini_set('session.gc_maxlifetime', (string) $ttl);
+
     session_name($cfg['session_name'] ?? 'salesconnect_sess');
     session_set_cookie_params([
-        'lifetime' => 0,
+        'lifetime' => $ttl,
         'path'     => '/',
         'httponly' => true,
         'samesite' => 'Lax',
@@ -57,13 +99,23 @@ function sc_session_start() {
     session_start();
 }
 
+/** Direktori berkas sesi; '' kalau tidak bisa dibuat (pakai bawaan host). */
+function sc_session_dir(): string {
+    static $dir = null;
+    if ($dir !== null) return $dir;
+    $d = sc_auth_dir() . '/sessions';
+    if (!is_dir($d)) @mkdir($d, 0700, true);
+    $dir = (is_dir($d) && is_writable($d)) ? $d : '';
+    return $dir;
+}
+
 /**
  * Data lengkap user yang sedang masuk, atau null.
  * ['key','name','email','admin','tools','via'] — 'via' = 'otp' | 'password'.
  *
  * Hak akses SELALU dibaca ulang dari lib/access.php di sini, tidak pernah
  * dipercaya dari salinan di sesi. Kalau tidak, mencabut akses seseorang jadi
- * tidak berarti apa-apa sampai sesinya habis (bisa 8 jam): ia tetap bisa
+ * tidak berarti apa-apa sampai sesinya habis (bisa sehari penuh): ia tetap bisa
  * membuka modul yang sudah dihapus dari haknya, dengan salinan lama yang
  * menempel di sesinya. Untuk pengaturan yang gunanya justru mengunci akses,
  * jeda seperti itu adalah lubang, bukan sekadar ketidaknyamanan.
@@ -76,20 +128,21 @@ function sc_user() {
     $u = $_SESSION['sc_user'] ?? null;
     if (!$u) return null;
 
-    // Sesi mati kalau terlalu lama menganggur.
-    $idle = sc_idle_minutes();
-    if ($idle > 0) {
-        $last = (int) ($_SESSION['sc_last'] ?? 0);
-        if ($last > 0 && (time() - $last) > $idle * 60) {
-            sc_logout();
-            return null;
-        }
+    // Satu kali login berlaku sekian jam sejak MASUK, bukan sejak aktivitas
+    // terakhir. Tidak menggeser sendiri: kalau digeser tiap permintaan, orang
+    // yang membuka dashboard tiap hari tidak akan pernah diminta kode lagi, dan
+    // "sekali sehari" berubah diam-diam jadi "sekali selamanya".
+    $since = (int) ($_SESSION['sc_login_at'] ?? $_SESSION['sc_last'] ?? 0);
+    if ($since > 0 && (time() - $since) > sc_session_ttl()) {
+        sc_auth_log('session_expired', (string) ($u['email'] ?? ''));
+        sc_logout();
+        return null;
     }
 
     $u = sc_refresh_access($u);
     if (!$u) return null;
 
-    $_SESSION['sc_last'] = time();
+    $_SESSION['sc_last'] = time();   // hanya untuk catatan, tidak memperpanjang
     return $u;
 }
 
@@ -161,9 +214,36 @@ function sc_start_session_for(array $person, string $via = 'otp') {
         'tools' => $person['tools'],
         'via'   => $via,
     ];
-    $_SESSION['sc_last'] = time();
+    $_SESSION['sc_login_at'] = time();      // dasar masa berlaku sesi
+    $_SESSION['sc_last']     = time();
     unset($_SESSION['otp_email']);
+    sc_remember_email((string) $person['email']);
     sc_auth_log('login_ok', $person['email'], 'via=' . $via);
+}
+
+/**
+ * Ingat email terakhir yang berhasil dipakai masuk, supaya form login sudah
+ * terisi saat kodenya perlu diminta lagi keesokan harinya. Hanya alamat email,
+ * bukan penanda apa pun yang bisa dipakai masuk — cookie ini tidak memberi
+ * akses, hanya menghemat satu kali ketik.
+ */
+function sc_remember_email(string $email) {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return;   // pintu darurat pakai username
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    @setcookie('sc_email', $email, [
+        'expires'  => time() + 60 * 86400,
+        'path'     => '/',
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure'   => $secure,
+    ]);
+}
+
+/** Email yang diingat dari login terakhir, atau ''. */
+function sc_remembered_email(): string {
+    $e = (string) ($_COOKIE['sc_email'] ?? '');
+    return filter_var($e, FILTER_VALIDATE_EMAIL) ? strtolower($e) : '';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

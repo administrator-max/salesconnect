@@ -38,9 +38,11 @@ Seluruh app **dikunci**. Login memakai **email kantor + kode sekali pakai (OTP)*
 - **Pintu darurat**: `config.php['users']` (username+password) lewat `/login.php?pw=1`, akses semua modul. Ada supaya gangguan SMTP tidak mengunci semua orang termasuk yang harus memperbaikinya. Kosongkan `users` untuk menutupnya.
 - Catatan audit: `cache/auth/auth.log` (login, kode salah, penolakan akses).
 - **Sesi habis di tengah SPA** ditangani `sc_session_watch()` (di `lib/tool_guard.php`): tambalan `window.fetch` yang disisipkan ke `<head>` KEENAM modul; begitu ada respons 401 halaman memuat ulang dirinya sendiri, penjaga PHP melemparnya ke login, dan `?next=` membawanya kembali. Tiap modul baru WAJIB ikut memasangnya — diuji oleh `tools/tests/session_watch_test.php`.
-- **Hak akses berlaku seketika.** `sc_user()` membaca ulang `lib/access.php` (dan `config.php['users']` untuk pintu darurat) di SETIAP permintaan lewat `sc_refresh_access()`; salinan di sesi tidak pernah dipercaya. Menghapus orang dari `access.php` + deploy langsung memutus sesinya yang sedang berjalan; menambah akses langsung terasa tanpa perlu keluar-masuk. **Jangan** mengubahnya jadi memercayai `$_SESSION['sc_user']['tools']` — itu membuat pencabutan akses menganggur sampai 8 jam.
+- **Hak akses berlaku seketika.** `sc_user()` membaca ulang `lib/access.php` (dan `config.php['users']` untuk pintu darurat) di SETIAP permintaan lewat `sc_refresh_access()`; salinan di sesi tidak pernah dipercaya. Menghapus orang dari `access.php` + deploy langsung memutus sesinya yang sedang berjalan; menambah akses langsung terasa tanpa perlu keluar-masuk. **Jangan** mengubahnya jadi memercayai `$_SESSION['sc_user']['tools']` — itu membuat pencabutan akses menganggur sampai sesi orangnya habis (kini bisa sehari penuh).
 - **PIN Cost Core sudah dilepas** (2026-08-26). Modul itu kini persis seperti yang lain: satu pintu, `sc_require_tool('costcore')`. `lib/costcore_gate.php` dihapus; kunci `costcore_pin` di `config.php` server tinggal sisa yang tidak dibaca siapa pun.
-- Uji: `php tools/tests/auth_test.php` (36 pemeriksaan; tidak menyentuh jaringan).
+- **Satu login berlaku 24 jam** sejak masuk (`config.php['auth_session_hours']`) — "kode sekali sehari". Batasnya **mutlak, tidak digeser aktivitas**: kalau digeser, orang yang membuka dashboard tiap hari tak akan pernah diminta kode lagi. Tiga hal menopangnya di `sc_session_start()` dan ketiganya harus tetap benar: cookie ber-`lifetime` (bukan 0), `session.save_path` sendiri di `cache/auth/sessions` (save_path bawaan shared hosting disapu akun lain), dan `session.gc_maxlifetime` disamakan dengan umur sesi (bawaan PHP 24 menit — inilah yang dulu memutus sesi di tengah hari). Cek semuanya di `/diag.php`.
+- Login terakhir diingat di cookie `sc_email` (60 hari, hanya untuk mengisi form; tidak memberi akses apa pun).
+- Uji: `php tools/tests/auth_test.php` (62 pemeriksaan) + `php tools/tests/session_watch_test.php` (42); tidak menyentuh jaringan.
 
 ## Data source / DB (Google Sheets — "database terpisah")
 Service account: `salesconnect@eagle1-492706.iam.gserviceaccount.com` (project `eagle1-492706`). Key JSON di `secure/service_account.json`.
@@ -84,7 +86,7 @@ Tidak pakai `.env`. Konfigurasi di `config.php` (PHP, tidak diserve sebagai teks
 - `service_account` — path ke JSON key (default `secure/service_account.json`; lebih aman dipindah ke atas `public_html`)
 - `cache_ttl` — TTL cache baca (detik). Saat ini **10**.
 - `users` — `username => bcrypt hash` (buat hash: `php tools/hash.php`). **Hanya pintu darurat admin** sejak login OTP; daftar orang yang sebenarnya ada di `lib/access.php`.
-- `auth_idle_minutes` — menit menganggur sebelum sesi berakhir (default 480)
+- `auth_session_hours` — berapa jam satu kali login berlaku, sejak masuk (default 24)
 - `smtp` (opsional) — `host|port|secure|user|pass|from|helo`. Boleh dikosongkan kalau kredensial diambil dari berkas rahasia di luar docroot (lihat `lib/mailer.php`).
 
 ## File penting
