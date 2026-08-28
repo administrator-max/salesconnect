@@ -139,16 +139,36 @@ const rekonsiliasi = label => {
   ok(near(sigma, kartu.mt),
      `${label}: Σ baris = angka kartu`,
      `kartu ${kartu.mt}  ·  Σ baris ${sigma}  ·  selisih ${(sigma - kartu.mt).toFixed(6)}`);
-  ok(cos.size === kartu.companies,
-     `${label}: jumlah company di rincian = jumlah company di kartu`,
-     `kartu ${kartu.companies} company  ·  rincian ${cos.size} (${[...cos].join(', ')})`);
-  return { rows, kartu, cos };
+  /* Kartu menghitung company yang MASIH BERSALDO ("N companies with balance").
+     Rincian sejak 28-Agu-2026 memuat SELURUH pemegang produk, termasuk yang
+     kuotanya sudah habis — jadi yang harus cocok adalah irisan bersaldonya,
+     bukan jumlah baris seluruhnya. Membandingkan keduanya mentah-mentah akan
+     menuntut rincian menyembunyikan lagi apa yang tim minta ditampilkan. */
+  const coBersaldo = new Set(rows.filter(r => r.avq > 0.001).map(r => r.code));
+  ok(coBersaldo.size === kartu.companies,
+     `${label}: company BERSALDO di rincian = jumlah company di kartu`,
+     `kartu ${kartu.companies} company  ·  bersaldo ${coBersaldo.size} (${[...coBersaldo].join(', ')})  ·  seluruh pemegang ${cos.size}`);
+  return { rows, kartu, cos, coBersaldo };
 };
 
 console.log('-- All Time --');
 setP(null, null);
 const at = rekonsiliasi('All Time');
-ok(!at.cos.has('ADP'), 'All Time: ADP (saldo 0) tidak terdaftar');
+/* ADP saldonya nol. Dulu dituntut TIDAK terdaftar; sejak 28-Agu-2026 justru
+   sebaliknya — pemegang yang kuotanya habis harus tetap terlihat, lengkap
+   dengan obtained dan utilisasinya, dan bersaldo 0. Yang tetap dijaga: ia
+   tidak boleh menambah sepeser pun ke total. */
+{
+  const adp = at.rows.filter(r => r.code === 'ADP');
+  ok(adp.length > 0, 'All Time: ADP (saldo 0) TETAP terdaftar sebagai pemegang',
+     'tidak ada baris ADP sama sekali');
+  ok(adp.every(r => Math.abs(r.avq) <= 0.001), 'All Time: seluruh baris ADP bersaldo 0',
+     adp.map(r => r.product + '=' + r.avq).join(', '));
+  ok(adp.some(r => r.obtained > 0.001 || r.utilMT > 0.001),
+     'All Time: baris ADP tetap membawa obtained/utilisasi — bukan baris hampa',
+     adp.map(r => `${r.product} obt ${r.obtained} util ${r.utilMT}`).join(', '));
+  ok(!at.coBersaldo.has('ADP'), 'All Time: ADP tidak dihitung sebagai company bersaldo');
+}
 ok(at.cos.has('SNSD'), 'All Time: SNSD (PENDING) ikut terdaftar');
 ok(near(at.kartu.mt, 3800 + 2000 + 600 + 120),
    'All Time: total = 6.520 MT (BTS 3.800 + IKM 2.000 + GNG 600 + SNSD 120)',

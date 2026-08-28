@@ -318,10 +318,10 @@ function buildAvqProdGrid() {
      "obtained 4.270" untuk produk yang sebenarnya pernah memperoleh 9.681 MT
      (dilaporkan tim 2026-08-12). */
   const prodMap = productTotals();
-  /* Produk yang saldonya sudah habis dibuang — disaring SESUDAH penjumlahan,
-     karena satu produk bisa nol di satu PT tapi masih bersisa di PT lain
-     (2026-08-10). */
-  Object.keys(prodMap).forEach(p => { if ((prodMap[p].avail || 0) <= 0.001) delete prodMap[p]; });
+  /* Produk yang saldonya habis TETAP tampil (28-Agu-2026). Sebelumnya dibuang
+     di sini, jadi produk yang sudah terutilisasi penuh di seluruh pemegangnya
+     lenyap dari halaman — padahal obtained & utilisasinya justru yang ingin
+     dibaca. Kartunya kini menulis Available 0 apa adanya. */
   const PROD_CLR = {
     'GL BORON':'#0369a1','GI BORON':'#0f766e','SHEETPILE':'#b45309',
     'BORDES ALLOY':'#dc2626','PPGL CARBON':'#7c3aed','ERW PIPE OD≤140mm':'#9333ea',
@@ -624,32 +624,22 @@ function buildAvqTable() {
      yaitu obtained all-time dikurangi utilisasi periode. Itulah yang membuat
      kolom Available di tabel menjumlah ±13.000 MT terhadap kartu 11.058 MT
      (tim Sales, 2026-08-11) — bukan sekadar "kurang beberapa perusahaan". */
-  const _semua = availableQuotaRows().map(r => ({
+  const allRows = availableQuotaRows().map(r => ({
     code: r.code, grp: r.group, prod: r.product, hs: r.hs,
-    obt: r.obtained, util: r.utilMT, avq: r.avq,
+    obt: r.obtained, util: r.utilMT, avq: r.avq, habis: r.habis,
     validity: r.validityDate, hasActiveSpi: r.hasActiveSpi, activeSpiNo: r.activeSpiNo,
     updBy: r.updatedBy, updDate: r.updatedDate,
   }));
 
-  /* ── Baris yang KOSONG SELURUHNYA disembunyikan ────────────────────────
-     Produk yang sudah dipindahkan revisi meninggalkan baris stats bernilai
-     nol — obtained 0, util 0, sisa 0. Enam di antaranya (DIOR Wear Plate,
-     GIS Seamless & Sheet Pile, MIN GI Alloy, MJU Wear Plate & Hollow Pipe)
-     tidak menerangkan apa pun, hanya memanjangkan tabel. Diminta tim
-     disembunyikan, 28-Agu-2026.
+  /* Bersaldo dulu, lalu yang sudah habis — di dalam masing-masing, yang
+     obtained-nya terbesar di atas. Tanpa kunci kedua, 37 baris bersaldo nol
+     berurutan sembarang dan tabelnya tidak bisa dibaca.
 
-     Syaratnya KETIGA angkanya nol — bukan sekadar sisanya nol. Baris yang
-     kuotanya habis terpakai (BTS Seamless 1.000/1.000/0, CGK GI Alloy
-     1.020/1.020/0) TETAP tampil: sisa nol di situ adalah fakta yang perlu
-     dibaca, bukan baris hampa.
-
-     Yang disembunyikan tetap DIHITUNG dan dinyatakan jumlahnya di kaki tabel.
-     Menyembunyikan tanpa mengatakannya membuat tabel tampak lengkap padahal
-     tidak — itu justru kelas masalah yang sedang dibereskan di dashboard ini. */
-  const _nol = v => !(Math.abs(Number(v) || 0) > 0.001);
-  const _kosong = _semua.filter(r => _nol(r.obt) && _nol(r.util) && _nol(r.avq));
-  const allRows = _semua.filter(r => !(_nol(r.obt) && _nol(r.util) && _nol(r.avq)));
-  allRows.sort((a,b) => b.avq - a.avq);
+     Tidak ada baris yang disaring di sini. availableQuotaRows() sudah tidak
+     pernah membentuk baris yang ketiga angkanya nol, dan menyaring lagi di
+     sisi tampilan berarti tabel ini bisa berbeda isi dari Chart dan By Product
+     yang membaca sumber yang sama. */
+  allRows.sort((a,b) => b.avq - a.avq || b.obt - a.obt || a.code.localeCompare(b.code));
 
   // ── Build HS filter chip bar ──────────────────────────────────────
   const hsSet    = new Set(allRows.map(r => r.hs).filter(h => h && h !== '—'));
@@ -694,6 +684,11 @@ function buildAvqTable() {
       <td class="t-r t-mono">${fmtMt(r.obt)}</td>
       <td class="t-r t-mono" style="color:var(--green)">${r.util > 0 ? fmtMt(r.util) : '<span style="color:var(--txt3)">—</span>'}</td>
       <td class="t-r t-mono" style="color:#0891b2;font-weight:700">${fmtMt(r.avq)}</td>
+      ${r.habis
+        ? `<td><span class="chip" style="background:#f1f5f9;color:#475569;font-size:9.5px;padding:2px 7px;white-space:nowrap"
+             title="Kuotanya sudah terpakai seluruhnya — barisnya tetap ditampilkan sebagai riwayat">⚪ Fully Utilized</span></td>`
+        : `<td><span class="chip" style="background:#ecfdf5;color:#047857;font-size:9.5px;padding:2px 7px;white-space:nowrap"
+             title="Masih ada saldo yang bisa dipakai">🟢 Available</span></td>`}
       ${(() => {
         /* Tanpa SPI aktif, tanggalnya TIDAK dikarang. Baris ini bisa muncul
            karena saldonya berasal dari PERTEK yang SPI-nya belum terbit, atau
@@ -734,17 +729,24 @@ function buildAvqTable() {
     const tUtil = rows.reduce((s,r) => s + r.util, 0);
     const tAvq  = rows.reduce((s,r) => s + r.avq,  0);
     const tCo   = new Set(rows.map(r => r.code)).size;
+    const tSisa  = rows.filter(r => !r.habis).length;
+    const tHabis = rows.length - tSisa;
+    /* Company yang masih bersaldo disebut terpisah supaya kaki tabel ini tidak
+       terbaca bertentangan dengan kartu di atasnya, yang menghitung company
+       bersaldo saja ("8 companies with balance"). */
+    const tCoSisa = new Set(rows.filter(r => !r.habis).map(r => r.code)).size;
     const tTanpaSpi = rows.filter(r => !r.hasActiveSpi && r.avq > 0.001).length;
     const tPct  = tObt > 0 ? (tUtil / tObt * 100) : 0;
     const disaring = !!(_avqTableHsFilter || _avqTableHsSearch);
     foot.innerHTML = `<tr style="background:var(--bg2);border-top:2px solid var(--navy);font-weight:700">
       <td colspan="4" style="font-size:11px;color:var(--navy)">
-        TOTAL · ${tCo} compan${tCo !== 1 ? 'ies' : 'y'} · ${rows.length} product-rows${disaring ? ' <span style="font-weight:600;color:var(--txt3)">(HS filter aktif — bukan total halaman)</span>' : ''}
+        TOTAL · ${tCo} compan${tCo !== 1 ? 'ies' : 'y'} · ${rows.length} product-rows · ${tCoSisa} masih bersaldo${disaring ? ' <span style="font-weight:600;color:var(--txt3)">(HS filter aktif — bukan total halaman)</span>' : ''}
       </td>
       <td class="t-r t-mono">${fmtMt(tObt)}</td>
       <td class="t-r t-mono" style="color:var(--green)">${fmtMt(tUtil)}</td>
       <td class="t-r t-mono" style="color:#0891b2">${fmtMt(tAvq)}</td>
-      <td style="font-size:9.5px;color:var(--txt3);font-weight:600">${tTanpaSpi ? `${tTanpaSpi} tanpa SPI aktif` : 'ikut SPI aktif'}${_kosong.length ? `<br>${_kosong.length} baris kosong disembunyikan` : ''}</td>
+      <td style="font-size:9.5px;color:var(--txt3);font-weight:600;white-space:nowrap">${tSisa} available · ${tHabis} habis</td>
+      <td style="font-size:9.5px;color:var(--txt3);font-weight:600">${tTanpaSpi ? `${tTanpaSpi} tanpa SPI aktif` : 'ikut SPI aktif'}</td>
       <td style="font-size:10.5px;color:var(--txt3)">${tPct.toFixed(0)}%</td>
       <td style="font-size:9.5px;color:var(--txt3);font-weight:600">saldo kumulatif</td>
     </tr>`;
@@ -758,8 +760,7 @@ function buildAvqProdChart() {
   /* Sumber yang sama dengan kartu By Product di atasnya — productTotals().
      Chart dan kartu duduk di halaman yang sama, jadi tidak boleh beda basis. */
   const prodMap = productTotals();
-  // Produk bersaldo nol tidak ditampilkan (2026-08-10) — sama seperti grid.
-  Object.keys(prodMap).forEach(p => { if ((prodMap[p].avail || 0) <= 0.001) delete prodMap[p]; });
+  // Produk bersaldo nol IKUT ditampilkan — sama seperti grid (28-Agu-2026).
   const sorted = Object.entries(prodMap).sort((a,b) => b[1].obtained - a[1].obtained);
   if (CH['avqProdChart']) CH['avqProdChart'].destroy();
   CH['avqProdChart'] = new Chart(el, {

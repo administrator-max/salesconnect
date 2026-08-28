@@ -642,9 +642,13 @@ function refreshAvqDrill() {
      dengan Obtained/Utilized periode di kartu sebelah dan wajar menyimpulkan
      angkanya bertentangan. */
   const sub = document.getElementById('avqDrillSubtitle');
+  /* Berapa yang MASIH bersaldo — angka yang dipakai kartu di atas rincian ini.
+     Tanpa ini, "34 companies" di sini dan "8 companies with balance" di kartu
+     terbaca sebagai dua jawaban untuk satu pertanyaan. */
+  const _coBersaldo = new Set(rows.filter(r => r.avq > 0.001).map(r => r.code)).size;
   if (sub) {
     sub.textContent =
-      `${uniqueCos} companies · ${rows.length} product-rows · Obtained − Utilized (all-time)${activeHsLabel}`;
+      `${uniqueCos} companies · ${rows.length} product-rows · ${_coBersaldo} masih bersaldo · Obtained − Utilized (all-time)${activeHsLabel}`;
     sub.title = 'Saldo kumulatif: obtained dan utilized di sini SEPANJANG WAKTU, '
       + 'bukan aktivitas di dalam periode. Filter periode memilih company mana '
       + 'yang muncul, bukan memotong saldonya.';
@@ -704,7 +708,7 @@ function refreshAvqDrill() {
   }).join('');
 
   document.getElementById('avqDrillFooter').textContent =
-    `${uniqueCos} companies · ${rows.length} product-rows · Click row to open company detail`;
+    `${uniqueCos} companies · ${rows.length} product-rows · ${_coBersaldo} masih bersaldo · Click row to open company detail`;
 }
 
 /* ─────────────────────────────────────────────────────────────────

@@ -1367,10 +1367,30 @@ function productTotals() {
    "Obtained − Utilized" pada baris/ringkasannya tidak akan pernah sama dengan
    Available yang dicetak di sebelahnya.
 
-   Baris ber-saldo NOL sengaja IKUT selama company-nya masih bersaldo: itu yang
-   membuat total Obtained − Utilized = Available bisa diperiksa langsung oleh
-   tim. Penyaringan "hanya yang bersisa" berlaku di level COMPANY (availablePool)
-   dan — untuk agregasi per produk — SESUDAH dijumlahkan (2026-08-10). */
+   SELURUH pemegang produk ikut, baik yang masih bersaldo maupun yang kuotanya
+   sudah habis terpakai. Diminta tim 28-Agu-2026: "semua PT yang memiliki GI
+   Alloy pada data PERTEK & SPI ditampilkan, termasuk yang Available = 0 /
+   sudah terutilisasi seluruhnya".
+
+   Sebelumnya kolamnya availablePool() — company yang saldo TOTAL-nya sudah
+   nol dibuang seluruhnya. Akibatnya GI ALLOY hanya menampilkan CGK, IKM, dan
+   SNSD, padahal 15 company memegangnya; 12 di antaranya hilang dari layar
+   justru KARENA kuotanya sudah habis dipakai — informasi yang paling ingin
+   dilihat tim penjualan. Yang sama terjadi di ketiga tampilan sekaligus
+   (Chart, By Product, Table), karena semuanya berdiri di atas fungsi ini.
+
+   Sekarang kolamnya availableScopePool(): syarat kausal "kuotanya sudah
+   terbit s/d akhir periode" DIPERTAHANKAN — saldo maupun riwayat pemakaian
+   tidak bisa ada sebelum kuota yang melahirkannya (kasus SNSD) — tapi syarat
+   "saldonya masih ada" DILEPAS.
+
+   Baris muncul bila obtained, utilisasi, ATAU saldonya bukan nol. Baris yang
+   ketiganya nol tetap tidak dicetak: itu bukan pemegang, itu sisa entri produk
+   yang sudah dipindahkan revisi.
+
+   Σ avq TIDAK bergeser (tetap 9.264 = kartu): company yang baru masuk
+   totalnya nol, dan cumulativeAvailByProd() membagi total nol menjadi nol
+   untuk setiap produknya. Diperiksa oleh test_avq_semua_pemegang.cjs. */
 function availableQuotaRows() {
   const hsOf = p => (typeof prodHS === 'function' ? prodHS(p) : '—');
   /* Validity Date diambil dari SPI yang saat ini ACTIVE untuk (company,
@@ -1388,21 +1408,33 @@ function availableQuotaRows() {
   const validMap = (typeof activeValidityByProduct === 'function') ? activeValidityByProduct() : {};
   const kanonProd = p => (typeof canonicalProduct === 'function' ? canonicalProduct(String(p).trim()) : String(p).trim());
   const rows = [];
-  availablePool().forEach(co => {
+  availableScopePool().forEach(co => {
     const obt  = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
     const util = (typeof allTimeUtilByProd    === 'function') ? allTimeUtilByProd(co)    : (co.utilizationByProd || {});
     const avq  = cumulativeAvailByProd(co);
     const spi  = (typeof getSPI === 'function') ? getSPI(co.code) : null;
-    Object.keys(avq).forEach(p => {
+    /* Kunci dari KETIGA peta. Kunci avq ikut supaya cadangan "belum ada stats
+       per produk" di cumulativeAvailByProd() — yang membagi saldo rata ke
+       co.products — tidak kehilangan barisnya. */
+    const kunci = [...new Set([...Object.keys(obt), ...Object.keys(util), ...Object.keys(avq)])];
+    kunci.forEach(p => {
+      const o = Number(obt[p])  || 0;
+      const u = Number(util[p]) || 0;
+      const a = Number(avq[p])  || 0;
+      if (o <= AVQ_EPS && u <= AVQ_EPS && a <= AVQ_EPS) return;
       const v = validMap[co.code + '|' + kanonProd(p)] || null;
       rows.push({
         code:        co.code,
         group:       co.group || (spi && spi.group) || '',
         product:     p,
         hs:          hsOf(p),
-        obtained:    Number(obt[p])  || 0,
-        utilMT:      Number(util[p]) || 0,
-        avq:         Number(avq[p])  || 0,
+        obtained:    o,
+        utilMT:      u,
+        avq:         a,
+        /* Status kuota, bukan status SPI. Menerangkan kenapa sebuah baris
+           bersaldo nol tetap dicetak. Status SPI punya kolomnya sendiri
+           (Validity Date) dan sumbernya activeValidityByProduct(). */
+        habis:       !(a > AVQ_EPS),
         validityDate: v ? v.validityDate : '',
         activeSpiNo:  v ? v.spiNo        : '',
         hasActiveSpi: !!v,
