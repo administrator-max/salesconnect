@@ -22,6 +22,20 @@
 
 require_once __DIR__ . '/iqdash_util.php';
 
+/**
+ * Tab yang dibaca /api/data. Didaftarkan terpisah supaya warmValues() dan
+ * iq_load_tables() TIDAK BISA melenceng: tab yang ditambahkan di bawah tapi
+ * lupa didaftarkan di sini hanya kehilangan percepatannya, tidak jadi salah —
+ * tapi keduanya memang dimaksudkan selalu sama.
+ */
+const IQ_TABS = [
+    'companies', 'cycles', 'cycle_products', 'cycle_utilization',
+    'company_product_stats', 'revision_changes', 'company_shipments',
+    'realizations', 'product_aliases', 'products', 'company_directory',
+    'company_products', 'company_reapply_targets', 'ra_records',
+    'pending_meta', 'pertek_perubahan_release',
+];
+
 /* ── iq_load_tables ─────────────────────────────────────────────────── */
 
 /**
@@ -32,6 +46,17 @@ require_once __DIR__ . '/iqdash_util.php';
  * same truthiness rules as the JS it was ported from.
  */
 function iq_load_tables(GoogleSheets $gs, string $sid): array {
+    /* SATU panggilan untuk keenam belas tab, bukan enam belas panggilan.
+       warmValues() hanya mengisi cache dengan kunci yang sama dengan
+       getValues(), jadi $get() di bawah tidak berubah sedikit pun — ia cuma
+       menemukan datanya sudah ada. Kalau batchGet gagal, $get() membaca satu
+       per satu persis seperti sebelumnya.
+
+       Alasannya ada di komentar warmValues(): satu service account melayani
+       semua pengguna, jadi 16 baca per muat halaman menghabiskan kuota tim
+       hanya dalam beberapa kali refresh. */
+    $gs->warmValues($sid, IQ_TABS);
+
     $get = function (string $tab) use ($gs, $sid): array {
         $rows = $gs->table($sid, $tab)['rows'];
         return array_map('iq_coerce_row', $rows);

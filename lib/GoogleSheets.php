@@ -174,6 +174,79 @@ class GoogleSheets {
         foreach ((array) glob($this->cacheDir . '/rd_*.json') as $f) @unlink($f);
     }
 
+    /**
+     * Panaskan cache untuk BANYAK range sekaligus lewat SATU panggilan API.
+     *
+     * ══ KENAPA ═════════════════════════════════════════════════════════════
+     * IQ Dash membaca 16 tab tiap kali /api/data dipanggil, dan setiap tab
+     * dulunya satu HTTP request sendiri. Dengan cache_ttl 10 detik, praktis
+     * setiap kali halaman dibuka membayar 16 round-trip.
+     *
+     * Yang membuatnya berlipat: SELURUH pengguna memakai satu service account,
+     * jadi semua pembacaan tim dihitung ke kuota SATU user (~60 baca/menit).
+     * 16 baca per muat berarti kira-kira 4 kali buka dashboard per menit untuk
+     * seluruh tim sebelum Google mulai mencekik — dan saat dicekik, panggilan
+     * berhenti 25 detik tanpa satu byte pun (terukur 27-Agu-2026).
+     *
+     * values:batchGet mengambil semua range dalam SATU permintaan: 16 unit
+     * kuota jadi 1, dan 15 round-trip hilang.
+     *
+     * ══ CARA PAKAINYA ══════════════════════════════════════════════════════
+     * Fungsi ini TIDAK memulangkan data — ia hanya mengisi cache dengan kunci
+     * yang PERSIS SAMA dengan getValues(). Pemanggil tetap memakai table() /
+     * getValues() seperti biasa dan otomatis kena cache.
+     *
+     * Dipilih begini supaya tidak ada jalur baca yang perlu ditulis ulang, dan
+     * supaya KEGAGALAN TIDAK PERNAH MEMPERBURUK KEADAAN: kalau batchGet gagal
+     * (kuota, jaringan, tab tidak ada), fungsi ini diam-diam menyerah dan
+     * pembacaan per-tab berjalan persis seperti sebelum ada fungsi ini.
+     *
+     * Range yang sudah ada di cache tidak diminta ulang. Kalau semuanya sudah
+     * hangat, TIDAK ADA panggilan API sama sekali.
+     *
+     * @param  string   $id      spreadsheet id
+     * @param  string[] $ranges  nama tab (atau range A1) yang akan dipanaskan
+     * @return bool              true bila cache terisi, false bila menyerah
+     */
+    public function warmValues($id, array $ranges, $useCache = true) {
+        if (!$useCache || !$ranges) return false;
+
+        $perlu = [];
+        foreach ($ranges as $r) {
+            $r = (string) $r;
+            if ($r === '') continue;
+            if ($this->cacheGet('gv|' . $id . '|' . $r) !== null) continue;  // sudah hangat
+            $perlu[] = $r;
+        }
+        if (!$perlu) return true;   // semuanya sudah di cache — nol panggilan API
+
+        $qs = [];
+        foreach ($perlu as $r) $qs[] = 'ranges=' . rawurlencode($r);
+        $url = $this->baseUrl($id) . '/values:batchGet?' . implode('&', $qs);
+
+        try {
+            $res = $this->api('GET', $url);
+        } catch (Exception $e) {
+            /* Menyerah TANPA melempar. Pemanggil akan membaca per tab seperti
+               biasa; lebih lambat, tapi tetap benar. Satu-satunya hal yang
+               tidak boleh terjadi adalah percepatan ini justru merobohkan
+               pembacaan yang tadinya jalan. */
+            return false;
+        }
+
+        $vr = $res['valueRanges'] ?? null;
+        /* Dicocokkan lewat URUTAN, bukan lewat string range yang dipulangkan:
+           Google menormalkan "companies" jadi "companies!A1:N42", jadi
+           mencocokkan string akan selalu meleset. Kalau jumlahnya tidak sama
+           persis, pemetaannya tidak bisa dipercaya — lebih baik menyerah. */
+        if (!is_array($vr) || count($vr) !== count($perlu)) return false;
+
+        foreach ($perlu as $i => $r) {
+            $this->cachePut('gv|' . $id . '|' . $r, $vr[$i]['values'] ?? []);
+        }
+        return true;
+    }
+
     // ── Values API ────────────────────────────────────────────────────────
     public function getValues($id, $range, $useCache = true, $unformatted = false) {
         $key = 'gv|' . $id . '|' . $range . ($unformatted ? '|u' : '');
