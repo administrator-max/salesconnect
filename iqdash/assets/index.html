@@ -1089,7 +1089,8 @@ window.ensureXLSX = function () {
             <th class="t-r">Obtained (MT)</th>
             <th class="t-r">Utilized (MT)</th>
             <th class="t-r">Available (MT)</th>
-            <th class="has-tip">Status<span class="tip">Status SPI, sama persis dengan tab PERTEK &amp; SPI Terbit: 🟢 Active = SPI masih berlaku · ⚪ Inactive = sudah digantikan SPI Perubahan atau masa berlakunya lewat · ⏳ Belum terbit = PERTEK sudah terbit, SPI belum. Saldo yang sudah habis terbaca dari kolom Available (MT) = 0.</span></th>
+            <th class="has-tip">Quota Status<span class="tip">Keadaan SALDO: Available = masih ada kuota yang bisa dipakai · Fully Utilized = kuotanya sudah terpakai seluruhnya (barisnya tetap ditampilkan sebagai riwayat).</span></th>
+            <th class="has-tip">SPI Status<span class="tip">Keadaan IZIN, sama persis dengan tab PERTEK &amp; SPI Terbit: 🟢 Active = SPI masih berlaku · ⚪ Inactive = sudah digantikan SPI Perubahan atau masa berlakunya lewat · ⏳ Belum terbit = PERTEK sudah terbit, SPI belum. Berbeda dari Quota Status: kuota bisa habis terpakai sementara SPI-nya tetap Active.</span></th>
             <th class="has-tip">Validity Date<span class="tip">Masa berlaku SPI yang saat ini Active untuk produk ini · 31 Desember tahun SPI terbit</span></th>
             <th style="min-width:110px">Utilization %</th>
             <th>Updated</th>
@@ -1687,7 +1688,7 @@ window.ensureXLSX = function () {
 <script defer src="assets/js/16-storage.js?v=9"></script>
 <script defer src="assets/js/17-ou-chart.js?v=4"></script>
 <script defer src="assets/js/18-sales-priority.js"></script>
-<script defer src="assets/js/19-init.js?v=19"></script>
+<script defer src="assets/js/19-init.js?v=20"></script>
 <script defer src="assets/js/20-realization-import.js?v=4"></script>
 <script defer src="assets/js/21-master-import.js?v=2"></script>
 </body>

@@ -224,7 +224,7 @@ ok(Number(nodes['stPillAll'].textContent) === rows.length,
 /* ── D. Available Quota ───────────────────────────────────────────────────── */
 console.log('\nD · Available Quota — sinkron dengan tabel utama');
 const avqCols = headerCount('avqTableBody');
-ok(avqCols === 11, `header Available Quota 11 kolom — Status disisipkan sesudah Available (dapat ${avqCols})`);
+ok(avqCols === 12, `header Available Quota 12 kolom — Quota Status + SPI Status sesudah Available (dapat ${avqCols})`);
 call(`buildAvqTable();`);
 const avqHtml = nodes['avqTableBody'].innerHTML;
 const avqRows = avqHtml.split('</tr>').filter(r => r.includes('<td'));

@@ -217,21 +217,61 @@ console.log('\nE · Kolom Status — kata demi kata dari PERTEK & SPI');
     `${habisTapiAktif} baris bersaldo nol tetap 🟢 Active — status SPI, bukan status saldo`);
 
   const baris = html.split('</tr>').filter(r => r.includes('<td'));
-  ok(baris.every(r => (r.match(/<td[\s>]/g) || []).length === 11),
-    'tiap baris 11 sel sesudah Status disisipkan',
+  ok(baris.every(r => (r.match(/<td[\s>]/g) || []).length === 12),
+    'tiap baris 12 sel — Quota Status dan SPI Status berdiri sendiri-sendiri',
     [...new Set(baris.map(r => (r.match(/<td[\s>]/g) || []).length))].join(', '));
 
   const foot = nodes['avqTableFoot'].innerHTML;
   const colspan = Number((foot.match(/colspan="(\d+)"/) || [])[1] || 0);
   const sel = (foot.match(/<td[\s>]/g) || []).length;
-  ok(colspan + sel - 1 === 11,
-    `kaki tabel menutup 11 kolom (colspan ${colspan} + ${sel - 1} sel)`);
+  ok(colspan + sel - 1 === 12,
+    `kaki tabel menutup 12 kolom (colspan ${colspan} + ${sel - 1} sel)`);
   ok(/Active|Inactive|belum terbit|—/.test(foot),
     'kaki tabel meringkas status SPI kolom itu',
     foot.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 170));
-  ok(/bersaldo/.test(foot) && /habis/.test(foot),
-    'kaki tabel tetap menyebut berapa baris yang bersaldo dan berapa yang habis',
-    foot.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 170));
+  ok(/available/i.test(foot) && /habis/.test(foot),
+    'kaki tabel meringkas kolom Quota Status juga',
+    foot.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
+}
+
+console.log('\nF · Dua kolom status, dua keterangan berbeda');
+{
+  call('buildAvqTable();');
+  const baris = nodes['avqTableBody'].innerHTML.split('</tr>').filter(r => r.includes('<td'));
+  const sel = r => [...r.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(x => x[1].replace(/<[^>]+>/g, '').trim());
+
+  const nQuota = { Available: 0, 'Fully Utilized': 0 };
+  const pasangan = new Set();
+  baris.forEach(r => {
+    const m = sel(r);
+    const q = m[7], s = m[8];
+    if (nQuota[q] !== undefined) nQuota[q]++;
+    pasangan.add(q + ' / ' + s);
+  });
+
+  const nSisa = rows.filter(r => r.avq > EPS).length;
+  ok(nQuota.Available === nSisa && nQuota['Fully Utilized'] === rows.length - nSisa,
+    `kolom 8 = Quota Status: ${nQuota.Available} Available · ${nQuota['Fully Utilized']} Fully Utilized`,
+    `harap ${nSisa} / ${rows.length - nSisa}`);
+
+  const kolom9 = baris.map(r => sel(r)[8]);
+  ok(kolom9.every(v => /Active|Inactive|Belum terbit|—/.test(v)),
+    'kolom 9 = SPI Status, memakai kosakata tab PERTEK & SPI',
+    [...new Set(kolom9)].join(' | '));
+
+  /* Inti dua kolom ini: keduanya TIDAK boleh bergerak seiring. Kalau setiap
+     baris "Fully Utilized" selalu berpasangan dengan satu nilai SPI Status
+     saja, salah satu kolom hanya mengulang yang lain dan tidak perlu ada. */
+  const habisAktif = baris.filter(r => { const m = sel(r); return m[7] === 'Fully Utilized' && /Active/.test(m[8]); }).length;
+  const sisaAktif  = baris.filter(r => { const m = sel(r); return m[7] === 'Available'      && /Active/.test(m[8]); }).length;
+  ok(habisAktif > 0 && sisaAktif > 0,
+    `kedua kolom berdiri sendiri: ${habisAktif} baris habis-tapi-Active, ${sisaAktif} baris bersaldo-dan-Active`,
+    [...pasangan].join(' · '));
+
+  /* Dibedakan secara visual, bukan hanya lewat judul kolom. */
+  const html2 = nodes['avqTableBody'].innerHTML;
+  ok(!/>Available<\/span>[\s\S]{0,80}🟢/.test(html2) && /🟢 Active|⏳ Belum terbit/.test(html2),
+    'Quota Status tanpa emoji, SPI Status beremoji — dua kolom tidak terbaca sebagai satu hal yang tercetak dua kali');
 }
 
 console.log(`\n${pass} pass · ${fail} fail`);

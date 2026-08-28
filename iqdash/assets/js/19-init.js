@@ -685,10 +685,19 @@ function buildAvqTable() {
       <td class="t-r t-mono">${fmtMt(r.obt)}</td>
       <td class="t-r t-mono" style="color:var(--green)">${r.util > 0 ? fmtMt(r.util) : '<span style="color:var(--txt3)">—</span>'}</td>
       <td class="t-r t-mono" style="color:#0891b2;font-weight:700">${fmtMt(r.avq)}</td>
+      ${r.habis
+        ? `<td><span class="chip" style="background:#f1f5f9;color:#475569;font-size:9.5px;padding:2px 7px;white-space:nowrap;font-weight:700"
+             title="Kuotanya sudah terpakai seluruhnya. Barisnya tetap ditampilkan sebagai riwayat — lihat kolom SPI Status untuk keadaan izinnya.">Fully Utilized</span></td>`
+        : `<td><span class="chip" style="background:#ecfdf5;color:#047857;font-size:9.5px;padding:2px 7px;white-space:nowrap;font-weight:700"
+             title="Masih ada saldo yang bisa dipakai">Available</span></td>`}
       ${(() => {
         /* Lencana yang SAMA PERSIS dengan tab PERTEK & SPI Terbit — kata,
            warna, dan alasannya. Status yang tidak dikenal dicetak "—", tidak
-           ditebak jadi Active. */
+           ditebak jadi Active.
+
+           SENGAJA beremoji sementara Quota Status di sebelahnya tidak: dua
+           kolom bersebelahan yang sama-sama "🟢 …" terbaca sebagai satu hal
+           yang tercetak dua kali. */
         const S = {
           active:   ['🟢 Active',        '#ecfdf5', '#047857'],
           inactive: ['⚪ Inactive',      '#f1f5f9', '#475569'],
@@ -757,11 +766,12 @@ function buildAvqTable() {
     const disaring = !!(_avqTableHsFilter || _avqTableHsSearch);
     foot.innerHTML = `<tr style="background:var(--bg2);border-top:2px solid var(--navy);font-weight:700">
       <td colspan="4" style="font-size:11px;color:var(--navy)">
-        TOTAL · ${tCo} compan${tCo !== 1 ? 'ies' : 'y'} · ${rows.length} product-rows · ${tSisa} bersaldo (${tCoSisa} company) · ${tHabis} habis${disaring ? ' <span style="font-weight:600;color:var(--txt3)">(HS filter aktif — bukan total halaman)</span>' : ''}
+        TOTAL · ${tCo} compan${tCo !== 1 ? 'ies' : 'y'} · ${rows.length} product-rows · ${tCoSisa} company masih bersaldo${disaring ? ' <span style="font-weight:600;color:var(--txt3)">(HS filter aktif — bukan total halaman)</span>' : ''}
       </td>
       <td class="t-r t-mono">${fmtMt(tObt)}</td>
       <td class="t-r t-mono" style="color:var(--green)">${fmtMt(tUtil)}</td>
       <td class="t-r t-mono" style="color:#0891b2">${fmtMt(tAvq)}</td>
+      <td style="font-size:9.5px;color:var(--txt3);font-weight:600;white-space:nowrap">${tSisa} available · ${tHabis} habis</td>
       <td style="font-size:9.5px;color:var(--txt3);font-weight:600;white-space:nowrap">${stRingkas}</td>
       <td style="font-size:9.5px;color:var(--txt3);font-weight:600">${tTanpaSpi ? `${tTanpaSpi} tanpa SPI aktif` : 'ikut SPI aktif'}</td>
       <td style="font-size:10.5px;color:var(--txt3)">${tPct.toFixed(0)}%</td>
