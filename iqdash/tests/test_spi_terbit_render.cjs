@@ -144,16 +144,37 @@ ok(adp.length === 1 && adp[0].obtainedMT === 350,
   adp.map(r => `${r.product}=${r.obtainedMT}`).join(', '));
 
 /* GERBANG TERBIT — regresi yang sudah pernah terjadi sekali.
-   CGK Obtained #2 memberi 300 MT GL ALLOY tapi PERTEK dan SPI-nya sama-sama
-   masih kosong. Kartu Obtained (canonicalObtained) dengan benar tidak
-   menghitungnya; versi pertama tabel ini memunculkannya sebagai baris ber-300
-   MT — dua angka untuk satu hal. Sekarang keduanya memakai gerbang yang SAMA,
-   _isObtainedTerbit(). */
+   Sebuah siklus yang PERTEK dan SPI-nya sama-sama masih kosong pernah muncul
+   sebagai baris ber-MT di tabel ini, padahal kartu Obtained (canonicalObtained)
+   dengan benar tidak menghitungnya — dua angka untuk satu hal. Sekarang
+   keduanya memakai gerbang yang SAMA, _isObtainedTerbit().
+
+   Versi pertama uji ini menuliskan CGK GL ALLOY sebagai contoh tetap. Itu
+   keliru: contoh tetap ikut berubah ketika datanya berubah, dan pada 28-Agu-2026
+   uji ini gagal justru karena datanya sudah benar (master mencatat CGK GL ALLOY
+   300 MT, dan kartu Obtained ikut menghitungnya). Uji yang menuntut keadaan
+   lama bukan menjaga apa pun — ia hanya menyandera perbaikan.
+
+   Yang dijaga sekarang adalah HUBUNGANNYA, bukan angkanya: tabel dan kartu
+   harus memakai gerbang yang sama, PER PRODUK. Kalau salah satu sisi
+   meloloskan siklus yang belum terbit sementara sisi lain tidak, selisihnya
+   muncul di sini — company mana pun, tahun berapa pun. */
 {
-  const cgk = rows.filter(r => r.code === 'CGK');
-  ok(!cgk.some(r => r.product === 'GL ALLOY'),
-    'CGK: siklus yang PERTEK & SPI-nya belum terbit tidak melahirkan baris ber-MT',
-    cgk.map(r => r.product + '=' + r.obtainedMT).join(', '));
+  const perProd = {};
+  rows.filter(r => r.status !== 'inactive')
+      .forEach(r => { perProd[r.code + '|' + r.product] = (perProd[r.code + '|' + r.product] || 0) + r.obtainedMT; });
+  const master = JSON.parse(call(`JSON.stringify([...SPI,...PENDING].flatMap(co =>
+    Object.entries(getObtainedByProdAgg(co) || {}).map(([p, v]) => [co.code + "|" + p, Math.round(Number(v) || 0)])))`));
+  const petaMaster = Object.fromEntries(master);
+  const bedaProd = [
+    ...master.filter(([k, v]) => Math.abs((perProd[k] || 0) - v) > 0.5)
+             .map(([k, v]) => `${k}: tabel ${perProd[k] || 0} vs master ${v}`),
+    ...Object.keys(perProd).filter(k => !(k in petaMaster) && perProd[k] > 0.5)
+             .map(k => `${k}: tabel ${perProd[k]} tapi master tidak memberikannya`),
+  ];
+  ok(bedaProd.length === 0,
+    'tiap (company, produk): Obtained di tabel = Obtained bergerbang milik kartu — tidak ada siklus belum-terbit yang lolos di satu sisi saja',
+    bedaProd.slice(0, 4).join(' · '));
 
   /* Lebih luas: Σ Obtained baris yang bukan Inactive tidak boleh melebihi
      Σ obtained per company dari master. Selisih yang tersisa hanya boleh dari

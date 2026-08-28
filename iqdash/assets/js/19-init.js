@@ -624,12 +624,31 @@ function buildAvqTable() {
      yaitu obtained all-time dikurangi utilisasi periode. Itulah yang membuat
      kolom Available di tabel menjumlah ±13.000 MT terhadap kartu 11.058 MT
      (tim Sales, 2026-08-11) — bukan sekadar "kurang beberapa perusahaan". */
-  const allRows = availableQuotaRows().map(r => ({
+  const _semua = availableQuotaRows().map(r => ({
     code: r.code, grp: r.group, prod: r.product, hs: r.hs,
     obt: r.obtained, util: r.utilMT, avq: r.avq,
     validity: r.validityDate, hasActiveSpi: r.hasActiveSpi, activeSpiNo: r.activeSpiNo,
     updBy: r.updatedBy, updDate: r.updatedDate,
   }));
+
+  /* ── Baris yang KOSONG SELURUHNYA disembunyikan ────────────────────────
+     Produk yang sudah dipindahkan revisi meninggalkan baris stats bernilai
+     nol — obtained 0, util 0, sisa 0. Enam di antaranya (DIOR Wear Plate,
+     GIS Seamless & Sheet Pile, MIN GI Alloy, MJU Wear Plate & Hollow Pipe)
+     tidak menerangkan apa pun, hanya memanjangkan tabel. Diminta tim
+     disembunyikan, 28-Agu-2026.
+
+     Syaratnya KETIGA angkanya nol — bukan sekadar sisanya nol. Baris yang
+     kuotanya habis terpakai (BTS Seamless 1.000/1.000/0, CGK GI Alloy
+     1.020/1.020/0) TETAP tampil: sisa nol di situ adalah fakta yang perlu
+     dibaca, bukan baris hampa.
+
+     Yang disembunyikan tetap DIHITUNG dan dinyatakan jumlahnya di kaki tabel.
+     Menyembunyikan tanpa mengatakannya membuat tabel tampak lengkap padahal
+     tidak — itu justru kelas masalah yang sedang dibereskan di dashboard ini. */
+  const _nol = v => !(Math.abs(Number(v) || 0) > 0.001);
+  const _kosong = _semua.filter(r => _nol(r.obt) && _nol(r.util) && _nol(r.avq));
+  const allRows = _semua.filter(r => !(_nol(r.obt) && _nol(r.util) && _nol(r.avq)));
   allRows.sort((a,b) => b.avq - a.avq);
 
   // ── Build HS filter chip bar ──────────────────────────────────────
@@ -725,7 +744,7 @@ function buildAvqTable() {
       <td class="t-r t-mono">${fmtMt(tObt)}</td>
       <td class="t-r t-mono" style="color:var(--green)">${fmtMt(tUtil)}</td>
       <td class="t-r t-mono" style="color:#0891b2">${fmtMt(tAvq)}</td>
-      <td style="font-size:9.5px;color:var(--txt3);font-weight:600">${tTanpaSpi ? `${tTanpaSpi} tanpa SPI aktif` : 'ikut SPI aktif'}</td>
+      <td style="font-size:9.5px;color:var(--txt3);font-weight:600">${tTanpaSpi ? `${tTanpaSpi} tanpa SPI aktif` : 'ikut SPI aktif'}${_kosong.length ? `<br>${_kosong.length} baris kosong disembunyikan` : ''}</td>
       <td style="font-size:10.5px;color:var(--txt3)">${tPct.toFixed(0)}%</td>
       <td style="font-size:9.5px;color:var(--txt3);font-weight:600">saldo kumulatif</td>
     </tr>`;
