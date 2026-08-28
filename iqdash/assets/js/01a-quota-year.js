@@ -673,14 +673,26 @@ function spiTerbitRows() {
       const pertekNo = h ? docNoFromStatus(h.pertekCycle && h.pertekCycle.status) : dok.pertekNo;
 
       let status, reason;
-      if (!spiDate) {
+      /* URUTAN PENTING: "sudah dipindahkan" diperiksa LEBIH DULU daripada
+         "SPI belum terbit".
+
+         Kalau dibalik, produk yang kuotanya sudah pindah TAPI SPI aslinya tidak
+         pernah tercatat akan berlabel "belum terbit", bukan Inactive — dan
+         karena itu lolos dari penyaring di drill Obtained lalu terhitung DUA
+         KALI bersama produk penggantinya. Persis yang terjadi pada DIOR
+         28-Agu-2026: Wear Plate 100 + GL Alloy 100 = 200 MT, padahal DIOR
+         hanya punya 100.
+
+         Produk yang sudah dipindahkan memang tidak berlaku lagi. Apakah SPI
+         lamanya sempat tercatat atau tidak sama sekali tidak mengubah itu. */
+      if (opsi.historis) {
+        status = 'inactive';
+        reason = 'Produk ini sudah dipindahkan oleh PERTEK & SPI Perubahan yang lebih baru';
+      } else if (!spiDate) {
         status = 'none';
         reason = pertekDate
           ? 'PERTEK sudah terbit, SPI belum — belum ada masa berlaku'
           : 'Belum ada PERTEK/SPI yang terbit';
-      } else if (opsi.historis) {
-        status = 'inactive';
-        reason = 'Produk ini sudah dipindahkan oleh PERTEK & SPI Perubahan yang lebih baru';
       } else if (validityExpired(vDate)) {
         status = 'inactive';
         reason = 'Masa berlaku SPI sudah lewat (' + vDate + ')';

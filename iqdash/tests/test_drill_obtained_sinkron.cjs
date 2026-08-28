@@ -123,12 +123,18 @@ console.log('\nD · Tidak ada double counting');
     Object.values(a).forEach(v => s += Number(v) || 0);
     return [co.code, Math.round(s * 10) / 10];
   }))`));
-  const lebih = stats.filter(([c, s]) => {
+  /* SAMA PERSIS, bukan sekadar "tidak melebihi". Versi longgar sebelumnya
+     LOLOS ketika DIOR menampilkan Wear Plate 100 + GL Alloy 100 = 200 MT
+     terhadap master 100 — karena drill DIOR waktu itu belum masuk daftar
+     stats yang dibandingkan. Batas atas saja tidak cukup untuk menangkap
+     penghitungan ganda. */
+  const beda = stats.filter(([c, s]) => {
     const d = Object.values(drill[c] || {}).reduce((x, v) => x + v, 0);
-    return d - s > 0.5;
+    return Math.abs(d - s) > 0.5;
   });
-  ok(lebih.length === 0, 'Σ Obtained drill tiap company tidak melebihi master per-produk',
-    lebih.slice(0, 3).map(([c]) => c).join(', '));
+  ok(beda.length === 0, 'Σ Obtained drill tiap company = master per-produk (persis)',
+    beda.slice(0, 4).map(([c, s]) => c + ': drill ' +
+      Math.round(Object.values(drill[c] || {}).reduce((x, v) => x + v, 0) * 10) / 10 + ' vs master ' + s).join(' · '));
 }
 
 console.log('\nE · Tile ringkasan tetap mengikuti kartunya');
