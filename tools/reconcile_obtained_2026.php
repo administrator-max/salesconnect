@@ -71,19 +71,24 @@ require_once __DIR__ . '/../iqdash/iqdash_write.php';
 
 /** Kebenaran per company per produk — diberikan tim 27-Agu-2026. */
 const SASARAN = [
-    'ADP' => ['GL ALLOY' => 350],
+    /* ADP/HDP/MSN/SPA DIKOREKSI 28-Agu-2026. Dry-run pertama menemukan
+       utilization_mt keempatnya MELEBIHI angka yang tim berikan mula-mula
+       (ADP 450 vs 350, HDP 1.100 vs 1.000, MSN 350 vs 250, SPA 515 vs 401),
+       jadi keempatnya ditahan dan ditanyakan. Tim menjawab: yang benar
+       450 / 1.100 / 350 / 515 — angka utilisasi yang betul, angka awal yang
+       usang. Sasarannya karena itu disetel ke situ. */
+    'ADP' => ['GL ALLOY' => 450],
     'BDG' => ['GL ALLOY' => 650, 'GI ALLOY' => 350],
     'BHG' => ['PPGL CARBON' => 200, 'GI ALLOY' => 150],
     'GIS' => ['WELDED STAINLESS STEEL PIPE' => 325, 'FABRICATED STEEL PAINTED FRAME' => 75],
-    'HDP' => ['GL ALLOY' => 1000],
+    'HDP' => ['GL ALLOY' => 1100],
     'MJU' => ['HRPO ALLOY' => 200],
-    'MSN' => ['GL ALLOY' => 250],
+    'MSN' => ['GL ALLOY' => 350],
     'SMS' => ['GI ALLOY' => 150],
-    /* SPA: tim menyebut GI ALLOY 401 sebagai produk aktif, TAPI total company-nya
-       tetap 515 (401 GI + 114 BORDES) — dikonfirmasi tim, dan itulah yang membuat
-       master berjumlah 35.260 dan bukan 35.146. BORDES 114 karena itu
-       DIPERTAHANKAN; hanya 515,5 MT sisa yang tidak berhak yang dibuang. */
-    'SPA' => ['GI ALLOY' => 401, 'BORDES ALLOY' => 114],
+    /* SPA total 515, dikonfirmasi tim. Utilisasinya SUDAH 515 (BORDES 115 +
+       GI 400), jadi sasarannya disetel ke nilai utilisasi masing-masing dan
+       seluruh sisa 515,5 MT — yang tidak pernah berhak ada — dibuang. */
+    'SPA' => ['GI ALLOY' => 400, 'BORDES ALLOY' => 115],
 ];
 
 /** Siklus duplikat yang harus hilang: [company_code, cycle_type]. */

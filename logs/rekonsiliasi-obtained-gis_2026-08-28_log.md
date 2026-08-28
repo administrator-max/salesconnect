@@ -62,15 +62,48 @@ jadi keduanya ikut otomatis.
 - Tidak ada saldo dari SPI Inactive yang tersisa di Available Quota.
 - Σ Obtained tabel per company = Σ master per-produk untuk seluruh 41 company.
 
+## Putaran kedua — ADP, HDP, MSN, SPA (28-Agu-2026)
+
+Tim menjawab pertanyaan yang ditahan: **yang benar 450 / 1.100 / 350 / 515** — angka
+utilisasi yang betul, angka awal yang usang. Sasaran di skrip disetel ulang ke situ,
+lalu dijalankan `--only=ADP,HDP,MSN,SPA --apply`.
+
+Ternyata **hanya SPA yang perlu diubah**: `available_mt` ADP/HDP/MSN sudah 0 dan
+stats-nya memang sudah 450/1.100/350. Yang dibuang 515,5 MT saldo basi SPA
+(BORDES 514,5 + GI 1). Kolom `companies.obtained` ketiganya ikut dihitung ulang
+(350→450, 1.000→1.100, 250→350) — kolom denormalisasi yang memang harus mengikuti stats;
+tidak berpengaruh ke tampilan karena frontend menimpanya dengan `canonicalObtained()`.
+
+Cadangan kedua: `backups/iqdash_sebelum_reconcile_2026-08-28_023542.json`.
+
 ## Sisa / risiko
 
-1. **Tabel PERTEK & SPI masih 815,5 MT di atas kartu** — seluruhnya dari 4 company yang
-   **sengaja tidak disentuh**: ADP +100, HDP +100, MSN +100, SPA +515,5.
-   Pada keempatnya `utilization_mt` **melebihi** angka obtained yang diberikan tim
-   (ADP 450 vs 350, HDP 1.100 vs 1.000, MSN 350 vs 250, SPA 115 vs 114) — artinya tercatat
-   memakai kuota lebih banyak daripada yang diperoleh. Menyetel available ke 0 tidak
-   menyelesaikannya, malah menaikkan obtained ke tingkat utilisasi. **Tim harus memutuskan
-   mana yang benar** sebelum ini disentuh. Skripnya sudah siap: `--only=ADP,HDP,MSN,SPA`.
+1. **KONTRADIKSI YANG BELUM SELESAI — 301 MT.** Sesudah kedua putaran:
+
+   | | |
+   |---|---:|
+   | kartu Overview (siklus) | 35.260 |
+   | tabel PERTEK & SPI (master per-produk) | 35.561 |
+
+   | Company | siklus | master | selisih |
+   |---|---:|---:|---:|
+   | ADP | 350 | 450 | +100 |
+   | HDP | 1.000 | 1.100 | +100 |
+   | MSN | 250 | 350 | +100 |
+   | SPA | 515 | 516 | +1 |
+
+   Kalau 450/1.100/350 memang benar, maka ketiga company itu punya **100 MT obtained yang
+   siklus `Obtained #N`-nya belum pernah dicatat**, dan kartu Overview **kurang 300 MT** —
+   seharusnya 35.560, bukan 35.260.
+
+   Tapi tim juga menyatakan master mereka **35.260**, yang justru sama persis dengan
+   siklus. Dua pernyataan itu tidak bisa benar bersamaan. **Belum diputuskan.**
+
+   Penyelesaiannya: kalau 450/1.100/350 benar, catat 3 siklus Obtained yang hilang lewat
+   "📌 Catat Terbit" (butuh tanggal + nomor PERTEK/SPI-nya dari CorpSec). Angka itu tidak
+   boleh ditebak.
+
+   SPA +1 MT murni pembulatan (GI 400 vs 401, BORDES 115 vs 114).
 
 2. **Cadangan ada di `backups/iqdash_sebelum_reconcile_2026-08-28_022511.json`** (3 tab utuh).
    Folder `backups/` di-gitignore, jadi berkas ini hanya ada di mesin lokal.
