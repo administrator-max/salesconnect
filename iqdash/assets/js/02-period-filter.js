@@ -1406,7 +1406,30 @@ function availableQuotaRows() {
      melanggar aturan master #1 (total dari master yang menang). Yang ditambah
      hanya PENANDA: baris tanpa SPI aktif ditandai, tidak dihapus diam-diam. */
   const validMap = (typeof activeValidityByProduct === 'function') ? activeValidityByProduct() : {};
+
   const kanonProd = p => (typeof canonicalProduct === 'function' ? canonicalProduct(String(p).trim()) : String(p).trim());
+
+  /* Status SPI diambil dari spiTerbitRows() — FUNGSI YANG SAMA yang merender
+     tab "PERTEK & SPI Terbit", bukan aturan kembar yang ditulis ulang di sini.
+     Diminta tim 28-Agu-2026: kolom Status halaman ini memakai 🟢 Active /
+     ⚪ Inactive dari tab itu.
+
+     Dibaca SEKALI per pemanggilan, bukan per baris: fungsinya menyusun ulang
+     seluruh 56 baris tiap kali dipanggil, dan halaman ini punya 50 baris.
+
+     Catatan yang perlu diketahui pembaca kode berikutnya: dalam praktiknya
+     kolom ini hampir seluruhnya 🟢 Active, dan itu BENAR, bukan tanda kolomnya
+     rusak. Produk yang SPI-nya Inactive sudah dipindahkan revisi, jadi tidak
+     lagi memegang kuota — obtained-nya nol di master, dan baris seperti itu
+     memang tidak pernah masuk halaman ini (aturan tim: Inactive tidak boleh
+     dihitung di Available Quota). Yang tersisa sebagai pembeda adalah kuota
+     yang PERTEK-nya sudah terbit tapi SPI-nya belum — status 'none'. */
+  const spiStatusMap = {};
+  if (typeof spiTerbitRows === 'function') {
+    spiTerbitRows().forEach(r => {
+      spiStatusMap[r.code + '|' + kanonProd(r.product)] = { status: r.status, reason: r.reason };
+    });
+  }
   const rows = [];
   availableScopePool().forEach(co => {
     const obt  = (typeof getObtainedByProdAgg === 'function') ? getObtainedByProdAgg(co) : {};
@@ -1431,10 +1454,15 @@ function availableQuotaRows() {
         obtained:    o,
         utilMT:      u,
         avq:         a,
-        /* Status kuota, bukan status SPI. Menerangkan kenapa sebuah baris
-           bersaldo nol tetap dicetak. Status SPI punya kolomnya sendiri
-           (Validity Date) dan sumbernya activeValidityByProduct(). */
+        /* Saldo habis — masih dipakai kaki tabel dan pengurutan, tidak lagi
+           dicetak sebagai Status sejak kolom itu memakai status SPI. */
         habis:       !(a > AVQ_EPS),
+        /* Status SPI, kata demi kata dari tab PERTEK & SPI Terbit:
+           'active' | 'inactive' | 'none' (PERTEK terbit, SPI belum), atau ''
+           bila pasangannya tidak ditemukan — yang TIDAK boleh ditebak jadi
+           Active, karena itu justru menyembunyikan ketidakcocokan antar tab. */
+        spiStatus:   (spiStatusMap[co.code + '|' + kanonProd(p)] || {}).status || '',
+        spiReason:   (spiStatusMap[co.code + '|' + kanonProd(p)] || {}).reason || '',
         validityDate: v ? v.validityDate : '',
         activeSpiNo:  v ? v.spiNo        : '',
         hasActiveSpi: !!v,

@@ -173,17 +173,48 @@ console.log('\nD · Sumbernya PERTEK & SPI, bukan daftar terpisah');
     karangan.slice(0, 5).map(kunci).join(' · '));
 }
 
-console.log('\nE · Kolom Status');
+console.log('\nE · Kolom Status — kata demi kata dari PERTEK & SPI');
 {
   call('buildAvqTable();');
   const html = nodes['avqTableBody'].innerHTML;
-  const nSisa  = rows.filter(r => r.avq > EPS).length;
-  const nHabis = rows.length - nSisa;
-  const cSisa  = (html.match(/🟢 Available/g)  || []).length;
-  const cHabis = (html.match(/⚪ Fully Utilized/g) || []).length;
-  ok(cSisa === nSisa && cHabis === nHabis,
-    `Status: ${cSisa} Available + ${cHabis} Fully Utilized = ${rows.length} baris`,
-    `harap ${nSisa} / ${nHabis}`);
+
+  /* Inti kolom ini: TIDAK boleh ada (company, produk) yang statusnya berbeda
+     antara halaman Available Quota dan tab PERTEK & SPI Terbit. Diperiksa
+     terhadap spiTerbitRows() langsung, bukan terhadap angka tetap — kalau
+     salah satu tab berubah aturan, di sinilah selisihnya muncul. */
+  const st = JSON.parse(call(`JSON.stringify(spiTerbitRows())`));
+  const kanon = p => JSON.parse(call(`JSON.stringify(canonicalProduct(${JSON.stringify(String(p).trim())}))`));
+  const petaSt = {}; st.forEach(r => { petaSt[r.code + '|' + kanon(r.product)] = r.status; });
+  const beda = rows.filter(r => {
+    const harap = petaSt[r.code + '|' + kanon(r.product)];
+    return harap !== undefined && harap !== r.spiStatus;
+  });
+  ok(beda.length === 0,
+    'status tiap baris = status (company, produk) itu di tab PERTEK & SPI',
+    beda.slice(0, 4).map(r => `${kunci(r)}: AVQ "${r.spiStatus}" vs PERTEK & SPI "${petaSt[r.code + '|' + kanon(r.product)]}"`).join(' · '));
+
+  /* Status yang tidak punya pasangan TIDAK boleh ditebak jadi Active —
+     menebak di sini justru menyembunyikan ketidakcocokan antar tab. */
+  const yatim = rows.filter(r => petaSt[r.code + '|' + kanon(r.product)] === undefined);
+  ok(yatim.every(r => !r.spiStatus),
+    `${yatim.length} baris tanpa pasangan di PERTEK & SPI dibiarkan kosong, bukan ditebak Active`,
+    yatim.filter(r => r.spiStatus).slice(0, 4).map(kunci).join(', '));
+
+  /* Lencana yang tercetak = kosakata tab PERTEK & SPI. */
+  const nAktif = rows.filter(r => r.spiStatus === 'active').length;
+  const nMati  = rows.filter(r => r.spiStatus === 'inactive').length;
+  const nBelum = rows.filter(r => r.spiStatus === 'none').length;
+  ok((html.match(/🟢 Active/g) || []).length === nAktif
+     && (html.match(/⚪ Inactive/g) || []).length === nMati
+     && (html.match(/⏳ Belum terbit/g) || []).length === nBelum,
+    `lencana tercetak: ${nAktif} Active · ${nMati} Inactive · ${nBelum} belum terbit`,
+    `dapat ${(html.match(/🟢 Active/g)||[]).length} / ${(html.match(/⚪ Inactive/g)||[]).length} / ${(html.match(/⏳ Belum terbit/g)||[]).length}`);
+
+  /* Kolom ini TIDAK boleh diam-diam berubah jadi status saldo. Kalau semua
+     baris bersaldo nol ditandai Inactive, kolomnya sudah salah arti. */
+  const habisTapiAktif = rows.filter(r => !(r.avq > EPS) && r.spiStatus === 'active').length;
+  ok(habisTapiAktif > 0,
+    `${habisTapiAktif} baris bersaldo nol tetap 🟢 Active — status SPI, bukan status saldo`);
 
   const baris = html.split('</tr>').filter(r => r.includes('<td'));
   ok(baris.every(r => (r.match(/<td[\s>]/g) || []).length === 11),
@@ -195,9 +226,12 @@ console.log('\nE · Kolom Status');
   const sel = (foot.match(/<td[\s>]/g) || []).length;
   ok(colspan + sel - 1 === 11,
     `kaki tabel menutup 11 kolom (colspan ${colspan} + ${sel - 1} sel)`);
-  ok(/available/i.test(foot) && /habis/i.test(foot),
-    'kaki tabel menyebut berapa yang bersisa dan berapa yang habis',
-    foot.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 150));
+  ok(/Active|Inactive|belum terbit|—/.test(foot),
+    'kaki tabel meringkas status SPI kolom itu',
+    foot.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 170));
+  ok(/bersaldo/.test(foot) && /habis/.test(foot),
+    'kaki tabel tetap menyebut berapa baris yang bersaldo dan berapa yang habis',
+    foot.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 170));
 }
 
 console.log(`\n${pass} pass · ${fail} fail`);
