@@ -76,9 +76,59 @@ tidak berpengaruh ke tampilan karena frontend menimpanya dengan `canonicalObtain
 
 Cadangan kedua: `backups/iqdash_sebelum_reconcile_2026-08-28_023542.json`.
 
+## Putaran ketiga — selisih 301 MT SELESAI (28-Agu-2026)
+
+Tim mengonfirmasi ke CorpSec dan mengirim nomor + tanggal PERTEK/SPI untuk
+"Obtained yang hilang" pada ADP, HDP, MSN. Penelusuran sebelum menulis
+menemukan yang sebaliknya: **ketiga siklus itu SUDAH ADA**, lengkap dengan
+nomor dan tanggal yang sama persis —
+
+| Company | Dokumen dari CorpSec | Sudah ada di |
+|---|---|---|
+| ADP | SPI `04.PI-05.25.3734.1` 14/07/2026 | `id 42223` Obtained #2, mt 100 |
+| HDP | SPI Perubahan #2 16/07/2026 | `id 42277` Obtained #3, mt 100 |
+| MSN | SPI `04.PI-05.26.0273.1` 22/07/2026 | `id 42318` Obtained #2, mt 100 |
+
+Mencatatnya lagi hanya akan melahirkan baris kembar — persis bug duplikat GIS.
+
+**Bukti yang menentukan datang dari `cycle_utilization`**, sumber hulu
+utilisasi:
+
+| Company | cycle_utilization | cycles (obtained) | company_product_stats |
+|---|---:|---:|---:|
+| ADP | 350 | 350 | **450** |
+| HDP | 1.000 | 1.000 | **1.100** |
+| MSN | 250 | 250 | **350** |
+| SPA | 114 + 401 = 515 | 515 | **115 + 400** |
+
+Dua sumber independen sepakat; hanya `company_product_stats` yang menyimpang,
+dan ia bertentangan dengan tab yang menjadi hulunya sendiri. Angka 450/1.100/350
+yang tim pegang berasal dari layar yang menampilkan stats yang inflasi itu.
+
+Diperbaiki lewat `tools/selaraskan_util_dengan_sumber.php` — 5 sel
+`utilization_mt` disetel ke jumlah `cycle_utilization`-nya:
+ADP 450→350 · HDP 1.100→1.000 · MSN 350→250 · SPA 115→114 dan 400→401.
+Tidak ada angka yang dikarang; semuanya dijumlah dari sumbernya.
+
+Pagar: tiap company diperiksa Σ (util+avail) == Σ siklus `Obtained #N`.
+Keempatnya cocok. Yang tidak cocok akan dilewati, bukan ditulis.
+
+**Hasil: Σ tabel PERTEK & SPI 35.561 → 35.260 = kartu Overview. Selisih 0.**
+
+Ketiga kartu headline TIDAK bergerak: Obtained 35.260, Available 9.264,
+Utilized 25.996. Prediksi bahwa Utilized akan turun 300 MT ternyata KELIRU —
+`iq_sync_util_with_cycles()` memang sudah menormalkan util payload dari
+`cycle_utilization`, jadi kartu Utilized sejak awal sudah benar. Yang salah
+hanya kolom mentah di sheet, dan itu yang dibaca tabel per-produk.
+
+Cadangan: `backups/iqdash_sebelum_selaras_util_2026-08-28_035752.json`.
+Verifikasi sel demi sel: 5 sel `utilization_mt`, 0 `available_mt`, 0 kolom
+lain, dan `cycle_utilization` tidak tersentuh (54 → 54 baris).
+
 ## Sisa / risiko
 
-1. **KONTRADIKSI YANG BELUM SELESAI — 301 MT.** Sesudah kedua putaran:
+1. ~~**KONTRADIKSI 301 MT**~~ — **SELESAI** pada putaran ketiga di atas.
+   Catatan aslinya dipertahankan di bawah sebagai riwayat:
 
    | | |
    |---|---:|
