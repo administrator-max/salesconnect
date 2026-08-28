@@ -1504,25 +1504,64 @@ function refreshObtainedDrill() {
   // Read SPI alone and this modal silently omits whatever sits in PENDING.
   const pool = kpiPool();
 
+  /* ══ SATU SUMBER DENGAN TAB "PERTEK & SPI TERBIT" ═══════════════════════
+     Produk dan Obtained diambil dari spiTerbitRows() — FUNGSI YANG SAMA
+     PERSIS dengan tabel di halaman PERTEK & SPI, bukan turunan yang mirip.
+
+     Sebelumnya drill ini membaca scopedObtainedDetailByProd(), yaitu rincian
+     produk dari siklus Obtained. Masalahnya: perpindahan produk sebuah revisi
+     TIDAK tersimpan di siklus Obtained — ia tersimpan sebagai SELISIH di
+     siklus Revision #N, atau tidak dirinci sama sekali. Akibatnya drill terus
+     menampilkan produk ASAL lama sesudah PERTEK Perubahan terbit:
+
+       BDG   Wear Plate 1.000   seharusnya GL Alloy 650 + GI Alloy 350
+       GAS   Wear Plate 200     seharusnya GI Alloy 200
+       GIS   Sheet Pile 400     seharusnya WSSP 325 + FSPF 75
+       SPA   Wear Plate 515     seharusnya Wear Plate 115 + GI Alloy 401
+       MJU   Wear Plate 200     seharusnya HRPO Alloy 200
+       SMS   Sheet Pile 150     seharusnya GI Alloy 150
+
+     Dilaporkan tim 28-Agu-2026. Halaman PERTEK & SPI sudah benar untuk keenam
+     company itu, jadi yang dibutuhkan bukan aturan baru — melainkan berhenti
+     menurunkan jawaban sendiri dan membaca sumber yang sudah ada.
+
+     Baris ⚪ Inactive (produk yang sudah dipindahkan) SENGAJA tidak ikut:
+     drill ini menjelaskan Obtained yang BERLAKU. Riwayatnya tetap ada di
+     halaman PERTEK & SPI.
+
+     Submit · Utilized · Available TIDAK diambil dari sini — ketiganya punya
+     gerbang periode sendiri yang sudah benar, dan menyeragamkannya diam-diam
+     akan mengulang bug 2026-08-12 (tile membaca Submit 220.020 vs kartu
+     66.745). Yang berubah hanya HIMPUNAN PRODUK dan angka Obtained-nya. */
+  const _stRows = (typeof spiTerbitRows === 'function') ? spiTerbitRows() : [];
+  const _aktifPerCo = {};
+  const _lamaPerCo  = {};
+  _stRows.forEach(r => {
+    if (r.status === 'inactive') { (_lamaPerCo[r.code] = _lamaPerCo[r.code] || new Set()).add(r.product); return; }
+    (_aktifPerCo[r.code] = _aktifPerCo[r.code] || {})[r.product] = (Number(r.obtainedMT) || 0);
+  });
+
   // ── Build per-(company, product) rows ───────────────────────────────
   const rows = [];
   pool.forEach(co => {
-    /* Keempatnya WAJIB satu basis dengan kartu yang membuka drill ini. Dulu
-       Submit & Obtained diambil SEPANJANG WAKTU di atas kolam yang sudah
-       difilter periode, sehingga tile-nya membaca Submit 220.020 / Obtained
-       29.120 terhadap kartu 66.745 / 19.640 (audit 2026-08-12). */
     const subByProd = (typeof scopedSubmittedByProd === 'function') ? scopedSubmittedByProd(co) : {};
-    /* scopedObtainedDetailByProd, BUKAN scopedObtainedByProd: yang kedua jatuh
-       ke stats (util+avail) saat All Time, dan stats bisa melenceng dari cycles
-       — drill sempat membaca Obtained 34.840 terhadap kartu 34.740. Yang ini
-       selalu dari CYCLES, aturan yang sama dengan canonicalObtained. */
-    const _obtDetail = (typeof scopedObtainedDetailByProd === 'function') ? scopedObtainedDetailByProd(co) : {};
-    const obtByProd = {};
-    Object.keys(_obtDetail).forEach(p => { obtByProd[p] = _obtDetail[p].mt; });
+    const obtByProd = _aktifPerCo[co.code] || {};
     const utilBy    = scopedUtilByProd(co);   // period-aware (rule #3)
 
-    // Union of products across submit + obtained (some products only in re-apply cycle)
-    const allProds = [...new Set([...Object.keys(subByProd), ...Object.keys(obtByProd)])];
+    /* Produk yang PUNYA Obtained aktif memimpin daftar. Produk yang hanya punya
+       Submit tetap ikut — itu pengajuan yang kuotanya belum turun, dan
+       membuangnya akan menyembunyikan pekerjaan yang sedang berjalan.
+
+       Yang DIBUANG hanya produk yang kuotanya sudah BERPINDAH lewat revisi.
+       Tanpa penyaringan ini BDG masih memunculkan baris "Wear Plate" dengan
+       Obtained kosong (karena Submit #1-nya 6.000 MT atas nama produk itu) —
+       tepat yang diminta tim untuk tidak lagi tampil sebagai breakdown aktif.
+       Riwayatnya tidak hilang: ia tetap ada sebagai baris ⚪ Inactive di
+       halaman PERTEK & SPI, dan total Submit-nya tetap utuh di kartu &
+       drill Submit sendiri. */
+    const _lama = _lamaPerCo[co.code];
+    const allProds = [...new Set([...Object.keys(obtByProd), ...Object.keys(subByProd)])]
+      .filter(pr => !(_lama && _lama.has(pr) && !(obtByProd[pr] > 0)));
     if (!allProds.length) return;
 
     allProds.forEach(prod => {
