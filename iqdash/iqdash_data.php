@@ -260,12 +260,14 @@ function iq_sync_util_with_cycles(array &$co, array $aliasMap = []): void {
 
     // Utilisasi sebenarnya, dari rincian per siklus.
     $utilBaru = [];
+    $master0     = [];   // total siklus master per produk, SEBELUM lot menambahinya
     $sidikMaster = [];   // produk|hari|MT dari master -> untuk kenali catatan kembar
     $hariAkhir  = [];    // produk -> hari TERAKHIR yang master tahu
     foreach ($uc as $u) {
         $c = $canon((string) ($u['product'] ?? ''));
         $mt = iq_num($u['mt'] ?? 0);
         $utilBaru[$c] = ($utilBaru[$c] ?? 0) + $mt;
+        $master0[$c]  = ($master0[$c] ?? 0) + $mt;
         $hari = iq_util_day_key($u['date'] ?? null);
         if ($hari !== null) {
             $sidikMaster[$c . '|' . $hari . '|' . (string) round($mt, 3)] = true;
@@ -312,14 +314,82 @@ function iq_sync_util_with_cycles(array &$co, array $aliasMap = []): void {
        WAJIB bertanggal: tanpa tanggal, MT itu tidak bisa ditempatkan di periode
        mana pun, dan menghitungnya di total saja akan membuat H1 + H2 tidak lagi
        sama dengan setahun — sifat partisi yang selama ini dijaga. */
+    /* SATU baris master menutupi BEBERAPA lot, bukan satu hari saja.
+       ─────────────────────────────────────────────────────────────────────
+       Syarat #2 di bawah menganggap lot "sudah terliput" hanya bila
+       tanggalnya <= hari TERAKHIR yang master tahu. Itu keliru untuk baris
+       master yang bersifat AGREGAT: IKM GI ALLOY punya satu baris
+       "Utilization #1, 2.300 MT, 24/07/2026" yang sebenarnya merangkum dua
+       lot — 2.000 @ 24/07 dan 300 @ 29/07. Lot kedua tanggalnya sesudah
+       24/07, jadi lolos syarat #2 dan ikut DITAMBAHKAN di atas 2.300.
+       Utilisasi IKM tercatat 2.600 padahal yang dipakai baru 2.300.
+
+       Ketika Sales menambah lot ketiga (300 @ 10/08/2026) selisih itu ikut
+       terbawa: 2.300 + 300 + 300 = 2.900, dan 2.900 tertulis ke
+       company_product_stats. Available jatuh ke 1.250 dari yang seharusnya
+       1.550 — dilaporkan tim 28-Agu-2026.
+
+       Perbaikannya memakai bentuk agregat itu sendiri: kalau ada AWALAN lot
+       (urut tanggal) yang jumlahnya PAS sama dengan total siklus master,
+       awalan itu ADALAH rincian baris master, dan hanya lot SESUDAHNYA yang
+       benar-benar baru.
+
+       Kesamaannya harus persis, jadi aturan ini hanya menyala ketika angkanya
+       memang berpasangan. Diperiksa atas seluruh 40 company: satu-satunya
+       yang berubah adalah IKM GI ALLOY (2.900 -> 2.600). BTS SHEET PILE
+       sengaja TIDAK berubah — master 425 tidak sama dengan awalan mana pun
+       dari lot 1.514, jadi keduanya memang peristiwa berbeda dan tetap
+       dijumlah 1.939. Aturan yang lebih longgar ("Σ lot >= master maka lot
+       yang menang") akan menelan 425 MT milik BTS; itu sebabnya syaratnya
+       kesamaan awalan, bukan perbandingan jumlah. */
+    $lotTerliput = [];   // "produk#kunci-baris" milik lot yang sudah dirangkum master
     foreach (($co['shipments'] ?? []) as $prod => $lots) {
         $c = $canon((string) $prod);
-        foreach ((array) $lots as $l) {
+        $totalMaster = $master0[$c] ?? 0;
+        if ($totalMaster <= 0) continue;
+
+        /* Kunci baris asli dibawa serta. Menandai lot lewat tanda tangan
+           produk|hari|MT butuh hitungan kemunculan yang harus sama di kedua
+           sisi, dan dua lot kembar identik membuatnya rapuh; kunci baris tidak
+           punya masalah itu. */
+        $berMT = [];
+        $adaTanpaTanggal = false;
+        foreach ((array) $lots as $idx => $l) {
+            $mt = iq_num($l['utilMT'] ?? 0);
+            if ($mt <= 0) continue;
+            $h = iq_util_day_key($l['utilDate'] ?? null);
+            if ($h === null) { $adaTanpaTanggal = true; break; }
+            $berMT[] = ['h' => $h, 'mt' => $mt, 'i' => $idx];
+        }
+        // Satu lot tanpa tanggal sudah cukup: urutannya tak bisa dipastikan,
+        // jadi tidak ada yang boleh dianggap "sudah dirangkum".
+        if ($adaTanpaTanggal || !count($berMT)) continue;
+
+        usort($berMT, fn($a, $b) => $a['h'] <=> $b['h']);
+        $akum = 0.0;
+        foreach ($berMT as $i => $x) {
+            $akum += $x['mt'];
+            if (abs($akum - $totalMaster) <= 0.001) {
+                for ($j = 0; $j <= $i; $j++) $lotTerliput[$c . '#' . $berMT[$j]['i']] = true;
+                break;
+            }
+        }
+    }
+
+    foreach (($co['shipments'] ?? []) as $prod => $lots) {
+        $c = $canon((string) $prod);
+        foreach ((array) $lots as $idx => $l) {
             $mt = iq_num($l['utilMT'] ?? 0);
             if ($mt <= 0) continue;
 
             $hari = iq_util_day_key($l['utilDate'] ?? null);
             if ($hari === null) continue;                                                       // 0. tanpa tanggal
+
+            /* 1b. sudah dirangkum baris agregat master (lihat catatan di atas).
+               Diperiksa SEBELUM syarat tanggal, karena justru lot yang lolos
+               syarat tanggal itulah yang selama ini terhitung dua kali. */
+            if (isset($lotTerliput[$c . '#' . $idx])) continue;
+
             if (isset($sidikMaster[$c . '|' . $hari . '|' . (string) round($mt, 3)])) continue;  // 1. kembar
             if (isset($hariAkhir[$c]) && $hari <= $hariAkhir[$c]) continue;                      // 2. sudah terliput
 

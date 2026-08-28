@@ -693,7 +693,11 @@ function refreshAvqDrill() {
       <td style="padding:8px 10px;font-size:11px;color:var(--txt2)">${prodLabel(r.product)}</td>
       <td style="padding:8px 10px;font-size:10.5px;font-family:'DM Mono',monospace;${hsHl}">${r.hs}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(r.obtained)}</td>
-      <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--blue)">${r.utilMT > 0 ? fmtMt(r.utilMT) : '—'}</td>
+      ${r.utilMT > 0
+        ? `<td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--blue);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px"
+             onclick="event.stopPropagation();openUtilBreakdown('${r.code}', '${String(r.product).replace(/'/g, "\\'")}')"
+             title="Klik untuk rincian per lot — tanggal pemakaian dan ETA JKT dari Input Manual (Sales)">${fmtMt(r.utilMT)}</td>`
+        : `<td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">—</td>`}
       <td style="padding:8px 10px;text-align:center;color:var(--blue);font-weight:600">${r.obtained>0?(utilPct*100).toFixed(0)+'%':'—'}</td>
       <td style="padding:8px 10px;text-align:right">
         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">

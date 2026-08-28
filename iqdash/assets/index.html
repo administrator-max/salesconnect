@@ -234,6 +234,42 @@ window.ensureXLSX = function () {
 </div>
 
 <!-- AVAILABLE QUOTA DRILL-DOWN MODAL -->
+<!-- ══ UTILIZATION BREAKDOWN ══ Rincian per lot dari Input Manual (Sales).
+     Dibuka dengan mengklik angka Utilized pada tabel/rincian Available Quota,
+     supaya tim tidak perlu membuka tab Input Manual hanya untuk melihat
+     tanggal pemakaian dan ETA. Diminta tim 28-Agu-2026. -->
+<div id="utilBreakdownModal" style="display:none;position:fixed;inset:0;z-index:760;background:rgba(15,23,42,.55);backdrop-filter:blur(3px)" onclick="if(event.target===this)closeUtilBreakdown()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,860px);max-height:88vh;background:var(--bg);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:16px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt)">Utilization Breakdown</div>
+        <div id="utilBreakdownSubtitle" style="font-size:11px;color:var(--txt3);margin-top:2px"></div>
+      </div>
+      <button onclick="closeUtilBreakdown()" style="background:var(--border);border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:var(--txt3);display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="position:sticky;top:0;background:var(--bg2);z-index:20">
+            <th style="padding:9px 14px;text-align:left;font-weight:700;color:var(--txt3);font-size:10.5px;border-bottom:2px solid var(--border)">Company</th>
+            <th style="padding:9px 10px;text-align:left;font-weight:700;color:var(--txt3);font-size:10.5px;border-bottom:2px solid var(--border)">Product</th>
+            <th style="padding:9px 10px;text-align:right;font-weight:700;color:var(--txt3);font-size:10.5px;border-bottom:2px solid var(--border)">Obtained (MT)</th>
+            <th style="padding:9px 10px;text-align:right;font-weight:700;color:var(--green);font-size:10.5px;border-bottom:2px solid var(--green)">Utilization (MT)</th>
+            <th style="padding:9px 10px;text-align:left;font-weight:700;color:var(--txt3);font-size:10.5px;border-bottom:2px solid var(--border)">Utilization Date</th>
+            <th style="padding:9px 10px;text-align:left;font-weight:700;color:var(--txt3);font-size:10.5px;border-bottom:2px solid var(--border)">ETA JKT</th>
+            <th style="padding:9px 14px;text-align:left;font-weight:700;color:var(--txt3);font-size:10.5px;border-bottom:2px solid var(--border)">Sumber</th>
+          </tr>
+        </thead>
+        <tbody id="utilBreakdownBody"></tbody>
+      </table>
+    </div>
+    <div style="padding:10px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div id="utilBreakdownFoot" style="font-size:10.5px;color:var(--txt3)"></div>
+      <button onclick="closeUtilBreakdown()" style="background:var(--navy);color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:11.5px;font-weight:600;cursor:pointer">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="avqDrillModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(15,23,42,.55);backdrop-filter:blur(3px)" onclick="if(event.target===this)closeAvqDrill()">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,900px);max-height:88vh;background:var(--bg);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:16px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg);flex-shrink:0">
@@ -1671,7 +1707,7 @@ window.ensureXLSX = function () {
 <script defer src="assets/js/01-data.js?v=25"></script>
 <script defer src="assets/js/01a-quota-year.js?v=5"></script>
 <script defer src="assets/js/02-period-filter.js?v=10"></script>
-<script defer src="assets/js/03-kpis.js?v=15"></script>
+<script defer src="assets/js/03-kpis.js?v=16"></script>
 <script defer src="assets/js/04-charts.js?v=11"></script>
 <script defer src="assets/js/05-tables-spi.js?v=8"></script>
 <script defer src="assets/js/05a-spi-terbit.js?v=2"></script>
@@ -1689,6 +1725,7 @@ window.ensureXLSX = function () {
 <script defer src="assets/js/17-ou-chart.js?v=4"></script>
 <script defer src="assets/js/18-sales-priority.js"></script>
 <script defer src="assets/js/19-init.js?v=20"></script>
+<script defer src="assets/js/19b-util-breakdown.js?v=1"></script>
 <script defer src="assets/js/20-realization-import.js?v=4"></script>
 <script defer src="assets/js/21-master-import.js?v=2"></script>
 </body>

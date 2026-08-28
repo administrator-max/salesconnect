@@ -683,7 +683,11 @@ function buildAvqTable() {
       <td><span class="chip" style="background:#f0f9ff;color:#0369a1;font-size:10px;padding:2px 7px">${typeof prodLabel === 'function' ? prodLabel(r.prod) : r.prod}</span></td>
       <td style="font-size:10.5px;font-family:'DM Mono',monospace;${hsHl}">${r.hs}</td>
       <td class="t-r t-mono">${fmtMt(r.obt)}</td>
-      <td class="t-r t-mono" style="color:var(--green)">${r.util > 0 ? fmtMt(r.util) : '<span style="color:var(--txt3)">—</span>'}</td>
+      ${r.util > 0
+        ? `<td class="t-r t-mono" style="color:var(--green);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px"
+             onclick="openUtilBreakdown('${r.code}', '${String(r.prod).replace(/'/g, "\\'")}')"
+             title="Klik untuk rincian per lot — tanggal pemakaian dan ETA JKT dari Input Manual (Sales)">${fmtMt(r.util)}</td>`
+        : `<td class="t-r t-mono" style="color:var(--txt3)">—</td>`}
       <td class="t-r t-mono" style="color:#0891b2;font-weight:700">${fmtMt(r.avq)}</td>
       ${r.habis
         ? `<td><span class="chip" style="background:#f1f5f9;color:#475569;font-size:9.5px;padding:2px 7px;white-space:nowrap;font-weight:700"
