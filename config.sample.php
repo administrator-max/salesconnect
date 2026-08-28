@@ -18,8 +18,17 @@ return [
     // Path ke JSON key service account (di secure/, atau di atas public_html).
     'service_account' => __DIR__ . '/secure/service_account.json',
 
-    // Cache baca (detik). Lebih kecil = lebih realtime, lebih banyak panggilan API.
-    'cache_ttl' => 10,
+    /* Cache baca (detik).
+       JANGAN dikecilkan tanpa menghitung ongkosnya. SEMUA pengguna memakai satu
+       service account, jadi seluruh pembacaan tim dihitung ke kuota SATU user
+       (~60 baca/menit). Nilainya sempat 10 detik: cache praktis tak pernah
+       kepakai, dan IQ Dash membayar pembacaan penuh hampir tiap kali halaman
+       dibuka. 28-Agu-2026 Google mulai menolak — panggilan berhenti 25 detik
+       tanpa satu byte pun, 3 dari 3 percobaan.
+       300 detik aman: setiap penulisan memanggil cacheClear(), jadi penyimpanan
+       lewat aplikasi tetap langsung terlihat. TTL hanya menunda perubahan yang
+       diketik LANGSUNG di spreadsheet. */
+    'cache_ttl' => 300,
     'cache_dir' => __DIR__ . '/cache',
 
     // ── Login ────────────────────────────────────────────────────────────
