@@ -25,6 +25,7 @@
  */
 require __DIR__ . '/../iqdash_util.php';
 require __DIR__ . '/../iqdash_data.php';
+require __DIR__ . '/../iqdash_write.php';
 
 $fail = 0;
 function ok($c, $m, $x = '') {
@@ -141,6 +142,57 @@ echo "\nE · Pagar obtained tetap berlaku\n";
     ok(abs($c['utilizationByProd']['GI ALLOY'] - 2000) < 0.001,
        'lot 900 ditolak karena 2.000 + 900 melampaui obtained 2.400',
        'dapat ' . $c['utilizationByProd']['GI ALLOY']);
+}
+
+echo "\nF · JALUR TULIS memakai aturan yang SAMA — iq_util_efektif_produk()\n";
+{
+    /* Sebelum 31-Agu-2026 jalur tulis punya rumusnya sendiri
+       (baseline + Sigma lot) dan itulah yang menulis 2.900 ke sheet. Sekarang
+       ia memanggil iq_sync_util_with_cycles(). Yang dikunci di sini: kedua
+       jalur memberi angka yang SAMA untuk masukan yang sama — kalau tidak,
+       sheet dan dashboard kembali bisa berbeda. */
+    $ucIKM = [
+        ['company_code' => 'IKM', 'cycle_type' => 'Utilization #1', 'product' => 'GI ALLOY',
+         'util_mt' => 2300, 'util_date' => '24/07/2026'],
+    ];
+    $lotIKM = [
+        ['product' => 'GI ALLOY', 'util_mt' => 2000, 'util_date' => '24 Jul 26'],
+        ['product' => 'GI ALLOY', 'util_mt' => 300,  'util_date' => '29 July 2026'],
+        ['product' => 'GI ALLOY', 'util_mt' => 300,  'util_date' => '10 August 2026'],
+    ];
+    /* prevUtil 2.600 / prevAvail 1.550 = keadaan SEBELUM lot ketiga disimpan
+       (Sigma lot lama 2.300). Rumus lama menghasilkan 2.900 di sini. */
+    $eff = iq_util_efektif_produk($ucIKM, $lotIKM, 'GI ALLOY', 2600.0, 1550.0, 2600.0, 2300.0);
+    ok(abs($eff - 2600) < 0.001,
+       'menyimpan lot ketiga IKM menulis 2.600, bukan 2.900 seperti rumus lama',
+       'dapat ' . $eff);
+
+    /* BATAS: master diam soal company ini -> rumus lama dipertahankan. */
+    $eff2 = iq_util_efektif_produk([], $lotIKM, 'GI ALLOY', 500.0, 500.0, 2600.0, 2300.0);
+    ok(abs($eff2 - (max(0.0, 500.0 - 2300.0) + 2600.0)) < 0.001,
+       'tanpa baris cycle_utilization, rumus lama dipakai apa adanya',
+       'dapat ' . $eff2);
+
+    /* BATAS: lot yang memang peristiwa terpisah tetap DIJUMLAH (BTS). */
+    $ucBTS = [
+        ['company_code' => 'BTS', 'cycle_type' => 'Utilization #1', 'product' => 'SHEET PILE',
+         'util_mt' => 425, 'util_date' => '27/02/2026'],
+    ];
+    $lotBTS = [
+        ['product' => 'SHEETPILE',  'util_mt' => 0,    'util_date' => ''],
+        ['product' => 'SHEET PILE', 'util_mt' => 1514, 'util_date' => '27 Agust 2026'],
+    ];
+    $eff3 = iq_util_efektif_produk($ucBTS, $lotBTS, 'SHEETPILE', 1939.0, 1261.0, 1514.0, 1514.0,
+                                   ['SHEETPILE' => 'SHEET PILE']);
+    ok(abs($eff3 - 1939) < 0.001,
+       'BTS: 425 + 1.514 = 1.939 — ejaan lot berbeda dicocokkan kanonik, baris kosong diabaikan',
+       'dapat ' . $eff3);
+
+    /* SIMPAN ULANG tanpa mengubah lot tidak boleh menggeser apa pun.
+       Ini sifat yang paling mudah rusak diam-diam: tiap kali Sales membuka
+       lalu menekan Simpan, angkanya harus tetap. */
+    $eff4 = iq_util_efektif_produk($ucIKM, $lotIKM, 'GI ALLOY', 2600.0, 1550.0, 2600.0, 2600.0);
+    ok(abs($eff4 - 2600) < 0.001, 'simpan ulang tanpa perubahan tetap 2.600', 'dapat ' . $eff4);
 }
 
 echo "\n" . ($fail ? "ADA YANG GAGAL\n" : "semua lulus\n");

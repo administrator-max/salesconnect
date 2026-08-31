@@ -12,6 +12,10 @@
  */
 
 require_once __DIR__ . '/iqdash_util.php';
+/* iq_sync_util_with_cycles() — aturan utilisasi milik jalur BACA, dipakai juga
+   di sini supaya sheet dan dashboard tidak bisa memberi dua angka berbeda.
+   iqdash_data.php tidak memuat berkas ini, jadi tidak ada lingkaran require. */
+require_once __DIR__ . '/iqdash_data.php';
 require_once __DIR__ . '/../lib/GoogleSheets.php';
 require_once __DIR__ . '/../lib/sheet_util.php'; // find_by_id(), used by iq_realizations_delete()
 
@@ -498,6 +502,80 @@ function iq_ts_ms(?string $s): ?int {
  * $lots: list of assoc rows with at least `product` and `util_mt`.
  * Returns: [product => float utilMT], only for products with a positive sum.
  */
+/**
+ * Utilisasi efektif satu produk sesudah lot-nya diubah — memakai ATURAN YANG
+ * SAMA dengan jalur baca, dengan memanggil iq_sync_util_with_cycles().
+ *
+ * KENAPA MEMANGGIL, BUKAN MENYALIN
+ * --------------------------------
+ * Sebelum 31-Agu-2026 jalur ini punya rumusnya sendiri:
+ *
+ *     baseline = prevUtil - Sigma lot SEBELUM patch
+ *     effUtil  = baseline + Sigma lot BARU
+ *
+ * "baseline" dimaksudkan sebagai utilisasi yang tercatat master tapi belum
+ * dirinci per lot. Rumus itu benar HANYA kalau setiap lot yang sudah ada pasti
+ * ikut terhitung di dalam prevUtil, dan setiap lot yang baru ditambahkan pasti
+ * peristiwa BARU. Keduanya tidak berlaku untuk baris master yang bersifat
+ * AGREGAT.
+ *
+ * IKM GI ALLOY: master punya SATU baris "Utilization #1, 2.300 MT, 24/07/2026"
+ * yang merangkum dua lot (2.000 @ 24/07 dan 300 @ 29/07). Saat Sales menyimpan
+ * lot ketiga, oldLotSums baru tahu 2.300 sementara prevUtil sudah 2.600, jadi
+ * baseline dihitung 300 dan hasilnya 300 + 2.600 = 2.900 — tertulis ke sheet,
+ * Available jatuh dari 1.550 ke 1.250 (dilaporkan tim 28-Agu-2026).
+ *
+ * Jalur baca sudah diajari bentuk agregat itu: awalan lot yang jumlahnya PAS
+ * sama dengan total siklus master ADALAH rincian baris master. Menyalin
+ * aturannya ke sini berarti dua salinan yang harus dijaga tetap sama — dan dua
+ * salinan yang menyimpang persis asal-usul bug ini. Jadi yang dipanggil fungsi
+ * aslinya.
+ *
+ * CADANGAN: kalau company itu tidak punya baris cycle_utilization sama sekali,
+ * iq_sync_util_with_cycles() memang tidak berbuat apa-apa — master diam berarti
+ * tidak ada yang bisa dirujuk. Untuk kasus itu rumus lama dipertahankan apa
+ * adanya: perilakunya sudah benar di sana, dan mengubahnya akan menggeser
+ * company yang tidak ada hubungannya dengan bug ini.
+ *
+ * @param array  $ucRows    baris cycle_utilization MILIK COMPANY INI (mentah)
+ * @param array  $lotRows   baris company_shipments produk ini SESUDAH patch (mentah)
+ * @param string $product   ejaan produk seperti tertulis di stats
+ * @param float  $prevUtil  utilization_mt tersimpan
+ * @param float  $prevAvail available_mt tersimpan
+ * @param float  $lotSum    Sigma util_mt lot sesudah patch
+ * @param float  $oldLotSum Sigma util_mt lot SEBELUM patch (untuk cadangan)
+ */
+function iq_util_efektif_produk(
+    array $ucRows, array $lotRows, string $product,
+    float $prevUtil, float $prevAvail, float $lotSum, float $oldLotSum,
+    array $aliasMap = []
+): float {
+    $rumusLama = fn(): float => max(0.0, $prevUtil - $oldLotSum) + $lotSum;
+    if (!count($ucRows)) return $rumusLama();
+
+    $co = [
+        'utilizationByProd' => [$product => $prevUtil],
+        'availableByProd'   => [$product => $prevAvail],
+        'utilCycles'        => array_map(fn($u) => [
+            'cycle'   => (string) ($u['cycle_type'] ?? ''),
+            'product' => (string) ($u['product'] ?? ''),
+            'mt'      => iq_num($u['util_mt'] ?? 0),
+            'date'    => (string) ($u['util_date'] ?? ''),
+        ], array_values(array_filter($ucRows, fn($u) => iq_num($u['util_mt'] ?? 0) > 0))),
+        'shipments'         => [$product => array_map(fn($l) => [
+            'utilMT'   => iq_num($l['util_mt'] ?? 0),
+            'utilDate' => (string) ($l['util_date'] ?? ''),
+        ], array_values($lotRows))],
+    ];
+    iq_sync_util_with_cycles($co, $aliasMap);
+
+    /* Kunci keluaran memakai ejaan yang sama dengan masukan, tapi dibaca
+       defensif: kalau produknya tidak muncul kembali, rumus lama lebih baik
+       daripada menulis 0 ke sheet. */
+    if (!array_key_exists($product, $co['utilizationByProd'] ?? [])) return $rumusLama();
+    return (float) $co['utilizationByProd'][$product];
+}
+
 function iq_recompute_util_from_lots(array $lots): array {
     $sums = [];
     foreach ($lots as $lot) {
@@ -785,6 +863,13 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
                 $maxSid = 0;
                 foreach ($stats as $r) { $n = (int) ($r['id'] ?? 0); if ($n > $maxSid) $maxSid = $n; }
                 $aliasMap = iq_alias_map($gs, $sid);
+                /* Baris cycle_utilization milik company ini — masukan aturan
+                   utilisasi bersama di iq_util_efektif_produk(). Dibaca SEKALI
+                   untuk seluruh produk. */
+                $ucCo = array_values(array_filter(
+                    $gs->table($sid, 'cycle_utilization')['rows'],
+                    fn($u) => (string) ($u['company_code'] ?? '') === $code
+                ));
                 foreach ($lotSums as $product => $util) {
                     // Canonical match: lots use `GI ALLOY`, legacy stats rows
                     // `GI BORON`. A literal compare missed and inserted a
@@ -793,8 +878,21 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
                     $prevUtil  = $exIdx !== null ? iq_num($stats[$exIdx]['utilization_mt'] ?? 0) : 0.0;
                     $prevAvail = ($exIdx !== null && ($stats[$exIdx]['available_mt'] ?? null) !== null) ? iq_num($stats[$exIdx]['available_mt']) : 0.0;
                     $obtained  = $exIdx !== null ? $prevUtil + $prevAvail : $util;
-                    $baseline  = max(0.0, $prevUtil - ($oldLotSums[$product] ?? 0.0));
-                    $effUtil   = $baseline + $util;
+                    /* Aturan utilisasi ada di SATU tempat — lihat docblock
+                       iq_util_efektif_produk(). Rumus "baseline + Sigma lot"
+                       yang dulu di sini menggelembungkan IKM GI ALLOY jadi
+                       2.900, karena baris master yang bersifat agregat sudah
+                       merangkum sebagian lot. */
+                    $lotProd = array_values(array_filter(
+                        $companyLots,
+                        fn($r) => iq_canon_product((string) ($r['product'] ?? ''), $aliasMap)
+                               === iq_canon_product((string) $product, $aliasMap)
+                    ));
+                    $effUtil   = iq_util_efektif_produk(
+                        $ucCo, $lotProd, (string) $product,
+                        $prevUtil, $prevAvail, (float) $util,
+                        (float) ($oldLotSums[$product] ?? 0.0), $aliasMap
+                    );
                     $newAvail  = max(0.0, $obtained - $effUtil);
                     if ($exIdx !== null) {
                         $stats[$exIdx]['utilization_mt'] = $effUtil;
