@@ -20,6 +20,11 @@
  *   D. Penyaring saling bertumpuk (AND), dan Reset benar-benar mengembalikan
  *      semuanya.
  *
+ *   E. Label siklus revisi diberi arah ("Revision: SHEET PILE → GI ALLOY") —
+ *      TAPI hanya bila produknya memang berpindah. Sebagian besar label revisi
+ *      di data hanyalah alias ejaan (GL BORON = GL ALLOY); memberi panah di
+ *      situ akan menyatakan perpindahan yang tidak pernah terjadi.
+ *
  * Run: node iqdash/tests/test_spi_terbit_filter.cjs
  */
 const fs = require('fs'), path = require('path'), vm = require('vm');
@@ -182,6 +187,84 @@ console.log('\nE · Nilai dropdown dibangun dari data, bukan daftar tetap');
   call(`setStFilterProduk('PRODUK TIDAK ADA'); buildSpiTerbitTable();`);
   ok(nBaris() === semua.length, 'pilihan produk yang sudah tidak ada dikembalikan ke Semua, bukan tabel kosong',
     String(nBaris()));
+  reset();
+}
+
+console.log('\nF · Label siklus revisi diberi arah — tapi hanya bila memang berpindah');
+{
+  reset();
+  call('buildSpiTerbitTable();');
+  const html = nodes['spiTerbitBody'].innerHTML;
+  const sel = tr => [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(x => x[1].replace(/<[^>]+>/g, '').trim());
+  const baris = html.split('</tr>').filter(r => r.includes('<td')).map(sel);
+  const kanon = p => JSON.parse(call(`JSON.stringify(canonicalProduct(${JSON.stringify(String(p).trim())}))`));
+
+  /* SMS: SHEETPILE -> GI ALLOY adalah perpindahan SUNGGUHAN, jadi berpanah. */
+  const sms = semua.find(r => r.code === 'SMS' && /Revision Request/.test(r.cycle || ''));
+  ok(!!sms, 'baris revisi SMS ada di data');
+  if (sms) {
+    const lbl = JSON.parse(call(`JSON.stringify(_stLabelCycle(${JSON.stringify(sms.cycle)}, ${JSON.stringify(sms.product)}))`));
+    ok(/^Revision: /.test(lbl) && /→/.test(lbl) && lbl.includes('GI ALLOY'),
+      `SMS berpanah: "${lbl.replace(/<[^>]+>/g, '')}"`, lbl);
+  }
+
+  /* Alias ejaan BUKAN perpindahan — tidak boleh berpanah.
+     GL BORON dan GL ALLOY adalah produk yang sama. */
+  const alias = semua.filter(r => {
+    const m = String(r.cycle || '').match(/^Revision Request\s*[—–-]\s*(.+)$/);
+    return m && kanon(m[1]) === kanon(r.product);
+  });
+  ok(alias.length > 0, `${alias.length} baris revisi yang asal & tujuannya produk SAMA — jebakannya nyata`,
+    'tidak ada; uji ini kehilangan maknanya');
+  const salahPanah = alias.filter(r =>
+    /→/.test(JSON.parse(call(`JSON.stringify(_stLabelCycle(${JSON.stringify(r.cycle)}, ${JSON.stringify(r.product)}))`))));
+  ok(salahPanah.length === 0,
+    'tidak satu pun diberi panah — panah palsu menyatakan perpindahan yang tak pernah terjadi',
+    salahPanah.slice(0, 3).map(r => `${r.code} ${r.cycle} -> ${r.product}`).join(' · '));
+
+  /* Bentuk PECAH SEBAGIAN diuji LANGSUNG, bukan lewat data.
+     MIN dan SPA memang punya revisi semacam itu di ledger, tapi tabel ini
+     menampilkan siklus Obtained mereka — bukan Revision Request — jadi
+     menyaring data untuk mereka menghasilkan nol baris dan nol pemeriksaan.
+     Uji yang diam bukan uji. */
+  const lbl = (cycle, produk) =>
+    JSON.parse(call(`JSON.stringify(_stLabelCycle(${JSON.stringify(cycle)}, ${JSON.stringify(produk)}))`))
+      .replace(/<[^>]+>/g, '');
+
+  ok(lbl('Revision Request — BORDES ALLOY', 'GI ALLOY') === 'Revision: BORDES ALLOY → GI ALLOY',
+    'pecah sebagian, baris yang BERPINDAH: berpanah',
+    lbl('Revision Request — BORDES ALLOY', 'GI ALLOY'));
+  ok(lbl('Revision Request — BORDES ALLOY', 'BORDES ALLOY') === 'Revision',
+    'pecah sebagian, baris yang produknya TETAP: tanpa panah',
+    lbl('Revision Request — BORDES ALLOY', 'BORDES ALLOY'));
+  ok(lbl('Revision Request — GL BORON', 'GL ALLOY') === 'Revision',
+    'alias ejaan GL BORON = GL ALLOY: tanpa panah',
+    lbl('Revision Request — GL BORON', 'GL ALLOY'));
+  ok(lbl('Revision Request — SHEETPILE', 'GI ALLOY') === 'Revision: SHEET PILE → GI ALLOY',
+    'produk asal ditulis dalam ejaan kanonik (SHEETPILE -> SHEET PILE), sama dengan kolom Products',
+    lbl('Revision Request — SHEETPILE', 'GI ALLOY'));
+
+  /* Tanda pisah di sumber tidak seragam — em dash, en dash, dan hyphen. */
+  ok(['—', '–', '-'].every(d => /→/.test(lbl('Revision Request ' + d + ' SHEETPILE', 'GI ALLOY'))),
+    'ketiga bentuk tanda pisah (— – -) dikenali',
+    ['—','–','-'].map(d => d + ': ' + lbl('Revision Request ' + d + ' SHEETPILE', 'GI ALLOY')).join(' | '));
+
+  /* Produk baris kosong -> jangan mengarang panah menuju entah apa. */
+  ok(lbl('Revision Request — SHEETPILE', '') === 'Revision',
+    'produk baris kosong: tanpa panah, bukan panah menuju kekosongan',
+    lbl('Revision Request — SHEETPILE', ''));
+
+  /* Label non-revisi tidak disentuh. */
+  const biasa = semua.find(r => !/Revision Request/.test(r.cycle || '') && r.cycle);
+  if (biasa) {
+    const lbl = JSON.parse(call(`JSON.stringify(_stLabelCycle(${JSON.stringify(biasa.cycle)}, ${JSON.stringify(biasa.product)}))`));
+    ok(lbl === biasa.cycle, `label non-revisi dibiarkan apa adanya ("${biasa.cycle}")`, lbl);
+  }
+
+  /* Yang tercetak di tabel memang memakai label baru. */
+  ok(!/Revision Request/.test(html),
+    'tidak ada lagi "Revision Request — …" mentah yang tercetak di tabel',
+    (html.match(/Revision Request[^<]*/) || [''])[0]);
   reset();
 }
 

@@ -177,6 +177,48 @@ function _stIsiDropdown(all) {
   if (_stFValid && !tgl.some(v => v.val === _stFValid)) _stFValid = '';
 }
 
+/* Label siklus revisi: "Revision: SHEET PILE → GI ALLOY".
+   ─────────────────────────────────────────────────────────────────────────
+   Diminta tim 31-Agu-2026. Label mentahnya "Revision Request — SHEETPILE"
+   menyebut produk ASAL, sementara kolom Products di baris yang sama menunjukkan
+   produk TUJUAN. Dibaca sekilas, keduanya tampak bertentangan — dan kekeliruan
+   itu nyata: saya sendiri sempat membaca arah revisi DIOR terbalik karenanya.
+
+   TAPI PANAHNYA TIDAK BOLEH SELALU DICETAK. Diperiksa ke seluruh data lebih
+   dulu, dan sebagian besar label revisi BUKAN perpindahan produk:
+
+     · "Revision Request — GL BORON"  -> products GL ALLOY   (alias ejaan)
+     · "Revision Request — GI BORON"  -> products GI ALLOY   (alias ejaan)
+     · "Revision Request — GI ALLOY"  -> products GI ALLOY   (IKM, identik)
+
+   GL BORON dan GL ALLOY adalah produk yang SAMA dengan dua ejaan. Mencetak
+   "GL BORON → GL ALLOY" akan menyatakan ada perpindahan yang tidak pernah
+   terjadi — persis jenis kebingungan yang label ini dibuat untuk menghapus.
+
+   Dan pada revisi yang PECAH SEBAGIAN (MIN, SPA: BORDES ALLOY -> GI ALLOY
+   sebagian, sisanya tetap BORDES ALLOY), tabel ini punya satu baris untuk tiap
+   produk. Baris BORDES ALLOY-nya tidak berpindah ke mana pun; memberinya panah
+   "→ GI ALLOY" akan salah untuk baris itu.
+
+   Jadi aturannya: panah dicetak HANYA bila produk asal dan produk baris ini
+   berbeda secara KANONIK. Kalau sama, cukup "Revision" — karena memang tidak
+   ada yang berpindah untuk baris itu. */
+function _stLabelCycle(cycle, produkBaris) {
+  const teks = String(cycle || '');
+  const m = teks.match(/^Revision Request\s*[—–-]\s*(.+)$/);
+  if (!m) return teks;                       // "Revision #1", "Obtained #2", dll.
+
+  const kanon = p => (typeof canonicalProduct === 'function')
+    ? canonicalProduct(String(p || '').trim()) : String(p || '').trim();
+  const label = p => (typeof prodLabel === 'function') ? prodLabel(p) : p;
+
+  const asal = kanon(m[1]);
+  const tuju = kanon(produkBaris);
+  if (!asal || !tuju || asal === tuju) return 'Revision';
+
+  return `Revision: ${label(asal)} <span style="color:var(--txt3)">→</span> ${label(tuju)}`;
+}
+
 function buildSpiTerbitTable() {
   const tbody = document.getElementById('spiTerbitBody');
   if (!tbody) return;
@@ -239,7 +281,7 @@ function buildSpiTerbitTable() {
         ? `<div class="t-code" onclick="${buka}('${r.code}')">${r.code}</div>`
         : `<div class="t-code" style="${sisipan}" onclick="${buka}('${r.code}')">${r.code}</div>`}</td>
       <td style="font-size:11px;font-weight:600;${sisipan}">${r.group || _stDash()}</td>
-      <td style="font-size:10px;color:var(--txt3);white-space:nowrap">${r.cycle || _stDash()}</td>
+      <td style="font-size:10px;color:var(--txt3);white-space:nowrap">${_stLabelCycle(r.cycle, r.product) || _stDash()}</td>
       <td><span class="chip" style="background:#f0f9ff;color:#0369a1;font-size:10px;padding:2px 7px">${pl(r.product)}</span></td>
       <td class="t-r t-mono">${r.submitMT ? mt(r.submitMT) : _stDash()}</td>
       <td class="t-r t-mono" style="color:var(--teal);font-weight:700">${r.obtainedMT ? mt(r.obtainedMT) : _stDash()}</td>
