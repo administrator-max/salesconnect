@@ -169,3 +169,34 @@ adanya sampai jawaban itu datang.
 
 Tidak ada angka yang terpengaruh: 100 MT tetap 100 MT, yang berbeda hanya label
 produknya, jadi Obtained 35.260 dan Available 9.264 benar apa pun jawabannya.
+
+### SNSD juga terbuka — barisnya TIDAK ADA, bukan dikosongkan
+
+`company_product_stats` punya **nol baris** untuk SNSD. Bukan sel yang di-blank:
+barisnya memang tidak pernah dibuat atau sudah terhapus. Bandingkan dengan
+company sehat seperti SMS yang punya `GI ALLOY util 150 / avail 0`.
+
+Tab lain justru lengkap dan saling cocok:
+
+```
+companies         obtained 120 · PERTEK 1078/ILMATE/PERTEK-SPIU/VIII/2026
+                  SPI 04.PI-05.26.3590 · updated by CorpSec 07-Aug-26
+company_products  GI BORON
+cycles            Submit #1   3.000  PERTEK terbit 04/08/2026
+                  Obtained #1   120  SPI terbit    07/08/2026
+```
+
+Dashboard menampilkan **120 / 0 / 120 · 🟢 Active** dengan benar, karena
+diturunkan dari cycles ketika stats diam. Jadi tidak ada yang hilang di layar —
+tapi SNSD berdiri di atas cadangan, bukan di atas datanya sendiri.
+
+**Kenapa tetap perlu dibereskan meski layar sudah benar:** jalur tulis membaca
+`util + avail` dari baris stats sebagai PLAFON utilisasi. Tanpa baris itu
+plafonnya terbaca 0, jadi lot pertama yang dimasukkan Sales untuk SNSD akan
+berperilaku berbeda dari company lain. Belum menggigit sekarang — SNSD memang
+belum punya lot — tapi akan menggigit pada lot pertama.
+
+Yang ditunggu dari CorpSec cuma satu: **apakah benar SNSD belum punya utilisasi
+sama sekali?** Kalau ya, barisnya tinggal dibuat `GI BORON · util 0 · avail 120`
+dan selesai — tidak ada angka yang bergerak, hanya berhenti bergantung pada
+cadangan.
