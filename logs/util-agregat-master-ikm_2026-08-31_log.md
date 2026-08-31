@@ -128,10 +128,44 @@ bertentangan dengan dokumennya sendiri, dan plafon jalur tulis kembali benar.
 
 Cadangan: `backups/iqdash_sebelum_perbaiki_util_2026-08-31_034109.json`
 
-### DIOR masih terbuka
+### DIOR masih terbuka — dan arahnya BERLAWANAN dari yang saya tulis semula
 
-`GL ALLOY avail 100` sementara `BORDES ALLOY` 0 — kuotanya masih parkir di
-baris produk lama, padahal revisi sudah memindahkannya. Payload sudah membaca
-Bordes Alloy 100. **Tidak disentuh**: berbeda dari CGK, SPI DIOR masih TBA,
-jadi belum ada dokumen yang membenarkan pergeseran obtained. Skripnya menolak
-baris itu dan mencetak alasannya.
+Catatan pertama saya di sini menyebut "revisi sudah memindahkannya ke Bordes
+Alloy". **Itu terbalik.** Revisi memindahkan **BORDES ALLOY → GL ALLOY**,
+100 MT, dikonfirmasi CorpSec 14-Agu-26, PERTEK Perubahan 25/08/2026.
+
+Yang sebenarnya terjadi: 100 MT itu tercatat di DUA produk berbeda, tergantung
+tab mana yang dibaca.
+
+| Tab | Produk |
+|---|---|
+| `company_product_stats` | **GL ALLOY** avail 100 (baris Bordes 0/0) |
+| `company_products` | **BORDES ALLOY** |
+| `cycle_products` — Obtained #1 | **BORDES ALLOY** 100 |
+| `cycle_products` — Revision Request | **GL ALLOY** 100 |
+| Yang dirender dashboard | **BORDES ALLOY** |
+
+Sebagian dari perpecahan ini berasal dari
+`tools/catat_pertek_perubahan_dior.php` yang saya jalankan lebih awal: ia
+memindahkan `company_product_stats` ke GL ALLOY, tapi `company_products`
+tetap BORDES ALLOY. Tidak tuntas.
+
+**Tidak diselesaikan sekarang**, dan bukan karena kurang data teknis melainkan
+karena arah yang benar belum pasti:
+
+- **PERTEK Perubahan sudah terbit** (25/08/2026). Menurut aturan revisi yang
+  dipegang tim, penggantian berlaku sejak PERTEK Perubahan terbit — jadi
+  seharusnya sudah GL ALLOY.
+- Tapi **SPI Perubahan masih TBA**, dan
+- **Obtained #1 sendiri belum pernah terbit** — `release_date` kosong,
+  statusnya `(Hold, waiting address changes)`.
+
+Jadi revisi ini menggantikan kuota yang sendirinya masih tertahan. Dua
+pembacaan sama masuk akalnya, dan menebak berarti menulis produk yang salah ke
+master. Menunggu jawaban CorpSec atas tiga hal: produk yang berlaku sekarang,
+nomor + tanggal SPI Perubahan (atau konfirmasi masih TBA), dan apakah hold-nya
+sudah selesai. Diputuskan tim 31-Agu-2026: `company_products` dibiarkan apa
+adanya sampai jawaban itu datang.
+
+Tidak ada angka yang terpengaruh: 100 MT tetap 100 MT, yang berbeda hanya label
+produknya, jadi Obtained 35.260 dan Available 9.264 benar apa pun jawabannya.
