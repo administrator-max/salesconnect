@@ -87,3 +87,51 @@ Tidak semua utilisasi punya lot — BTS SHEET PILE terpakai 1.939 tapi lot hanya
 dirinci`, dan kaki modal membandingkan Σ rincian dengan Utilized. Dikunci
 `test_util_breakdown.cjs`: untuk KELIMA PULUH baris Available Quota,
 Σ rincian harus sama dengan Utilized-nya.
+
+## CGK — dijawab CorpSec, ditutup (31-Agu-2026)
+
+Tim mencatat sendiri jawaban CorpSec ke spreadsheet. Kedua hal yang dilaporkan
+di atas hilang dengan sendirinya:
+
+| Dilaporkan | Keadaan sekarang |
+|---|---|
+| kolom SPI No. berisi tanggal `29/04/2026` | nomor sungguhan: `04.PI-05.25.3510.2` |
+| Obtained #3 (300 MT GL Alloy) tanpa PERTEK/SPI, status TBA | SPI Perubahan 2 terbit **31/08/2026**; baris CGK tidak lagi meminjam dokumen siklus sebelumnya |
+
+Dashboard membacanya tanpa perubahan kode: kedua baris CGK kini
+`Obtained #3 · SPI 04.PI-05.25.3510.2 @ 31/08/2026 · Validity 31/12/2026 ·
+🟢 Active`. Σ tabel PERTEK & SPI 35.260 = kartu Obtained.
+
+### Sel stats yang tertinggal — dan kenapa itu bukan kosmetik
+
+`company_product_stats` CGK GL ALLOY masih `util 200 + avail 180 = 380`,
+sementara Obtained #3 yang sudah berdokumen menyebut **300**.
+
+Selisih 80 MT itu punya gigi: jalur tulis memakai `util + avail` sebagai
+**plafon** utilisasi (`$obtained = $prevUtil + $prevAvail`), jadi 380
+mengizinkan pemakaian melebihi kuota 300 yang sebenarnya.
+
+Diperbaiki lewat opt-in sempit pada `tools/perbaiki_util_ikm_gi_alloy.php`:
+
+```
+php tools/perbaiki_util_ikm_gi_alloy.php "--sesuaikan-obtained=CGK/GL ALLOY" --apply
+```
+
+Pagar #4 (obtained tidak boleh bergeser) tetap berlaku sebagai bawaan; yang
+dikecualikan harus disebut namanya satu per satu, dan nilai barunya tetap
+diambil dari hasil hitungan siklus — bukan dari angka yang diketik.
+
+`avail 180 → 100`. Obtained 380 → 300, mengikuti dokumen. Tidak ada angka
+dashboard yang bergerak (utilisasi total tetap 25.996), karena payload memang
+sudah menurunkan 300/100 dari siklus. Yang berubah: sheet berhenti
+bertentangan dengan dokumennya sendiri, dan plafon jalur tulis kembali benar.
+
+Cadangan: `backups/iqdash_sebelum_perbaiki_util_2026-08-31_034109.json`
+
+### DIOR masih terbuka
+
+`GL ALLOY avail 100` sementara `BORDES ALLOY` 0 — kuotanya masih parkir di
+baris produk lama, padahal revisi sudah memindahkannya. Payload sudah membaca
+Bordes Alloy 100. **Tidak disentuh**: berbeda dari CGK, SPI DIOR masih TBA,
+jadi belum ada dokumen yang membenarkan pergeseran obtained. Skripnya menolak
+baris itu dan mencetak alasannya.
