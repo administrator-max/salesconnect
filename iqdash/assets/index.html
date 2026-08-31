@@ -24,7 +24,7 @@ window.ensureXLSX = function () {
   return window._xlsxPromise;
 };
 </script>
-<link rel="stylesheet" href="assets/css/style.css?v=7">
+<link rel="stylesheet" href="assets/css/style.css?v=8">
 </head>
 <body>
 <!-- ═══ TOPBAR ═══ -->
@@ -827,6 +827,27 @@ window.ensureXLSX = function () {
       <div class="f-r">
         <div class="f-inp"><span style="color:var(--txt3)">⌕</span><input type="text" placeholder="Company / produk / no. dokumen…" id="spiTerbitQ" oninput="buildSpiTerbitTable()"></div>
       </div>
+    </div>
+    <!-- Penyaring Products / Validity Date / rentang SPI Date (diminta tim 31-Agu-2026).
+         Isi kedua dropdown dibangun DARI data, jadi ikut tumbuh sendiri saat
+         kuota 2027 masuk. -->
+    <div class="f-bar" id="spiTerbitFilters2" style="padding-top:0;border-top:none">
+      <span class="stf-lbl">Products</span>
+      <select id="stFProduk" class="stf-sel" onchange="setStFilterProduk(this.value)">
+        <option value="">— Semua Produk —</option>
+      </select>
+      <div class="f-sep"></div>
+      <span class="stf-lbl">Validity Date</span>
+      <select id="stFValidity" class="stf-sel" onchange="setStFilterValid(this.value)">
+        <option value="">— Semua Validity —</option>
+      </select>
+      <div class="f-sep"></div>
+      <span class="stf-lbl has-tip">SPI Date<span class="tip">Rentang tanggal SPI terbit. Baris yang SPI-nya belum terbit tidak punya tanggal, jadi tidak masuk rentang mana pun — jumlahnya disebut di kaki tabel.</span></span>
+      <input type="date" id="stFSpiDari" class="stf-date" onchange="setStFilterTgl()" title="SPI terbit dari tanggal">
+      <span style="color:var(--txt3);font-size:11px">–</span>
+      <input type="date" id="stFSpiSampai" class="stf-date" onchange="setStFilterTgl()" title="SPI terbit sampai tanggal">
+      <div class="f-sep"></div>
+      <button class="stf-reset" onclick="resetStFilters()">Reset</button>
     </div>
     <div class="tbl-wrap">
       <table>
@@ -1710,7 +1731,7 @@ window.ensureXLSX = function () {
 <script defer src="assets/js/03-kpis.js?v=16"></script>
 <script defer src="assets/js/04-charts.js?v=11"></script>
 <script defer src="assets/js/05-tables-spi.js?v=8"></script>
-<script defer src="assets/js/05a-spi-terbit.js?v=2"></script>
+<script defer src="assets/js/05a-spi-terbit.js?v=3"></script>
 <script defer src="assets/js/06-tables-util-ra.js?v=8"></script>
 <script defer src="assets/js/07-tables-main.js?v=3"></script>
 <script defer src="assets/js/08-drawer.js?v=17"></script>
