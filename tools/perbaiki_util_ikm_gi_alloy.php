@@ -43,6 +43,33 @@ require_once __DIR__ . '/../iqdash/iqdash_write.php';
 
 $APPLY = in_array('--apply', $argv, true);
 
+/* Pagar 4 menolak setiap baris yang membuat OBTAINED bergeser — obtained
+   adalah fakta kuota, bukan angka turunan, dan menggesernya diam-diam persis
+   yang tidak boleh terjadi.
+ *
+ * Tapi kadang justru itu yang benar: ketika CorpSec mengonfirmasi dokumen dan
+ * siklusnya diperbarui, sel stats yang lama memang harus mengikuti. CGK
+ * GL ALLOY 31-Agu-2026: sel mentah util 200 + avail 180 = 380, sementara
+ * Obtained #3 yang sudah berdokumen (SPI 04.PI-05.25.3510.2, 31/08/2026)
+ * menyebut 300.
+ *
+ * Karena itu pengecualiannya harus DISEBUT NAMANYA, satu per satu, dan tetap
+ * diperiksa: nilai barunya wajib berasal dari hasil hitungan siklus, bukan
+ * dari angka yang diketik di baris perintah. Bentuknya:
+ *
+ *     --sesuaikan-obtained=CGK/GL ALLOY
+ *
+ * Tanpa flag ini perilakunya sama persis seperti sebelumnya. */
+$IZIN = [];
+foreach ($argv as $a) {
+    if (strpos($a, '--sesuaikan-obtained=') === 0) {
+        foreach (explode(',', substr($a, 21)) as $pair) {
+            $pair = trim($pair);
+            if ($pair !== '') $IZIN[strtoupper($pair)] = true;
+        }
+    }
+}
+
 $cfg = sc_config();
 $sid = $cfg['spreadsheets']['iqdash'];
 $gs  = new GoogleSheets();
@@ -89,12 +116,17 @@ foreach ($stats as $i => $s) {
     $availBaru = $benar[$k]['avail'];
     if (abs($utilBaru - $utilLama) <= 0.001 && abs($availBaru - $availLama) <= 0.001) continue;
 
-    // Pagar 4: obtained tidak boleh bergeser.
+    // Pagar 4: obtained tidak boleh bergeser, kecuali disebut namanya.
     $obtLama = $utilLama + $availLama;
     $obtBaru = $utilBaru + $availBaru;
     if (abs($obtLama - $obtBaru) > 0.001) {
-        printf("  LEWATI %-6s %-22s obtained bergeser %s -> %s\n", $code, $prod, $obtLama, $obtBaru);
-        continue;
+        if (!isset($IZIN[strtoupper($code . '/' . $prod)])) {
+            printf("  LEWATI %-6s %-22s obtained bergeser %s -> %s  (butuh --sesuaikan-obtained=%s/%s)\n",
+                $code, $prod, $obtLama, $obtBaru, $code, $prod);
+            continue;
+        }
+        printf("  IZIN   %-6s %-22s obtained %s -> %s mengikuti siklus berdokumen\n",
+            $code, $prod, $obtLama, $obtBaru);
     }
 
     $ubah[] = [
