@@ -509,7 +509,24 @@ function pickTuj(v){I.tujuan=v;var dd=document.getElementById("tujDD");if(dd)dd.
 
 
 // ═══ HTML RENDERING LOGIC ═══
+// render() mengganti seluruh isi #app. Kalau itu terjadi di tengah klik — handler
+// blur/change sebuah field ikut jalan saat mousedown — tombol yang sedang diklik
+// dicabut dari DOM sebelum mouseup, lalu browser melempar event click ke elemen
+// induk yang tidak punya handler. Klik itu HILANG tanpa jejak: ketik tujuan
+// trucking (atau nama customer) lalu langsung klik "Save Cloud" dalam satu
+// gerakan, dan tidak ada apa pun yang tersimpan — layar tetap menampilkan nilai
+// baru, jadi kelihatan seperti tersimpan padahal Sheet masih isi yang lama.
+// Tahan render sampai klik selesai dikirim, baru jalankan sekali.
+var _rDown=false,_rPending=false,_rClicked=false;
+function _rFlush(){_rDown=false;if(_rPending){_rPending=false;render()}}
+document.addEventListener("mousedown",function(){_rDown=true;_rClicked=false},true);
+document.addEventListener("click",function(){_rClicked=true;_rFlush()},false);  // bubble: sesudah onclick target
+// Jaring pengaman kalau klik batal (tombol dilepas di luar elemen): jeda cukup
+// panjang supaya event click selalu menang duluan bila memang ada.
+document.addEventListener("mouseup",function(){setTimeout(function(){if(!_rClicked)_rFlush()},120)},true);
+
 function render(){
+    if(_rDown){_rPending=true;return}   // ada klik berjalan — tunda, jangan bongkar DOM
     var h="";
     var today=new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
 
@@ -582,14 +599,24 @@ function renderImport(today){
     var pbm=PBM_MAP[I.shipType]||230;
     var tujList=I.shipType==="breakbulk"?Object.keys(TRK_BB):Object.keys(TRK_CT);
     var sl=I.shipType==="breakbulk"?"Break Bulk":I.shipType==="container20"?"Container 20ft":"Container 40ft";
-    // A destination can have rates for one shipment type only (e.g. Surabaya has
-    // break-bulk rates but no container rates). Falling back silently made the
-    // calculation switch destination behind the user's back — say so instead.
-    var tujReset="";
-    if(tujList.indexOf(I.tujuan)<0){tujReset=I.tujuan;I.tujuan=tujList[0]||"Cakung"}
+    // Satu tujuan bisa hanya punya tarif untuk satu shipment type (Surabaya ada
+    // tarif break bulk, tidak ada tarif container). Dulu render() menimpa
+    // I.tujuan dengan tujList[0] — yaitu "Cakung" — begitu tarifnya tak ketemu.
+    // Akibatnya dua hal buruk: pilihan user hilang PERMANEN (pindah ke Container
+    // lalu balik ke Break Bulk tidak mengembalikan Bekasi), dan save berikutnya
+    // menyimpan Cakung ke Sheet. Yang tujuannya kosong pun diganti tanpa suara,
+    // karena string kosong dianggap "tidak ada yang perlu diberitahukan".
+    // Sekarang tujuan dipertahankan apa adanya. Kalau tarifnya belum ada, iTrk()
+    // memulangkan 0 dan kita bilang terus terang — lebih baik trucking 0 yang
+    // kelihatan salah daripada diam-diam menagih tarif kota lain di penawaran.
+    var tujMsg = I.tujuan===""
+      ? '⚠ Tujuan trucking belum diisi — biaya trucking dihitung 0. Pilih tujuan dari daftar.'
+      : tujList.indexOf(I.tujuan)<0
+        ? '⚠ "'+I.tujuan+'" belum punya tarif '+sl+' — biaya trucking dihitung 0. Isi kolom tarif '+sl+' di Settings → Trucking Rates, atau pilih tujuan lain.'
+        : '';
     var h="";
     h+='<div class="top-g">';
-    h+='<div class="pnl"><div class="pnl-h"><h3>\uD83D\uDCE6 Shipment</h3></div><div class="pnl-b"><div class="fg mb"><label class="fl">Shipment Type</label><select class="fi" onchange="I.shipType=this.value;render()">'+CC_CFG.shipment_types.map(function(o){return '<option value="'+o.value+'" '+(I.shipType===o.value?"selected":"")+'>'+(o.label||o.value)+'</option>';}).join("")+'</select></div><div class="fg mb"><label class="fl">Trucking Destination</label><div class="srch-wrap"><input type="text" class="fi" id="tujSearch" value="'+escA(I.tujuan)+'" autocomplete="off" onfocus="showTujDD()" oninput="filterTujDD(this.value)" onblur="commitTuj(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}else if(event.key===\'Escape\'){this.value=I.tujuan;commitTuj(this.value)}" placeholder="Type to search..."><div class="srch-dd" id="tujDD">'+tujList.map(function(k){return'<div data-tuj onmousedown="event.preventDefault();pickTuj(\''+escA(k)+'\')">'+esc(k)+'</div>'}).join("")+'<div class="none" id="tujNone" style="display:none">Tidak ada tujuan yang cocok — tambahkan di Settings</div></div></div><div class="tuj-warn" id="tujWarn"'+(tujReset?' style="display:block"':'')+'>'+(tujReset?esc('⚠ "'+tujReset+'" tidak punya tarif '+sl+' — otomatis diganti ke '+I.tujuan+'. Isi kolom tarif '+sl+' di Settings → Trucking Rates kalau memang dipakai.'):'')+'</div></div><label class="cb-label"><input type="checkbox" '+(I.isPipa?"checked":"")+' onchange="I.isPipa=this.checked;render()"> Stripping Options</label><div class="info-box mt"><b>KSO:</b> '+fD(kso,2)+' IDR/kg <span class="tm">('+(tT<=0?"-":I.shipType==="breakbulk"?(tT<=180?"USD 315 total / "+fD(tT)+" MT":tT<=1428?"USD 1.75/MT":"USD 2500 total / "+fD(tT)+" MT"):(function(){var n=Math.ceil(tT/20);return n<=3?"USD 315 total / "+n+" cnt":n<=26?"USD 95 x "+n+" cnt":"USD 2500 total / "+n+" cnt"})())+')</span><br><b>Trucking:</b> '+fD(trk,2)+' IDR/kg <span class="tm">('+esc(I.tujuan)+(I.isPipa?", pipe":", non-pipe")+')</span></div></div></div>';
+    h+='<div class="pnl"><div class="pnl-h"><h3>\uD83D\uDCE6 Shipment</h3></div><div class="pnl-b"><div class="fg mb"><label class="fl">Shipment Type</label><select class="fi" onchange="I.shipType=this.value;render()">'+CC_CFG.shipment_types.map(function(o){return '<option value="'+o.value+'" '+(I.shipType===o.value?"selected":"")+'>'+(o.label||o.value)+'</option>';}).join("")+'</select></div><div class="fg mb"><label class="fl">Trucking Destination</label><div class="srch-wrap"><input type="text" class="fi" id="tujSearch" value="'+escA(I.tujuan)+'" autocomplete="off" onfocus="showTujDD()" oninput="filterTujDD(this.value)" onblur="commitTuj(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}else if(event.key===\'Escape\'){this.value=I.tujuan;commitTuj(this.value)}" placeholder="Type to search..."><div class="srch-dd" id="tujDD">'+tujList.map(function(k){return'<div data-tuj onmousedown="event.preventDefault();pickTuj(\''+escA(k)+'\')">'+esc(k)+'</div>'}).join("")+'<div class="none" id="tujNone" style="display:none">Tidak ada tujuan yang cocok — tambahkan di Settings</div></div></div><div class="tuj-warn" id="tujWarn"'+(tujMsg?' style="display:block"':'')+'>'+esc(tujMsg)+'</div></div><label class="cb-label"><input type="checkbox" '+(I.isPipa?"checked":"")+' onchange="I.isPipa=this.checked;render()"> Stripping Options</label><div class="info-box mt"><b>KSO:</b> '+fD(kso,2)+' IDR/kg <span class="tm">('+(tT<=0?"-":I.shipType==="breakbulk"?(tT<=180?"USD 315 total / "+fD(tT)+" MT":tT<=1428?"USD 1.75/MT":"USD 2500 total / "+fD(tT)+" MT"):(function(){var n=Math.ceil(tT/20);return n<=3?"USD 315 total / "+n+" cnt":n<=26?"USD 95 x "+n+" cnt":"USD 2500 total / "+n+" cnt"})())+')</span><br><b>Trucking:</b> '+fD(trk,2)+' IDR/kg <span class="tm">('+esc(I.tujuan)+(I.isPipa?", pipe":", non-pipe")+')</span></div></div></div>';
     h+='<div class="pnl"><div class="pnl-h"><h3>\uD83D\uDCB1 Exchange Rate</h3></div><div class="pnl-b"><div class="fg mb"><label class="fl">Rate IDR/USD</label><input type="number" class="fi" value="'+I.kurs+'" onchange="I.kurs=Number(this.value);render()"></div><div class="fg mb"><label class="fl">Customer</label><input type="text" class="fi" value="'+esc(I.customer)+'" placeholder="Customer name" onchange="I.customer=this.value;render()"></div><div class="fg"><label class="fl">Hedging Days</label><select class="fi" onchange="I.hedgeDays=Number(this.value);render()">'+CC_CFG.hedging_days.map(function(o){return '<option value="'+o.value+'" '+(I.hedgeDays===Number(o.value)?"selected":"")+'>'+o.value+' days</option>';}).join("")+'</select></div></div></div>';
     h+='<div class="pnl"><div class="pnl-h"><h3>\uD83D\uDCC8 Margin & Costs</h3></div><div class="pnl-b"><div class="fg mb"><label class="fl">Margin Type</label><select class="fi" onchange="I.marginType=this.value;render()">'+CC_CFG.margin_types.map(function(o){return '<option value="'+o.value+'" '+(I.marginType===o.value?"selected":"")+'>'+(o.label||o.value)+'</option>';}).join("")+'</select></div><div class="fg mb"><label class="fl">'+(I.marginType==="fixed"?"Margin (IDR/kg)":"Margin (%)")+'</label><div class="fi-w"><input type="number" class="fi suf" value="'+I.margin+'" onchange="I.margin=Number(this.value);render()"><span class="fi-s">'+(I.marginType==="fixed"?"IDR/kg":"%")+'</span></div></div><div class="fg mb"><label class="fl">Commission</label><div style="display:flex;gap:.35rem"><div class="fi-w" style="flex:1"><input type="number" class="fi suf" value="'+I.commission+'" onchange="I.commission=Number(this.value);render()" style="padding-right:3rem"><span class="fi-s">'+(I.commUnit==="idr"?"IDR/kg":"USD/MT")+'</span></div><select class="fi" style="width:5.2rem;flex-shrink:0" onchange="I.commUnit=this.value;render()">'+CC_CFG.commission_units.map(function(o){return '<option value="'+o.value+'" '+(I.commUnit===o.value?"selected":"")+'>'+(o.label||o.value)+'</option>';}).join("")+'</select></div></div><div class="fg mb"><label class="fl">Payment Terms</label><select class="fi" onchange="I.payTerms=this.value;render()">'+PAY_OPTS.map(function(o){return'<option value="'+o+'" '+(o===I.payTerms?"selected":"")+'>'+o+'</option>'}).join("")+'</select></div><div class="fg"><label class="fl">Additional Cost</label><div class="fi-w"><input type="number" class="fi suf" value="'+I.addCost+'" onchange="I.addCost=Number(this.value);render()"><span class="fi-s">IDR/kg</span></div></div></div></div>';
     h+='</div>';
