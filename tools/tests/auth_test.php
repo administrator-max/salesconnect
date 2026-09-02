@@ -14,13 +14,13 @@ function t(string $name, $got, $want) {
 
 // ── Daftar orang & hak akses ─────────────────────────────────────────────
 $a = sc_access();
-t('jumlah orang terdaftar', count($a['people']), 14);
-t('akses cil',        count($a['access']['cil']), 8);
-t('akses taskflow',   count($a['access']['taskflow']), 8);
-t('akses costcore',   count($a['access']['costcore']), 11);
-t('akses salespulse', count($a['access']['salespulse']), 11);
-t('akses iqdash',     count($a['access']['iqdash']), 13);
-t('akses scot',       count($a['access']['scot']), 12);
+t('jumlah orang terdaftar', count($a['people']), 15);
+t('akses cil',        count($a['access']['cil']), 9);
+t('akses taskflow',   count($a['access']['taskflow']), 9);
+t('akses costcore',   count($a['access']['costcore']), 12);
+t('akses salespulse', count($a['access']['salespulse']), 12);
+t('akses iqdash',     count($a['access']['iqdash']), 14);
+t('akses scot',       count($a['access']['scot']), 13);
 t('Putri TIDAK di scot', in_array('putri', $a['access']['scot'], true), false);
 t('Jeany: iqdash + scot', sc_person_by_email('operations2@gunungprisma.com')['tools'],
                           ['iqdash', 'scot']);
@@ -33,6 +33,9 @@ t('Liwa: SEMUA dashboard', sc_person_by_email('liwa.s@gunungprisma.com')['tools'
 t('Liwa bukan admin', !empty(sc_person_by_email('liwa.s@gunungprisma.com')['admin']), false);
 t('Herdiani hanya di iqdash', sc_person_by_email('herdiani@gunungprisma.com')['tools'], ['iqdash']);
 t('Herdiani bukan admin', !empty(sc_person_by_email('herdiani@gunungprisma.com')['admin']), false);
+t('Hendra: SEMUA dashboard', sc_person_by_email('hendra.satria@gunungprisma.com')['tools'],
+                             array_keys($a['access']));
+t('Hendra bukan admin', !empty(sc_person_by_email('hendra.satria@gunungprisma.com')['admin']), false);
 t('email besar-kecil',   sc_person_by_email('  JERI@GunungPrisma.com ')['name'], 'Ko Jeri');
 t('email asing ditolak', sc_person_by_email('orang.luar@example.com'), null);
 t('Aldi admin',   !empty(sc_person_by_email('aldi.pratantio@gunungcapital.com')['admin']), true);

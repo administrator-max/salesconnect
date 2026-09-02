@@ -37,27 +37,29 @@ return [
         'trian'  => ['name' => 'Trian',   'email' => 'komangtrian.mp@gunungcapital.com'],
         'liwa'   => ['name' => 'Liwa',    'email' => 'liwa.s@gunungprisma.com'],
         'herdiani' => ['name' => 'Herdiani', 'email' => 'herdiani@gunungprisma.com'],
+        'hendra'   => ['name' => 'Hendra',   'email' => 'hendra.satria@gunungprisma.com'],
     ],
 
     // ── Hak akses per dashboard ──────────────────────────────────────────
     // Kunci = nama folder modul. Nilai = daftar kunci orang di atas.
-    // Sesuai arahan Direktur (26 Agustus 2026); Liwa ditambahkan ke SEMUA
-    // dashboard pada hari yang sama.
+    // Sesuai arahan Direktur (26 Agustus 2026). Liwa dan Hendra ditambahkan ke
+    // SEMUA dashboard menyusul pada hari yang sama — keduanya muncul di setiap
+    // baris di bawah.
     'access' => [
         // Client Interaction Log & Task Flow — tim sales inti
-        'cil'      => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa'],
-        'taskflow' => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa'],
+        'cil'      => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
+        'taskflow' => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
 
         // Cost Core & Sales Pulse — tim sales inti + Irma, Angely, Putri
-        'costcore'   => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
-        'salespulse' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa'],
+        'costcore'   => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
+        'salespulse' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
 
         // IQ Dash — sama seperti dua di atas, DITAMBAH Herdiani & Jeany
         // (keduanya ditambahkan menyusul, 26 Agustus 2026).
-        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'herdiani', 'jeany'],
+        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra', 'herdiani', 'jeany'],
 
         // SCOT — tim sales inti + Irma, Angely, Jeany, Maya (TANPA Putri)
-        'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian', 'liwa'],
+        'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
     ],
 
     // ── Label & deskripsi kartu di halaman depan ─────────────────────────
