@@ -332,6 +332,15 @@ async function updateCosting(){
   }catch(e){toast("Error updating","err");}
 }
 
+// Tanggal + JAM, dalam waktu lokal. Nilai di Sheet disimpan UTC ("...Z").
+function ccWhen(s){
+  if(!s)return"";
+  var d=new Date(s);
+  if(isNaN(d.getTime()))return String(s);
+  return d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"})
+       + " " + d.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
+}
+
 async function loadCloudModalOpen(){
   document.getElementById("loadCloudModal").style.display="flex";
   var type=G.page; var cl=document.getElementById("cloudList");
@@ -342,9 +351,18 @@ async function loadCloudModalOpen(){
     var rows=await res.json();
     if(rows.length===0)cl.innerHTML="No costings found.";
     else{
+      // Dulu baris ini cuma menampilkan nama + TANGGAL. "Save Cloud" selalu bikin
+      // record baru, jadi dua costing dengan nama sama yang disimpan di hari yang
+      // sama tampil persis kembar — tidak ada cara membedakannya. Orang meng-Update
+      // yang satu lalu me-Load yang lain, dan menyimpulkan "Update-nya tidak jalan".
+      // Sekarang jam ikut ditampilkan, plus waktu ubah terakhir dan penanda record
+      // mana yang sedang dibuka di form.
+      var curId=(G.page==='import'?I:D)._cloudId;
       cl.innerHTML=rows.map(function(r){
-        var d=new Date(r.created_at).toLocaleDateString();
-        return `<div style="display:flex;justify-content:space-between;padding:.5rem;border-bottom:1px solid #ddd;align-items:center;gap:.4rem;"><div style="min-width:0;flex:1"><b>${esc(r.customer)}</b> <span style="font-size:12px;color:#777">${d}</span></div><div style="display:flex;gap:.35rem;flex-shrink:0"><button class="btn btn-bl btn-sm" onclick="loadSingleCosting('${r.id}')">Load</button><button class="btn btn-sm" style="background:#e03e3e;color:#fff;font-weight:600" onclick="deleteCosting('${r.id}', '${esc(r.customer).replace(/'/g, "\\'")}')" title="Delete">Del</button></div></div>`;
+        var cre=ccWhen(r.created_at), upd=ccWhen(r.updated_at);
+        var when='dibuat '+cre+((upd&&upd!==cre)?' &middot; diubah '+upd:'');
+        var open=(r.id===curId);
+        return `<div style="display:flex;justify-content:space-between;padding:.5rem;border-bottom:1px solid #ddd;align-items:center;gap:.4rem;${open?'background:var(--prBg);border-radius:6px;':''}"><div style="min-width:0;flex:1"><b>${esc(r.customer)}</b>${open?' <span style="font-size:10px;font-weight:700;color:var(--pr);border:1px solid var(--prBdr);border-radius:99px;padding:1px 6px">sedang dibuka</span>':''}<br><span style="font-size:11px;color:#777">${when}</span></div><div style="display:flex;gap:.35rem;flex-shrink:0"><button class="btn btn-bl btn-sm" onclick="loadSingleCosting('${r.id}')">Load</button><button class="btn btn-sm" style="background:#e03e3e;color:#fff;font-weight:600" onclick="deleteCosting('${r.id}', '${esc(r.customer).replace(/'/g, "\\'")}')" title="Delete">Del</button></div></div>`;
       }).join("");
     }
   }catch(e){cl.innerHTML="Error loading from Sheet.";}
@@ -499,7 +517,15 @@ function tujWarn(val){var w=document.getElementById("tujWarn");if(!w)return;
     : "⚠ \"" + v + "\" tidak ada di tabel tarif trucking — perhitungan masih pakai " + I.tujuan + ". Tambahkan lewat ⚙️ Settings → Trucking Rates.";
   w.style.display="block"}
 // Commit on blur / Enter: an exact (case-insensitive) match wins, anything else reverts.
-function commitTuj(val){var v=String(val).trim();
+function commitTuj(val){
+  // Blur yang datang karena render() sedang membongkar DOM BUKAN aksi user. Input
+  // lama masih memegang teks tujuan SEBELUMNYA, dan dulu teks basi itu diperlakukan
+  // sebagai pilihan baru — jadi memilih "Karawang" dari dropdown langsung dibatalkan
+  // sendiri kembali ke "Cakung". Layar sempat menampilkan Karawang (HTML-nya sudah
+  // dibangun duluan) padahal nilai yang tersimpan Cakung, persis seperti yang dilihat
+  // tim. Abaikan blur selama DOM sedang dibangun ulang.
+  if(_rBuilding)return;
+  var v=String(val).trim();
   var m=tujOptions().filter(function(k){return k.toLowerCase()===v.toLowerCase()})[0];
   if(m&&m!==I.tujuan){pickTuj(m);return}
   var inp=document.getElementById("tujSearch");if(inp)inp.value=I.tujuan;
@@ -518,6 +544,9 @@ function pickTuj(v){I.tujuan=v;var dd=document.getElementById("tujDD");if(dd)dd.
 // baru, jadi kelihatan seperti tersimpan padahal Sheet masih isi yang lama.
 // Tahan render sampai klik selesai dikirim, baru jalankan sekali.
 var _rDown=false,_rPending=false,_rClicked=false;
+// true selama isi #app sedang diganti — dipakai commitTuj() untuk membedakan blur
+// asli dari user dengan blur akibat elemen lama dicabut oleh render().
+var _rBuilding=false;
 function _rFlush(){_rDown=false;if(_rPending){_rPending=false;render()}}
 document.addEventListener("mousedown",function(){_rDown=true;_rClicked=false},true);
 document.addEventListener("click",function(){_rClicked=true;_rFlush()},false);  // bubble: sesudah onclick target
@@ -567,7 +596,9 @@ function render(){
     var st=G.page==="import"?I:D;
     h+=renderUploadModal(st);
 
-    document.getElementById("app").innerHTML=h;
+    _rBuilding=true;
+    try{ document.getElementById("app").innerHTML=h; }
+    finally{ _rBuilding=false; }
     
     // Drag/Drop Listeners for File uploads
     var dz=document.getElementById("dz");

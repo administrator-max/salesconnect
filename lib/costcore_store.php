@@ -175,7 +175,10 @@ function cc_list(GoogleSheets $gs, string $sid, string $type): array {
     $out = [];
     foreach ($gs->table($sid, CS_TAB)['rows'] as $r) {
         if (($r['id'] ?? '') === '' || ($r['type'] ?? '') !== $type) continue;
-        $out[] = ['id' => $r['id'], 'customer' => $r['customer'] ?? '', 'created_at' => $r['created_at'] ?? ''];
+        // updated_at ikut dikirim: daftar Load Cloud memakainya untuk membedakan
+        // dua costing bernama sama yang dibuat di hari yang sama.
+        $out[] = ['id' => $r['id'], 'customer' => $r['customer'] ?? '',
+                  'created_at' => $r['created_at'] ?? '', 'updated_at' => $r['updated_at'] ?? ''];
     }
     usort($out, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
     return $out;
