@@ -51,8 +51,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['otp_email'] = $email;
             // Pesannya sengaja sama untuk email terdaftar maupun tidak — kalau
             // berbeda, siapa pun bisa menebak-nebak siapa saja yang punya akses.
+            //
+            // Kalimat kedua ada karena permintaan yang kena batas TIDAK bisa
+            // dibedakan dari yang berhasil tanpa membocorkan hal yang sama.
+            // Menyebut adanya batas di semua kasus membuat orang tahu apa yang
+            // mungkin terjadi, tanpa mengonfirmasi email siapa yang terdaftar —
+            // lebih baik daripada membiarkannya menunggu kode yang ditahan.
             $_SESSION['flash'] = $r['error']
-                ?: 'Jika email terdaftar, kode sudah dikirim ke email tersebut.';
+                ?: 'Jika email terdaftar, kode sudah dikirim. Kode hanya bisa diminta '
+                 . 'beberapa kali per jam — kalau belum sampai, tunggu sebentar '
+                 . 'sebelum meminta lagi.';
             $_SESSION['flash_bad'] = (bool) $r['error'];
             header('Location: verify.php');
             exit;

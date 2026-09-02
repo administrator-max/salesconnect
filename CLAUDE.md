@@ -31,7 +31,7 @@ Login default: **admin / `SalesConnect#2026`** (WAJIB ganti) — sekarang hanya 
 Seluruh app **dikunci**. Login memakai **email kantor + kode sekali pakai (OTP)** yang dikirim lewat email — meniru HR Center, tapi tanpa MySQL.
 
 - **Siapa boleh apa** → `lib/access.php` (`people` + `access` per modul). Berkas ini **tanpa rahasia**, di-commit dan ikut `deploy.sh`; menambah orang = edit + deploy, tidak perlu menyentuh `config.php` di server.
-- **Kode OTP** disimpan sebagai **hash** di `cache/auth/otp_<sha1(email)>.json` (10 menit, sekali pakai, maks 5 percobaan, jeda kirim ulang 60 detik, maks 20 permintaan/IP/jam). Sheets sengaja tidak dipakai — biar login tidak memakan kuota API.
+- **Kode OTP** disimpan sebagai **hash** di `cache/auth/otp_<sha1(email)>.json` (10 menit, sekali pakai, maks 5 percobaan, jeda kirim ulang 60 detik). Batas permintaan kode **per alamat email** (6/jam), bukan per IP: satu kantor keluar lewat satu IP publik bersama, jadi batas per IP membuat orang saling menghabiskan jatah saat login pagi bersamaan — dan gagalnya diam-diam. Rem kasar per IP tetap ada, dilonggarkan ke 120/jam. Sheets sengaja tidak dipakai — biar login tidak memakan kuota API.
 - **Penjaga** ada di `lib/tool_guard.php`: `sc_require_tool('<modul>')` di halaman, `sc_require_tool_api('<modul>')` di `api.php`. **Keduanya wajib** — menjaga halaman saja percuma karena `/<modul>/api/...` punya URL sendiri.
 - **Kredensial SMTP tidak ada di repo.** `lib/mailer.php` mencarinya berurutan: `config.php['smtp']` → berkas rahasia di luar docroot (termasuk `/home/u5959765/hrcenter_private/secrets.php`, satu akun cPanel dengan HR Center) → `mail()` bawaan. **Terbukti jalan 2026-08-26**: yang terpakai adalah berkas HR Center, jadi `config.php['smtp']` di server sengaja dibiarkan kosong dan rotasi kredensial di HR Center otomatis ikut berlaku di sini.
 - **`/diag.php`** (khusus admin) menampilkan sumber SMTP yang terpakai, apakah direktori OTP bisa ditulis, matriks hak akses, 25 peristiwa auth terakhir, dan tombol kirim email uji.
@@ -42,7 +42,7 @@ Seluruh app **dikunci**. Login memakai **email kantor + kode sekali pakai (OTP)*
 - **PIN Cost Core sudah dilepas** (2026-08-26). Modul itu kini persis seperti yang lain: satu pintu, `sc_require_tool('costcore')`. `lib/costcore_gate.php` dihapus; kunci `costcore_pin` di `config.php` server tinggal sisa yang tidak dibaca siapa pun.
 - **Satu login berlaku 24 jam** sejak masuk (`config.php['auth_session_hours']`) — "kode sekali sehari". Batasnya **mutlak, tidak digeser aktivitas**: kalau digeser, orang yang membuka dashboard tiap hari tak akan pernah diminta kode lagi. Tiga hal menopangnya di `sc_session_start()` dan ketiganya harus tetap benar: cookie ber-`lifetime` (bukan 0), `session.save_path` sendiri di `cache/auth/sessions` (save_path bawaan shared hosting disapu akun lain), dan `session.gc_maxlifetime` disamakan dengan umur sesi (bawaan PHP 24 menit — inilah yang dulu memutus sesi di tengah hari). Cek semuanya di `/diag.php`.
 - Login terakhir diingat di cookie `sc_email` (60 hari, hanya untuk mengisi form; tidak memberi akses apa pun).
-- Uji: `php tools/tests/auth_test.php` (62 pemeriksaan) + `php tools/tests/session_watch_test.php` (42); tidak menyentuh jaringan.
+- Uji: `php tools/tests/auth_test.php` (70 pemeriksaan) + `php tools/tests/session_watch_test.php` (42); tidak menyentuh jaringan.
 
 ## Data source / DB (Google Sheets — "database terpisah")
 Service account: `salesconnect@eagle1-492706.iam.gserviceaccount.com` (project `eagle1-492706`). Key JSON di `secure/service_account.json`.

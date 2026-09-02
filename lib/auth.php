@@ -29,7 +29,22 @@ require_once __DIR__ . '/mailer.php';
 const SC_OTP_TTL_MIN      = 10;   // umur kode
 const SC_OTP_RESEND_SEC   = 60;   // jeda minimum antar permintaan kode
 const SC_OTP_MAX_ATTEMPTS = 5;    // salah ketik sebelum kode dianggap hangus
-const SC_IP_MAX_PER_HOUR  = 20;   // batas permintaan kode per IP per jam
+
+/**
+ * Batas permintaan kode.
+ *
+ * Dulu batasnya 20 per ALAMAT IP per jam. Itu keliru untuk pemakaian
+ * sebenarnya: satu kantor keluar lewat satu IP publik bersama, jadi orang yang
+ * login pagi-pagi bersamaan saling menghabiskan jatah satu sama lain — dan
+ * gagalnya diam-diam, halaman tetap bilang kode sudah dikirim.
+ *
+ * Yang sebenarnya ingin dicegah adalah satu alamat email dibanjiri kode, dan
+ * itu memang dijaga per email. Batas per IP tetap ada sebagai rem kasar untuk
+ * banjir permintaan mentah, tapi dilonggarkan jauh di atas pemakaian wajar
+ * satu kantor.
+ */
+const SC_OTP_MAX_PER_EMAIL_HOUR = 6;     // per alamat email
+const SC_OTP_MAX_PER_IP_HOUR    = 120;   // rem kasar per IP
 
 /**
  * Berapa jam satu kali login berlaku. Default 24 — "sekali sehari": masuk pagi,
@@ -344,24 +359,55 @@ function sc_otp_clear(string $email) {
     @unlink(sc_otp_file($email));
 }
 
-/** Buang berkas OTP yang sudah lewat masa berlaku (dipanggil sesekali). */
+/**
+ * Buang berkas OTP dan penghitung pembatas yang sudah kedaluwarsa
+ * (dipanggil sesekali). Penghitung ikut disapu supaya `cache/auth/` tidak
+ * menumpuk berkas `rl_*` seumur hidup aplikasi.
+ */
 function sc_otp_gc() {
+    $now = time();
     foreach ((array) glob(sc_auth_dir() . '/otp_*.json') as $f) {
         $d = json_decode((string) @file_get_contents($f), true);
-        if (!is_array($d) || (int) ($d['exp'] ?? 0) < time() - 3600) @unlink($f);
+        if (!is_array($d) || (int) ($d['exp'] ?? 0) < $now - 3600) @unlink($f);
+    }
+    foreach ((array) glob(sc_auth_dir() . '/rl_*.json') as $f) {
+        $d = json_decode((string) @file_get_contents($f), true);
+        if (!is_array($d) || (int) ($d['start'] ?? 0) < $now - 3600) @unlink($f);
     }
 }
 
-/** Batas permintaan kode per IP per jam — meredam penyalahgunaan form login. */
-function sc_ip_throttled(): bool {
-    $ip  = $_SERVER['REMOTE_ADDR'] ?? '-';
-    $f   = sc_auth_dir() . '/rl_' . sha1($ip) . '.json';
+/** Berkas penghitung untuk satu kunci pembatas (IP atau email). */
+function sc_rate_file(string $key): string {
+    return sc_auth_dir() . '/rl_' . sha1($key) . '.json';
+}
+
+/**
+ * Hitung satu permintaan untuk `$key`; true kalau sudah lewat `$max` dalam
+ * satu jam terakhir. Jendelanya bergulir per jam, bukan geser terus-menerus —
+ * cukup untuk tujuannya dan tidak perlu menyimpan riwayat tiap permintaan.
+ */
+function sc_rate_hit(string $key, int $max): bool {
+    $f   = sc_rate_file($key);
     $d   = json_decode((string) @file_get_contents($f), true);
     $now = time();
     if (!is_array($d) || (int) ($d['start'] ?? 0) < $now - 3600) $d = ['start' => $now, 'n' => 0];
     $d['n']++;
     @file_put_contents($f, json_encode($d), LOCK_EX);
-    return $d['n'] > SC_IP_MAX_PER_HOUR;
+    return $d['n'] > $max;
+}
+
+/** Rem kasar per IP: menghitung SEMUA permintaan, termasuk email asing. */
+function sc_ip_throttled(): bool {
+    return sc_rate_hit('ip:' . ($_SERVER['REMOTE_ADDR'] ?? '-'), SC_OTP_MAX_PER_IP_HOUR);
+}
+
+/**
+ * Batas per alamat email. Hanya dipanggil untuk email yang TERDAFTAR, supaya
+ * permintaan dengan alamat asal-asalan tidak meninggalkan berkas penghitung
+ * satu per satu di disk.
+ */
+function sc_email_throttled(string $email): bool {
+    return sc_rate_hit('email:' . strtolower($email), SC_OTP_MAX_PER_EMAIL_HOUR);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -387,13 +433,21 @@ function sc_otp_request(string $email): array {
 
     if (mt_rand(1, 20) === 1) sc_otp_gc();
 
+    // Urutannya penting. Rem IP lebih dulu supaya permintaan dengan alamat
+    // asal-asalan ikut terhitung; baru sesudah itu email dicocokkan, dan batas
+    // per email hanya dikenakan pada alamat yang memang terdaftar.
     if (sc_ip_throttled()) {
-        sc_auth_log('otp_throttled', $email);
+        sc_auth_log('otp_throttled_ip', $email);
         return ['sent' => false, 'error' => null];
     }
 
     if (!$person) {
         sc_auth_log('otp_unknown', $email);
+        return ['sent' => false, 'error' => null];
+    }
+
+    if (sc_email_throttled($email)) {
+        sc_auth_log('otp_throttled_email', $email);
         return ['sent' => false, 'error' => null];
     }
 

@@ -177,6 +177,39 @@ t('aktivitas tidak memperpanjang', sc_user(), null);
 t('email yang diingat kosong tanpa cookie', sc_remembered_email(), '');
 sc_logout();
 
+// ── Pembatas permintaan kode ─────────────────────────────────────────────
+// Yang dijaga: batas menempel pada ALAMAT EMAIL, bukan alamat IP. Dulu per IP,
+// dan satu kantor yang keluar lewat satu IP bersama saling menghabiskan jatah
+// saat login pagi bersamaan.
+$e1 = 'ridwan.abdillah@gunungcapital.com';
+$e2 = 'aldi.pratantio@gunungcapital.com';
+@unlink(sc_rate_file('email:' . $e1));
+@unlink(sc_rate_file('email:' . $e2));
+
+$tertahan = false;
+for ($i = 0; $i < SC_OTP_MAX_PER_EMAIL_HOUR; $i++) {
+    if (sc_email_throttled($e1)) $tertahan = true;
+}
+t('permintaan dalam batas tidak ditahan', $tertahan, false);
+t('lewat batas -> ditahan',               sc_email_throttled($e1), true);
+
+// Orang kedua tidak ikut terkena — inti perbaikannya.
+t('email lain tidak ikut kena', sc_email_throttled($e2), false);
+
+// Rem IP jauh lebih longgar daripada satu kantor yang login bersamaan.
+t('rem IP longgar', SC_OTP_MAX_PER_IP_HOUR >= 100, true);
+t('batas email masuk akal untuk sehari',
+  SC_OTP_MAX_PER_EMAIL_HOUR >= 3 && SC_OTP_MAX_PER_EMAIL_HOUR <= 10, true);
+
+// Penghitung basi ikut disapu, supaya cache/auth tidak menumpuk berkas rl_*.
+$basi = sc_rate_file('email:penghitung.basi@example.com');
+@file_put_contents($basi, json_encode(['start' => time() - 7200, 'n' => 3]));
+sc_otp_gc();
+t('penghitung basi dibuang', is_file($basi), false);
+
+@unlink(sc_rate_file('email:' . $e1));
+@unlink(sc_rate_file('email:' . $e2));
+
 // ── Penyimpanan ──────────────────────────────────────────────────────────
 t('direktori auth bisa ditulis', is_writable(sc_auth_dir()), true);
 t('direktori sesi bisa ditulis', sc_session_dir() !== '', true);

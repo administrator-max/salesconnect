@@ -137,6 +137,11 @@ if (is_file($logFile)) {
       <tr><td>Kode aktif saat ini</td><td><?= count((array) glob($authDir . '/otp_*.json')) ?></td></tr>
       <tr><td>Umur kode</td><td><?= SC_OTP_TTL_MIN ?> menit · maks <?= SC_OTP_MAX_ATTEMPTS ?> percobaan
         · jeda kirim ulang <?= SC_OTP_RESEND_SEC ?> detik</td></tr>
+      <tr><td>Batas permintaan kode</td><td><b><?= SC_OTP_MAX_PER_EMAIL_HOUR ?></b> per alamat email
+        per jam · rem kasar <?= SC_OTP_MAX_PER_IP_HOUR ?> per IP per jam.
+        Cari <code>otp_throttled_email</code> / <code>otp_throttled_ip</code> di catatan di bawah
+        kalau ada yang mengeluh kodenya tidak datang.</td></tr>
+      <tr><td>Penghitung aktif</td><td><?= count((array) glob($authDir . '/rl_*.json')) ?></td></tr>
     </table>
   </section>
 
