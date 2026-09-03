@@ -23,13 +23,13 @@ function hdAnswer(q) {
   if (code) {
     const co = getSPI(code), ra = getRA(code);
     if (co) {
-      let t = `<strong>${code}</strong> — Group ${co.group}<br>Products: ${co.products.join(', ')}<br>Obtained: ${co.obtained.toLocaleString(MT_LOCALE)} MT<br>Status: ${co.revType==='none'?'✅ Completed':co.revType==='active'?'🔄 Revision Active':'✓ Rev. Complete'}`;
+      let t = `<strong>${coLabel(code)}</strong> — Group ${co.group}<br>Products: ${co.products.join(', ')}<br>Obtained: ${co.obtained.toLocaleString(MT_LOCALE)} MT<br>Status: ${co.revType==='none'?'✅ Completed':co.revType==='active'?'🔄 Revision Active':'✓ Rev. Complete'}`;
       if (co.revType!=='none') t += `<br>Revision: ${co.revNote}`;
       if (ra) t += `<br>Realization: <strong>${(ra.realPct*100).toFixed(0)}%</strong> — ${isEligible(ra)?'✓ Eligible for re-apply':'✗ Not yet eligible'}`;
       return t;
     }
     const pend = PENDING.find(d=>d.code===code);
-    if (pend) return `<strong>${code}</strong> — New Submission<br>${pend.mt.toLocaleString(MT_LOCALE)} MT · ${pend.status}`;
+    if (pend) return `<strong>${coLabel(code)}</strong> — New Submission<br>${pend.mt.toLocaleString(MT_LOCALE)} MT · ${pend.status}`;
   }
   if (ql.includes('eligible')||ql.includes('re-apply')) {
     const el=RA.filter(isEligible), nel=RA.filter(r=>!isEligible(r));

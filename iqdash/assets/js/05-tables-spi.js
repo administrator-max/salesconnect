@@ -63,7 +63,7 @@ function buildRevList() {
         : `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);margin-left:4px">Revision</span>`;
       div.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span style="font-size:13px;font-weight:700;color:var(--blue)">${co.code}${_typeTag} <span style="font-size:10px;color:var(--txt3);font-weight:400">↗ click for detail</span></span>
+          <span style="font-size:13px;font-weight:700;color:var(--blue)">${coLabel(co.code)}${_typeTag} <span style="font-size:10px;color:var(--txt3);font-weight:400">↗ click for detail</span></span>
           <span class="badge ${sec.badge}">${sec.label.replace(/\s+·.*/,'')}</span>
         </div>
         <div style="font-size:10.5px;margin-top:3px;color:${sec.color}">${co.revStatus}</div>
@@ -138,7 +138,7 @@ function buildPendingQuick() {
 
     coRow.innerHTML = `
       <div style="flex-shrink:0;min-width:42px">
-        <div style="font-size:13px;font-weight:800;color:var(--red2);letter-spacing:.3px">${p.code}</div>
+        <div style="font-size:13px;font-weight:800;color:var(--red2);letter-spacing:.3px">${coLabel(p.code)}</div>
         <div style="font-size:9.5px;font-weight:600;color:var(--txt3);margin-top:1px">Grp ${p.group}</div>
       </div>
       <div style="flex:1;min-width:0">
@@ -467,7 +467,7 @@ function buildRevDetailTable() {
       const tr = document.createElement('tr'); tr.className = rowClass;
       tr.innerHTML = `
         <td style="color:var(--txt3);font-size:13px;cursor:pointer;padding:8px 10px" onclick="openDrawer('${co.code}')">↗</td>
-        <td><div class="t-code" onclick="openDrawer('${co.code}')">${co.code}</div><div class="t-sub">${co.group || '—'}</div></td>
+        <td><div class="t-code" onclick="openDrawer('${co.code}')">${coLabel(co.code)}</div><div class="t-sub">${co.group || '—'}</div></td>
         <td style="padding:6px 10px"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:${typeBg};color:${typeColor};border:1px solid ${typeBd};white-space:nowrap">${typeLbl}</span></td>
         <td class="t-r" style="vertical-align:top">
           ${(() => {
@@ -568,7 +568,7 @@ function renderSPI() {
       const statusUpdateCell = d.statusUpdate || d.remarks || '';
       const tr = document.createElement('tr'); tr.className = 'tr-pending';
       tr.innerHTML = `
-        <td><div class="t-code" onclick="openDrawerPending('${d.code}')">${d.code}</div></td>
+        <td><div class="t-code" onclick="openDrawerPending('${d.code}')">${coLabel(d.code)}</div></td>
         <td style="font-size:11.5px;font-weight:600">${d.group || '<span style="color:var(--txt3);font-weight:400">—</span>'}</td>
         <td>${chips(d.products)}</td>
         <td class="t-r t-mono">${fmtMt(d.mt||0)}</td>
@@ -615,7 +615,7 @@ function renderSPI() {
       const tr = document.createElement('tr'); tr.className = 'tr-rev';
       tr.style.opacity = '0.9';
       tr.innerHTML = `
-        <td><div class="t-code" onclick="openDrawerPending('${d.code}')">${d.code}</div></td>
+        <td><div class="t-code" onclick="openDrawerPending('${d.code}')">${coLabel(d.code)}</div></td>
         <td style="font-size:11.5px;font-weight:600">${d.group || '<span style="color:var(--txt3);font-weight:400">—</span>'}</td>
         <td>${chips(d.products)}</td>
         <td class="t-r t-mono">${fmtMt(d.mt||0)}</td>
@@ -666,7 +666,7 @@ function renderSPI() {
     const _cycObt = canonicalObtained(d);
     const _obt = _cycObt > 0 ? _cycObt : (Number(d.obtained) || 0);
     tr.innerHTML = `
-      <td><div class="t-code" onclick="openDrawer('${d.code}')">${d.code}${salesRevBadge}</div></td>
+      <td><div class="t-code" onclick="openDrawer('${d.code}')">${coLabel(d.code)}${salesRevBadge}</div></td>
       <td style="font-size:11.5px;font-weight:600">${d.group || '<span style="color:var(--txt3);font-weight:400">—</span>'}</td>
       <td>${chips(d.products)}</td>
       <td class="t-r t-mono">${fmtMt(_s1)}</td>

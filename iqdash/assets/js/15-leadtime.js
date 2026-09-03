@@ -245,7 +245,7 @@ function buildLeadTimeAnalytics() {
         const col = r.days===null?'var(--txt3)':r.days<=avg*0.85?'var(--green)':r.days<=avg?'var(--teal)':r.days<=avg*1.3?'var(--amber)':'var(--red)';
         const cycleShort = r.cycleType.replace(/^Submit /i,'').replace(/^Obtained /i,'Obt ').replace(/ #(\d)/,'#$1');
         return `<tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:3px 6px;font-weight:700;color:var(--txt)">${r.code}</td>
+          <td style="padding:3px 6px;font-weight:700;color:var(--txt)">${coLabel(r.code)}</td>
           <td style="padding:3px 6px;color:var(--txt3);font-size:9px">${r.cycleType}</td>
           <td style="padding:3px 4px;text-align:center;color:var(--green)">${r.s1!==null?r.s1+'d':'—'}</td>
           <td style="padding:3px 4px;text-align:center;color:var(--teal)">${r.s2!==null?r.s2+'d':'—'}</td>

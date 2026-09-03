@@ -713,7 +713,7 @@ function mdRenderPreview() {
       <td style="padding:4px 6px;border-bottom:1px solid var(--border);text-align:center">
         <input type="checkbox" ${c.on ? 'checked' : ''} onchange="mdToggleOne('${c.id}',this.checked)">
       </td>
-      <td style="padding:4px 6px;border-bottom:1px solid var(--border);font-weight:700">${c.code}</td>
+      <td style="padding:4px 6px;border-bottom:1px solid var(--border);font-weight:700">${coLabel(c.code)}</td>
       <td style="padding:4px 6px;border-bottom:1px solid var(--border)"><span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd)">${MD_CATS[c.cat].label}</span></td>
       <td style="padding:4px 6px;border-bottom:1px solid var(--border)">${c.label}${c.field && c.field !== '(cycle baru)' ? ` · <span style="color:var(--txt3)">${c.field}</span>` : ''}</td>
       <td style="padding:4px 6px;border-bottom:1px solid var(--border);color:var(--txt3);font-family:'DM Mono',monospace;font-size:10px">${c.from}</td>

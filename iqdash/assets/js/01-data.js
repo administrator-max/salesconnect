@@ -582,6 +582,38 @@ function raTotals(c, pool) {
   };
 }
 
+/**
+ * Label company yang DITAMPILKAN — bukan kunci penghubungnya.
+ *
+ * Kolom COMPANY di seluruh dashboard mencetak kode 3 huruf. Saat tim mengganti
+ * nama sebuah company, yang mereka harapkan berubah adalah label itu — bukan
+ * satu baris di dropdown Input Data. Dilaporkan 03-Sep-2026: "AMP namanya belum
+ * berubah", padahal companies.full_name sudah "AMP / SUJU".
+ *
+ * Kodenya sendiri TIDAK boleh diganti: ia kunci penghubung ke cycles,
+ * utilization, realization, dan seluruh onclick di tabel. Jadi yang diganti
+ * hanya yang tercetak.
+ *
+ * SYARATNYA SEMPIT DAN BISA DIPERIKSA: full_name dipakai sebagai label hanya
+ * bila ia DIAWALI kodenya sendiri — tanda bahwa isinya memang pelabelan ulang
+ * kode ("AMP / SUJU"), bukan nama perusahaan ("Angkasa Artha Dinamika
+ * Cemerlang"). Tanpa syarat ini seluruh 41 kolom COMPANY berubah jadi nama
+ * panjang dan tabelnya jebol — perubahan yang tidak diminta siapa pun.
+ *
+ * Diukur ke 41 company: TEPAT SATU yang memenuhi (AMP -> "AMP / SUJU").
+ * Selebihnya tetap mencetak kodenya, persis seperti sebelumnya.
+ */
+function coLabel(code) {
+  const k = String(code == null ? '' : code).trim();
+  if (!k) return '';
+  const cari = arr => (Array.isArray(arr) ? arr : []).find(c => c && c.code === k);
+  const co = cari(typeof SPI !== 'undefined' ? SPI : null)
+          || cari(typeof PENDING !== 'undefined' ? PENDING : null);
+  const n = String((co && co.fullName) || '').trim();
+  const K = k.toUpperCase();
+  return (n && n.toUpperCase() !== K && n.toUpperCase().startsWith(K)) ? n : k;
+}
+
 const getSPI = c => SPI.find(s => s.code === c);
 /* Stage 2: Re-Apply already submitted — PERTEK Pending / On Process */
 const isReapplySubmitted = r => r && r.reapplyStage === 2;

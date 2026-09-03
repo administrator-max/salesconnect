@@ -137,7 +137,10 @@ console.log('\nC · Ketiga tampilan memakai kumpulan yang sama');
   /* Chart — dirender dari sumber yang sama; dicek lewat HTML yang dihasilkan. */
   call('buildAvailableQuota();');
   const chart = nodes['avqChart'].innerHTML;
-  const hilangDiChart = rows.filter(r => !chart.includes(`>${r.code}<`));
+  /* Yang dicetak adalah LABEL company (coLabel), bukan selalu kodenya — AMP
+     tampil sebagai "AMP / SUJU". Yang diuji tetap sama: tidak ada company
+     yang hilang dari Chart. */
+  const hilangDiChart = rows.filter(r => !chart.includes(`>${call(`coLabel(${JSON.stringify(r.code)})`)}<`));
   ok(hilangDiChart.length === 0,
     'setiap company di baris sumber muncul juga di Chart',
     [...new Set(hilangDiChart.map(r => r.code))].slice(0, 5).join(', '));

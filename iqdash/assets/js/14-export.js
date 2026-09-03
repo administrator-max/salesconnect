@@ -184,7 +184,7 @@ function exportExecutivePDF() {
       : `<span style="font-size:5.5pt;font-weight:700;padding:1px 4px;border-radius:2px;background:#d1fae5;color:#065f46;margin-left:3px">AB</span>`;
     return `<tr>`+
       `<td style="padding:4px 5px;font-size:7pt;font-weight:700;color:#94a3b8;text-align:center;width:16px">${rank}</td>`+
-      `<td style="padding:4px 6px;font-size:7.5pt;font-weight:700;color:#1e293b;white-space:nowrap">${co.code}${grp}</td>`+
+      `<td style="padding:4px 6px;font-size:7.5pt;font-weight:700;color:#1e293b;white-space:nowrap">${coLabel(co.code)}${grp}</td>`+
       `<td style="padding:4px 5px">${bar}</td>`+
       `<td style="padding:4px 5px;font-size:7.5pt;font-weight:700;color:${base};text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${N(co.mt)}</td>`+
       `</tr>`;
@@ -198,7 +198,7 @@ function exportExecutivePDF() {
                             : r.eligible   ? ['Eligible',    '#dcfce7','#166534']
                                            : ['Below 60%',   '#fef3c7','#92400e'];
     return `<tr>`+
-      `<td style="padding:4px 7px;font-size:7.5pt;font-weight:700;color:#1e293b">${r.code}</td>`+
+      `<td style="padding:4px 7px;font-size:7.5pt;font-weight:700;color:#1e293b">${coLabel(r.code)}</td>`+
       `<td style="padding:4px 7px;font-size:7pt;color:#64748b">${prodLabel(r.product)}</td>`+
       `<td style="padding:4px 7px;font-size:7.5pt;text-align:right;font-variant-numeric:tabular-nums">${N(r.obtained)}</td>`+
       `<td style="padding:4px 7px;font-size:7.5pt;text-align:right;font-variant-numeric:tabular-nums">${N(Math.round(r.berat))}</td>`+
@@ -522,7 +522,7 @@ function exportExecutivePDF() {
           ? `<span style="font-size:5.5pt;font-weight:700;padding:1px 4px;border-radius:2px;background:#dcfce7;color:#166534">✓ Arrived</span>`
           : `<span style="font-size:5.5pt;font-weight:700;padding:1px 4px;border-radius:2px;background:#dbeafe;color:#1d4ed8">🚢 In Ship.</span>`;
         return `<tr>
-          <td style="padding:2px 5px;font-size:6.5pt;font-weight:700;color:#1e293b;white-space:nowrap;width:30px">${r.code}</td>
+          <td style="padding:2px 5px;font-size:6.5pt;font-weight:700;color:#1e293b;white-space:nowrap;width:30px">${coLabel(r.code)}</td>
           <td style="padding:2px 5px;width:${BAR_W+4}px">
             <div style="position:relative;height:7px;background:#eef2f7;border-radius:2px;overflow:hidden;margin-bottom:2px">
               <div style="position:absolute;left:0;top:0;height:7px;width:${obtW}px;background:#c7d2e8;border-radius:2px"></div>
@@ -594,7 +594,7 @@ function exportExecutivePDF() {
           ? `<span style="color:#16a34a">✓ ${ra.arrivalDate || 'Arrived'}</span>`
           : `<span style="color:#1e56c6">${(ra.etaJKT||'—').slice(0,20)}</span>`;
         return `<tr style="border-bottom:1px solid #f1f5f9">
-          <td style="padding:2px 5px;font-size:6.5pt;font-weight:700;color:#1e293b;white-space:nowrap">${co.code}</td>
+          <td style="padding:2px 5px;font-size:6.5pt;font-weight:700;color:#1e293b;white-space:nowrap">${coLabel(co.code)}</td>
           <td style="padding:2px 5px;font-size:6pt;color:#64748b">${ra.product||''}</td>
           <td style="padding:2px 5px;font-size:6.5pt;font-variant-numeric:tabular-nums;text-align:right">${N(obtained)}</td>
           <td style="padding:2px 5px;font-size:6.5pt;font-variant-numeric:tabular-nums;text-align:right;color:#1e56c6">${utilMT > 0 ? N(Math.round(utilMT)) : '—'}</td>
@@ -781,7 +781,7 @@ function exportExecutivePDF() {
 
       const overdueRows = overdue.map(r =>
         `<tr>
-          <td style="padding:3px 7px;font-size:7pt;font-weight:700;color:#1e293b">${r.code}</td>
+          <td style="padding:3px 7px;font-size:7pt;font-weight:700;color:#1e293b">${coLabel(r.code)}</td>
           <td style="padding:3px 7px;font-size:7pt;color:#64748b">${prodLabel(r.product)}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:right;font-variant-numeric:tabular-nums">${r.obtained.toLocaleString(MT_LOCALE)} MT</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:right">${r.utilized > 0 ? r.utilized.toLocaleString(MT_LOCALE) + ' MT' : '—'}</td>
@@ -793,7 +793,7 @@ function exportExecutivePDF() {
 
       const nearRows = nearLimit.map(r =>
         `<tr>
-          <td style="padding:3px 7px;font-size:7pt;font-weight:700;color:#1e293b">${r.code}</td>
+          <td style="padding:3px 7px;font-size:7pt;font-weight:700;color:#1e293b">${coLabel(r.code)}</td>
           <td style="padding:3px 7px;font-size:7pt;color:#64748b">${prodLabel(r.product)}</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:right;font-variant-numeric:tabular-nums">${r.obtained.toLocaleString(MT_LOCALE)} MT</td>
           <td style="padding:3px 7px;font-size:7pt;text-align:right">${r.utilized > 0 ? r.utilized.toLocaleString(MT_LOCALE) + ' MT' : '—'}</td>
@@ -929,7 +929,7 @@ function exportExecutivePDF() {
         const submitDate = cy ? (cy.submitDate||d.date||'—') : (d.date||'—');
         const stage = d.status || '—';
         return `<tr>
-          <td style="padding:4px 7px;font-size:7.5pt;font-weight:700;color:#1e293b">${d.code}</td>
+          <td style="padding:4px 7px;font-size:7.5pt;font-weight:700;color:#1e293b">${coLabel(d.code)}</td>
           <td style="padding:4px 7px;font-size:7pt;color:#475569">${d.group}</td>
           <td style="padding:4px 7px;font-size:7pt">${(d.products||[]).join(', ')}</td>
           <td style="padding:4px 7px;font-size:7.5pt;font-weight:700;text-align:right;font-variant-numeric:tabular-nums">${typeof d.mt==='number'?d.mt.toLocaleString(MT_LOCALE):'TBA'}</td>

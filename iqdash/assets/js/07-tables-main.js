@@ -282,7 +282,7 @@ function renderMain() {
     if (isMulti) {
       tr.innerHTML = `
         <td>
-          <div class="t-code" onclick="openDrawer('${d.code}')">${d.code}</div>
+          <div class="t-code" onclick="openDrawer('${d.code}')">${coLabel(d.code)}</div>
           <div style="font-size:9px;color:var(--txt3);margin-top:1px">▼ ${d.subRows.length} products</div>
         </td>
         <td style="font-size:11.5px;font-weight:600">${d.group}</td>
@@ -322,7 +322,7 @@ function renderMain() {
 
     } else {
       tr.innerHTML = `
-        <td><div class="t-code" onclick="openDrawer('${d.code}')">${d.code}</div></td>
+        <td><div class="t-code" onclick="openDrawer('${d.code}')">${coLabel(d.code)}</div></td>
         <td style="font-size:11.5px;font-weight:600">${d.group}</td>
         <td>${chips(d.products)}</td>
         <td class="t-r t-mono">${fmtMt(d.submit1)}</td>

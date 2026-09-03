@@ -413,9 +413,9 @@ function renderSPTable() {
         ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:4px;background:#fffbeb;color:#d97706;border:1px solid #fde68a">⏳ PERTEK Perubahan belum TERBIT</span>`
         : `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:4px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0">⏳ PERTEK belum TERBIT</span>`;
       return `
-        <tr style="background:#fafafa;cursor:pointer" onclick="closeSalesPriority();openDrawer('${e.code}')" title="Open ${e.code}">
+        <tr style="background:#fafafa;cursor:pointer" onclick="closeSalesPriority();openDrawer('${e.code}')" title="Open ${coLabel(e.code)}">
           <td style="padding:9px 8px 9px 16px;border-left:3px solid #e2e8f0;color:var(--txt3);font-size:10px;font-weight:700">${idx + 1}</td>
-          <td style="padding:9px 10px"><span style="font-weight:700;font-size:13px;color:#94a3b8">${e.code}</span></td>
+          <td style="padding:9px 10px"><span style="font-weight:700;font-size:13px;color:#94a3b8">${coLabel(e.code)}</span></td>
           <td style="padding:9px 10px;color:var(--txt3);font-size:11.5px">${e.products.join(', ')}</td>
           <td colspan="5" style="padding:9px 10px">
             ${reasonBadge}
@@ -473,12 +473,12 @@ function renderSPTable() {
       `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;background:${s.bg};color:${s.color};border:1px solid ${s.bd};white-space:nowrap;margin-right:2px">${s.text}</span>`
     ).join('');
 
-    return `<tr style="${rowBg};cursor:pointer" onclick="closeSalesPriority();openDrawer('${r.code}')" title="Open ${r.code}">
+    return `<tr style="${rowBg};cursor:pointer" onclick="closeSalesPriority();openDrawer('${r.code}')" title="Open ${coLabel(r.code)}">
       <td style="padding:9px 8px 9px 16px;${leftBd};color:var(--txt3);font-size:10px;font-weight:700">${idx + 1}</td>
       <td style="padding:9px 10px">
         <div style="display:flex;align-items:center;gap:5px">
           ${r.isSingle ? '<span title="Single-product PERTEK" style="font-size:13px">⭐</span>' : ''}
-          <span style="font-weight:700;font-size:13px;color:var(--blue)">${r.code}</span>
+          <span style="font-weight:700;font-size:13px;color:var(--blue)">${coLabel(r.code)}</span>
         </div>
         <div style="font-size:9.5px;color:var(--txt3);margin-top:1px">${r.numProds} product${r.numProds !== 1 ? 's' : ''} in PERTEK</div>
       </td>

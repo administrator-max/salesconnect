@@ -57,7 +57,7 @@ function updateOverviewKPIs() {
   const _real = reportRealizedTotal();
   const realizedCount   = _real.companies;
   const totalRealizedMT = _real.mt;
-  const arrivedCodes    = (_real.codes || []).join(', ') || '—';
+  const arrivedCodes    = (_real.codes || []).map(c => coLabel(c)).join(', ') || '—';
 
   /* ── KPI 4: Re-Apply Eligible / Submitted ───────────────────────────── */
   // Scope re-apply pool to companies whose SPI cycles match the active period
@@ -337,10 +337,10 @@ function updateOverviewKPIs() {
     `${_AA.new.length} Baru · ${revRevision.length} Revisi · ${revReapply.length} Re-Apply · ${revPending.length} PERTEK`;
   if (insSubEl) {
     const parts = [];
-    if (_AA.new.length)     parts.push(_AA.new.map(d=>d.code).join(', ')     + ' (New Submission)');
-    if (revRevision.length) parts.push(revRevision.map(d=>d.code).join(', ') + ' (Revision)');
-    if (revReapply.length)  parts.push(revReapply.map(d=>d.code).join(', ')  + ' (Re-Apply)');
-    if (revPending.length)  parts.push(revPending.map(d=>d.code).join(', ')  + ' (PERTEK Pending)');
+    if (_AA.new.length)     parts.push(_AA.new.map(d=>coLabel(d.code)).join(', ')     + ' (New Submission)');
+    if (revRevision.length) parts.push(revRevision.map(d=>coLabel(d.code)).join(', ') + ' (Revision)');
+    if (revReapply.length)  parts.push(revReapply.map(d=>coLabel(d.code)).join(', ')  + ' (Re-Apply)');
+    if (revPending.length)  parts.push(revPending.map(d=>coLabel(d.code)).join(', ')  + ' (PERTEK Pending)');
     insSubEl.textContent = parts.length ? parts.join(' · ') : 'Tidak ada permohonan berjalan';
   }
   const revBadge = document.getElementById('revCardBadge');
@@ -526,7 +526,7 @@ function refreshRealizedDrill() {
     const eligible = r.realPct >= 0.6 ? '✅ Eligible' : '✗ Below 60%';
     const eligColor= r.realPct >= 0.6 ? 'var(--green)' : 'var(--red2)';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="closeRealizedDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
-      <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${r.code}</td>
+      <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${coLabel(r.code)}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--txt)">${r.product||'—'}</td>
       <td style="padding:8px 10px;text-align:center;font-weight:600;color:var(--green);font-family:'DM Mono',monospace;font-size:11px">${fmtDate(arrDate)}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${(r.obtained||0).toLocaleString(MT_LOCALE)}</td>
@@ -689,7 +689,7 @@ function refreshAvqDrill() {
       ? `font-weight:700;color:var(--navy);background:var(--blue-bg);padding:2px 6px;border-radius:4px;border:1px solid var(--blue-bd)`
       : `color:var(--txt3)`;
     return `<tr style="border-bottom:1px solid var(--border);${rowBg};cursor:pointer" onclick="closeAvqDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
-      <td style="padding:8px 14px;font-weight:700;color:var(--navy);${lBorder};padding-left:11px">${isFirst ? r.code : ''}</td>
+      <td style="padding:8px 14px;font-weight:700;color:var(--navy);${lBorder};padding-left:11px">${isFirst ? coLabel(r.code) : ''}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--txt2)">${prodLabel(r.product)}</td>
       <td style="padding:8px 10px;font-size:10.5px;font-family:'DM Mono',monospace;${hsHl}">${r.hs}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(r.obtained)}</td>
@@ -800,7 +800,7 @@ function refreshUtilDrill() {
     const coSpi   = getSPI(r.code);
     const badge   = coSpi ? statusBadge(coSpi) : '';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="closeUtilDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
-      <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${r.code}</td>
+      <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${coLabel(r.code)}</td>
       <td style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--txt2)">${r.group}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--txt)">${prodLabel(r.product)}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(r.obtained)}</td>
@@ -881,7 +881,7 @@ function refreshReapplyDrill() {
     const newQuota   = sub && r.reapplyNewTotal   ? r.reapplyNewTotal.toLocaleString(MT_LOCALE)  : '—';
     const rowBg      = sub ? 'background:#faf5ff' : '';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer;${rowBg}" onclick="closeReapplyDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
-      <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${r.code}</td>
+      <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${coLabel(r.code)}</td>
       <td style="padding:8px 10px;font-size:11px;color:var(--txt)">${r.product||'—'}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${(r.obtained||0).toLocaleString(MT_LOCALE)}</td>
       <td style="padding:8px 10px;text-align:right;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">${(r.berat||0).toLocaleString(MT_LOCALE)}</td>
@@ -967,7 +967,7 @@ function openPendingShipDrill() {
             ${rows.length ? rows.map(x => `
               <tr style="border-bottom:1px solid var(--border);cursor:pointer"
                   onclick="document.getElementById('pendShipDrillModal').style.display='none';setTimeout(()=>openDrawer('${x.code}'),100)">
-                <td style="padding:8px 12px;font-weight:700;color:var(--navy)">${x.code}</td>
+                <td style="padding:8px 12px;font-weight:700;color:var(--navy)">${coLabel(x.code)}</td>
                 <td style="padding:8px 12px;font-size:11px;color:var(--txt3)">${x.group}</td>
                 <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(x.util)}</td>
                 <td style="padding:8px 12px;text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${x.real.toLocaleString(MT_LOCALE)}</td>
@@ -1194,7 +1194,7 @@ function refreshSubmitDrill() {
         ? `closeSubmitDrill();setTimeout(()=>openDrawerPending('${r.code}'),100)`
         : `closeSubmitDrill();setTimeout(()=>openDrawer('${r.code}'),100)`;
       html += `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''" onclick="${openFn}">
-        <td style="padding:8px 14px 8px 22px;font-weight:700;color:var(--navy);white-space:nowrap">${r.code}${groupBadge}</td>
+        <td style="padding:8px 14px 8px 22px;font-weight:700;color:var(--navy);white-space:nowrap">${coLabel(r.code)}${groupBadge}</td>
         <td style="padding:8px 10px;font-size:11px;color:var(--txt2)">${cycleLabel}</td>
         <td style="padding:8px 10px;text-align:center;font-weight:600;color:var(--txt2);font-family:'DM Mono',monospace;font-size:11px">${fmtDate(r.submitDate)}</td>
         <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--navy);font-family:'DM Mono',monospace">${fmtMt(r.mt)}</td>
@@ -1299,7 +1299,7 @@ function refreshPendingDrill() {
     coRow.onmouseout  = () => { if(!coRow.classList.contains('open')) coRow.style.background=''; };
     coRow.innerHTML = `
       <div style="flex-shrink:0;min-width:50px">
-        <div style="font-size:14px;font-weight:800;color:var(--red2);letter-spacing:.3px">${p.code}</div>
+        <div style="font-size:14px;font-weight:800;color:var(--red2);letter-spacing:.3px">${coLabel(p.code)}</div>
         <div style="font-size:9.5px;color:var(--txt3);margin-top:1px;font-weight:600">Grp ${p.group}</div>
       </div>
       <div style="flex:1;min-width:0">
@@ -1688,7 +1688,7 @@ function refreshObtainedDrill() {
     const dot = (typeof pc === 'function') ? pc(r.product).solid : '#94a3b8';
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer${stripe}" onclick="closeObtainedDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
       <td style="padding:8px 8px;text-align:center;color:var(--txt3);font-family:'DM Mono',monospace;font-size:10.5px">${idx + 1}</td>
-      <td style="padding:8px 12px;font-weight:700;color:var(--navy);white-space:nowrap">${isFirst ? r.code + groupBadge : '<span style=\"color:var(--txt3)\">' + r.code + '</span>'}</td>
+      <td style="padding:8px 12px;font-weight:700;color:var(--navy);white-space:nowrap">${isFirst ? coLabel(r.code) + groupBadge : '<span style=\"color:var(--txt3)\">' + coLabel(r.code) + '</span>'}</td>
       <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10.5px;color:var(--txt2)">${r.hs}</td>
       <td style="padding:8px 10px;font-size:11px"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:${dot};display:inline-block"></span>${prodLabel(r.product)}</span></td>
       <td style="padding:8px 10px;text-align:right">${buildMtCell(r.subMT, r.subBreakdown, 'var(--navy)')}</td>

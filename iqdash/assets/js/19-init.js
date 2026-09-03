@@ -563,7 +563,7 @@ function openProdCoPopup(event, prodName, anchorEl) {
       onclick="closeProdCoPopup();setTimeout(()=>openDrawer('${r.code}'),80)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:13px;font-weight:800;color:var(--navy)">${r.code}</span>
+          <span style="font-size:13px;font-weight:800;color:var(--navy)">${coLabel(r.code)}</span>
           ${grpBadge}
         </div>
         <div style="display:flex;align-items:center;gap:10px">
@@ -678,7 +678,7 @@ function buildAvqTable() {
       ? 'font-weight:700;color:var(--navy)'
       : 'color:var(--txt3)';
     return `<tr>
-      <td><div class="t-code" onclick="openDrawer('${r.code}')">${r.code}</div></td>
+      <td><div class="t-code" onclick="openDrawer('${r.code}')">${coLabel(r.code)}</div></td>
       <td style="font-size:11.5px;font-weight:600">${r.grp}</td>
       <td><span class="chip" style="background:#f0f9ff;color:#0369a1;font-size:10px;padding:2px 7px">${typeof prodLabel === 'function' ? prodLabel(r.prod) : r.prod}</span></td>
       <td style="font-size:10.5px;font-family:'DM Mono',monospace;${hsHl}">${r.hs}</td>
@@ -849,7 +849,7 @@ function buildRevSummaryStrip() {
     <div style="padding:5px 8px;background:${g.bg};border:1px solid ${g.bd};border-radius:var(--r);display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:10.5px;font-weight:700;color:${g.color}">${g.label}</span>
       <div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-end;max-width:65%">
-        ${g.items.map(d => `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;background:rgba(0,0,0,.06);color:${g.color}">${d.code}</span>`).join('')}
+        ${g.items.map(d => `<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;background:rgba(0,0,0,.06);color:${g.color}">${coLabel(d.code)}</span>`).join('')}
       </div>
     </div>`).join('');
 }
@@ -872,7 +872,7 @@ function buildPendingSummaryStrip() {
       return `<span style="font-size:9.5px;font-weight:600;color:${col}">⏱ ${days}d</span>`;
     })() : '';
     return `<div style="display:flex;align-items:center;gap:5px;padding:4px 9px;background:var(--red-bg);border:1px solid var(--red-bd);border-radius:var(--r)">
-      <span style="font-size:11px;font-weight:700;color:var(--red2)">${d.code}</span>
+      <span style="font-size:11px;font-weight:700;color:var(--red2)">${coLabel(d.code)}</span>
       <span style="font-size:9.5px;color:var(--txt3)">${fmtMt(d.mt||0)} MT</span>
       ${daysEl}
     </div>`;
@@ -912,8 +912,8 @@ function openActiveRevPopup() {
             const info = ac
               ? `<span style="font-size:9px;font-weight:600;opacity:.8">${canonProdInText(ac.type)}${ac.mt > 0 ? ' · ' + fmtMt(ac.mt) + ' MT' : ''}</span>`
               : '';
-            return `<span onclick="closeActiveRevPopup();openDrawer('${d.code}')" title="Buka detail ${d.code}"
-              style="cursor:pointer;font-size:11px;font-weight:700;padding:3px 9px;border-radius:4px;background:rgba(0,0,0,.05);color:${g.color};display:inline-flex;flex-direction:column;line-height:1.3">${d.code}${info}</span>`;
+            return `<span onclick="closeActiveRevPopup();openDrawer('${d.code}')" title="Buka detail ${coLabel(d.code)}"
+              style="cursor:pointer;font-size:11px;font-weight:700;padding:3px 9px;border-radius:4px;background:rgba(0,0,0,.05);color:${g.color};display:inline-flex;flex-direction:column;line-height:1.3">${coLabel(d.code)}${info}</span>`;
           }).join('')}
         </div>
       </div>`).join('');

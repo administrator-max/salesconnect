@@ -195,7 +195,7 @@ function renderUtilTable() {
     // Company code cell — show code only on first product row; indent arrow for rest
     const codeCell = isSub
       ? `<div style="padding-left:14px;font-size:10.5px;color:var(--txt3)">↳</div>`
-      : `<div class='t-code' onclick="openDrawer('${r.code}');event.stopPropagation()">${r.code}</div>
+      : `<div class='t-code' onclick="openDrawer('${r.code}');event.stopPropagation()">${coLabel(r.code)}</div>
          ${isMulti ? `<div style="font-size:9px;color:var(--txt3);margin-top:1px">${r._subCount} products</div>` : ''}`;
 
     // Product cell — indented for sub-products
@@ -331,7 +331,7 @@ function renderUtilTable() {
         : (c.phase === 'INSHIP' ? `<span style="font-size:10px;color:var(--txt3);font-style:italic">pending</span>` : grey);
       const reBadge = c.isReapply ? ` <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:#f5f3ff;color:#5b21b6;border:1px solid #c4b5fd">Re-apply</span>` : '';
       tbody.innerHTML += `<tr style="cursor:pointer;border-top:1px solid var(--border)" onclick="toggleUtilCo('${c.code}')">
-        <td style="padding:8px 10px"><span style="display:inline-flex;align-items:center;gap:5px"><span class="t-code">${c.code}</span>${multi ? `<span style="font-size:9px;color:var(--txt3)">${c.rows.length}p ▸</span>` : ''}</span></td>
+        <td style="padding:8px 10px"><span style="display:inline-flex;align-items:center;gap:5px"><span class="t-code">${coLabel(c.code)}</span>${multi ? `<span style="font-size:9px;color:var(--txt3)">${c.rows.length}p ▸</span>` : ''}</span></td>
         <td style="padding:8px 10px;font-size:11.5px;color:var(--txt2)">${c.rows.map(r => r.product).join(', ')}</td>
         <td style="padding:8px 10px">${phaseBadge(c.phase)}${reBadge}</td>
         <td class="t-r" style="padding:8px 10px"><span class="t-mono" style="font-weight:700">${c.obtained.toLocaleString(MT_LOCALE)}</span></td>
@@ -499,7 +499,7 @@ function renderRATable() {
     // ── Parent row (company-level totals) ────────────────────────────
     tbody.innerHTML += `<tr style='cursor:pointer;${rowBg};border-top:2px solid var(--border2)' onclick="openDrawer('${d.code}')">
       <td style='${lBd}'>
-        <div class='t-code'>${d.code}</div>
+        <div class='t-code'>${coLabel(d.code)}</div>
         <div style='font-size:9px;color:var(--txt3);margin-top:1px'>${prodKeys.length} product${prodKeys.length>1?'s':''}</div>
       </td>
       <td>${prodCell}</td>
@@ -617,7 +617,7 @@ function buildCmpList() {
     const obtained = Number(co.obtained) || 0;
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-        <span style="font-size:12px;font-weight:700">${co.code} <span style="font-size:9px;color:var(--txt3);font-weight:400">${co.group}</span></span>
+        <span style="font-size:12px;font-weight:700">${coLabel(co.code)} <span style="font-size:9px;color:var(--txt3);font-weight:400">${co.group}</span></span>
         <div style="display:flex;gap:6px;font-size:10.5px;font-family:'DM Mono',monospace">
           <span style="color:var(--navy2)">S:${submit1.toLocaleString(MT_LOCALE)}</span>
           <span style="color:var(--teal);font-weight:700">O:${obtained.toLocaleString(MT_LOCALE)}</span>
@@ -646,7 +646,7 @@ function buildPendingTable() {
   const tbody = document.getElementById('pendingBody'); if (!tbody) return; tbody.innerHTML = '';
   [...filteredPending()].sort((a,b) => a.code.localeCompare(b.code)).forEach(d => {
     tbody.innerHTML += `<tr class="tr-pending" style="cursor:pointer" onclick="openDrawerPending('${d.code}')">
-      <td><div class="t-code">${d.code}</div></td>
+      <td><div class="t-code">${coLabel(d.code)}</div></td>
       <td style="font-size:11.5px;font-weight:600">${d.group}</td>
       <td>${chips(d.products)}</td>
       <td class="t-r t-mono">${d.mt.toLocaleString(MT_LOCALE)}</td>

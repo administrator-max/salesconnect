@@ -278,8 +278,8 @@ function buildSpiTerbitTable() {
     return `<tr style="${mati ? 'opacity:.62;' : ''}${baru ? 'border-top:1px solid var(--border)' : ''}" title="${judul}">
       <td class="t-r" style="font-size:10px;color:var(--txt3)">${i + 1}</td>
       <td>${baru
-        ? `<div class="t-code" onclick="${buka}('${r.code}')">${r.code}</div>`
-        : `<div class="t-code" style="${sisipan}" onclick="${buka}('${r.code}')">${r.code}</div>`}</td>
+        ? `<div class="t-code" onclick="${buka}('${r.code}')">${coLabel(r.code)}</div>`
+        : `<div class="t-code" style="${sisipan}" onclick="${buka}('${r.code}')">${coLabel(r.code)}</div>`}</td>
       <td style="font-size:11px;font-weight:600;${sisipan}">${r.group || _stDash()}</td>
       <td style="font-size:10px;color:var(--txt3);white-space:nowrap">${_stLabelCycle(r.cycle, r.product) || _stDash()}</td>
       <td><span class="chip" style="background:#f0f9ff;color:#0369a1;font-size:10px;padding:2px 7px">${pl(r.product)}</span></td>

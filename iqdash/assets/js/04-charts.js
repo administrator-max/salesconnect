@@ -490,7 +490,7 @@ function buildPipelineHover(idx) {
   if (idx === 0) {
     const sorted = [...filteredSPI()].sort((a,b) => b.obtained - a.obtained);
     h.innerHTML = `<div class="ph-title">✅ SPI / PERTEK Obtained — ${sorted.length} companies</div>` +
-      sorted.map(d => `<div class="ph-row"><span class="ph-code">${d.code}</span><span class="ph-mt">${fmtMt(d.obtained)} MT</span></div>`).join('');
+      sorted.map(d => `<div class="ph-row"><span class="ph-code">${coLabel(d.code)}</span><span class="ph-mt">${fmtMt(d.obtained)} MT</span></div>`).join('');
   } else if (idx === 1) {
     // Re-Apply Eligible = companies with cargoArrived AND realPct ≥ 60%
     const eligible = filteredRA().filter(r => r.cargoArrived === true && r.realPct >= 0.6)
@@ -498,11 +498,11 @@ function buildPipelineHover(idx) {
     h.innerHTML = `<div class="ph-title">🔵 Re-Apply Eligible — ${eligible.length} companies<br><span style="font-weight:400;font-size:10px;color:var(--txt3)">Realization ≥ 60% &amp; cargo arrived</span></div>` +
       eligible.map(r => {
         const stage = isReapplySubmitted(r) ? ' 🔵' : ' ✅';
-        return `<div class="ph-row"><span class="ph-code">${r.code}${stage}</span><span class="ph-mt">${(r.realPct*100).toFixed(0)}% · ${r.obtained.toLocaleString(MT_LOCALE)} MT</span></div>`;
+        return `<div class="ph-row"><span class="ph-code">${coLabel(r.code)}${stage}</span><span class="ph-mt">${(r.realPct*100).toFixed(0)}% · ${r.obtained.toLocaleString(MT_LOCALE)} MT</span></div>`;
       }).join('');
   } else {
     h.innerHTML = `<div class="ph-title">⏳ Pertek Pending — ${filteredPending().length} companies</div>` +
-      filteredPending().map(d => `<div class="ph-row"><span class="ph-code">${d.code}</span><span class="ph-mt">${fmtMt(d.mt)} MT</span></div>`).join('');
+      filteredPending().map(d => `<div class="ph-row"><span class="ph-code">${coLabel(d.code)}</span><span class="ph-mt">${fmtMt(d.mt)} MT</span></div>`).join('');
   }
 }
 
@@ -722,13 +722,13 @@ function buildAvailableQuota() {
     const tag = r.updatedBy
       ? `<span class="upd-tag upd-${r.updatedBy.toLowerCase()}" style="font-size:8.5px;padding:1px 5px">${r.updatedBy}</span>`
       : '';
-    return `<div class="avq-row" style="margin-bottom:8px" onclick="openDrawer('${r.code}')" title="Click to open ${r.code} detail">
+    return `<div class="avq-row" style="margin-bottom:8px" onclick="openDrawer('${r.code}')" title="Click to open ${coLabel(r.code)} detail">
       <div>
-        <div class="avq-co">${r.code}</div>
+        <div class="avq-co">${coLabel(r.code)}</div>
         <div>${tag}</div>
       </div>
       <div>
-        <div class="avq-bar-bg" style="position:relative;cursor:pointer" title="${r.code}: Obtained ${fmtMt(r.obtained)} MT · Used ${fmtMt(r.utilMT)} MT · Available ${fmtMt(r.avq)} MT">
+        <div class="avq-bar-bg" style="position:relative;cursor:pointer" title="${coLabel(r.code)}: Obtained ${fmtMt(r.obtained)} MT · Used ${fmtMt(r.utilMT)} MT · Available ${fmtMt(r.avq)} MT">
           <!-- Obtained (faint background) -->
           <div style="position:absolute;inset:0;background:${col}22;border-radius:5px"></div>
           <!-- Utilized (solid) -->
@@ -1190,7 +1190,7 @@ function buildUtilChart() {
     panel.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:14px;font-weight:800;color:var(--navy)">${d.code}</span>
+          <span style="font-size:14px;font-weight:800;color:var(--navy)">${coLabel(d.code)}</span>
           <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;background:${barFill}20;color:${statusColor};border:1px solid ${barFill}40">${statusLabel}</span>
           <span style="font-size:11px;font-weight:700;color:${barFill};font-family:'DM Mono',monospace">${overallPct.toFixed(1)}% overall</span>
         </div>

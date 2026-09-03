@@ -448,7 +448,7 @@ function handleSearch(q) {
       : co.revType==='complete' ? '<span class="badge b-revdone" style="font-size:9px">Rev.Done</span>'
       : '<span class="badge b-spi" style="font-size:9px">SPI</span>';
     const div = document.createElement('div'); div.className = 'sd-row';
-    div.innerHTML = `<div class="sd-code">${co.code}</div>
+    div.innerHTML = `<div class="sd-code">${coLabel(co.code)}</div>
       <div class="sd-meta">
         <div class="sd-name">${(co.products||[]).map(prodLabel).join(' · ')} ${badge}</div>
         <div class="sd-detail">${r.type==='PENDING'?co.status:(co.spiRef||'').slice(0,60)}${ra?` · Realization: ${(ra.realPct*100).toFixed(0)}%`:''}</div>
@@ -497,7 +497,7 @@ async function openRealizationDetail(code) {
   // Loading state
   body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--txt3);font-size:13px">
     <div style="font-size:24px;margin-bottom:8px">⏳</div>
-    Loading realization data for <strong>${code}</strong>…
+    Loading realization data for <strong>${coLabel(code)}</strong>…
   </div>`;
   modal.style.display = 'block';
 

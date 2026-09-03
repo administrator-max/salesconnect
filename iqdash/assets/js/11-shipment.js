@@ -1241,7 +1241,7 @@ function buildNewSubmissionForm(co, wrapEl) {
       ${lencana}
     </div>
     <div style="margin-bottom:10px;padding:8px 12px;background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:7px;font-size:10.5px;color:var(--navy);line-height:1.5">
-      Belum ada obtained quota untuk <strong>${co.code}</strong>, jadi tidak ada yang bisa direvisi.
+      Belum ada obtained quota untuk <strong>${coLabel(co.code)}</strong>, jadi tidak ada yang bisa direvisi.
       Ajukan produk &amp; tonase awalnya di sini —
       alurnya: <strong>Sales input</strong> → <strong>Konfirmasi CorpSec</strong> → <strong>Submit</strong>
       → <strong>Active Application (New Submission)</strong> → <strong>Total Submitted</strong>.

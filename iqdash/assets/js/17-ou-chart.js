@@ -555,7 +555,7 @@ function buildOUChart() {
 
     html += `<tr style="cursor:pointer;${rowBg};border-top:2px solid var(--border2)" onclick="openDrawer('${code}')">
       <td style="border-left:3px solid ${ra && ra.cargoArrived ? 'var(--green-lt)' : ra ? 'var(--orange)' : 'var(--border2)'}">
-        <span class="t-code">${code}</span>
+        <span class="t-code">${coLabel(code)}</span>
         ${isMulti ? `<div style="font-size:9px;color:var(--txt3);margin-top:1px">${prods.length} products</div>` : ''}
       </td>
       <td>${prodSummary}</td>
@@ -908,8 +908,8 @@ function renderLtDrillTable() {
       <span style="font-size:11.5px;font-weight:700;color:${barColor};white-space:nowrap;min-width:34px;text-align:right">${r.realPct}%</span>
     </div>`;
     const leadStr = r.avgLeadDays !== null ? `${r.avgLeadDays}d` : '—';
-    return `<tr style="${rowBg}" onclick="closeLeadTimeDrill();openDrawer('${r.code}')" title="Click to open ${r.code}" style="cursor:pointer">
-      <td style="padding:10px 14px;${leftBd};cursor:pointer"><span style="font-weight:700;font-size:13px;color:var(--blue)">${r.code}</span></td>
+    return `<tr style="${rowBg}" onclick="closeLeadTimeDrill();openDrawer('${r.code}')" title="Click to open ${coLabel(r.code)}" style="cursor:pointer">
+      <td style="padding:10px 14px;${leftBd};cursor:pointer"><span style="font-weight:700;font-size:13px;color:var(--blue)">${coLabel(r.code)}</span></td>
       <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--teal)">${fmtMt(r.obtained)} MT</td>
       <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--blue)">${r.utilMT > 0 ? fmtMt(r.utilMT) + ' MT' : '<span style="color:var(--txt3)">—</span>'}</td>
       <td style="padding:10px 10px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--green)">${r.realMT > 0 ? r.realMT.toLocaleString(MT_LOCALE) + ' MT' : '<span style="color:var(--txt3)">—</span>'}</td>
