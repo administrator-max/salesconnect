@@ -80,6 +80,48 @@ function hasOutstandingCycle(d) {
    sama mudah basinya — MJU tergolong "PERTEK Pending" padahal Revision #3-nya
    baru diajukan 27 Jul 2026 dengan PERTEK masih TBA, yang berarti
    "Under Revision". Dilaporkan tim 2026-08-07. */
+/**
+ * Apakah sebuah siklus Obtained MENYELESAIKAN Submit pasangannya.
+ *
+ * Biasanya cukup "sudah terbit". Tapi ada satu bentuk yang tidak akan pernah
+ * terbit dan tetap selesai: Obtained yang DIGANTIKAN REVISI sebelum SPI-nya
+ * keluar.
+ *
+ * DIOR: Obtained #1 (Bordes Alloy 100 MT) ditahan — "Hold, waiting address
+ * changes" — lalu revisi memindahkan kuotanya ke GL Alloy, dan SPI terbit
+ * sebagai Obtained #2 (31/08/2026). Obtained #1 tidak akan pernah bertanggal
+ * SPI, jadi Submit #1 selamanya terlihat menggantung dan company itu terbaca
+ * "Under Revision" walau kuotanya sudah diterima. Dilaporkan tim 03-Sep-2026.
+ *
+ * Cara mengenalinya memakai penanda yang sudah dipakai rumah ini: siklus
+ * revisi membawa DELTA BERTANDA, negatif pada produk yang ditinggalkan
+ * (BDG {BORDES ALLOY: -350, GI ALLOY: +350}). Jadi sebuah Obtained dianggap
+ * selesai bila SELURUH produknya punya delta negatif di suatu siklus revisi
+ * DAN company itu memang punya Obtained lain yang terbit — bukti kuotanya
+ * benar-benar diterima, hanya lewat siklus pengganti.
+ *
+ * Kedua syarat itu perlu. Tanpa yang kedua, company yang revisinya dibatalkan
+ * dan tidak pernah menerima apa pun akan ikut terbaca selesai.
+ *
+ * Diukur ke seluruh 40 company sebelum dipasang: TEPAT SATU yang berubah
+ * (DIOR, active -> selesai). Tidak ada company lain yang statusnya bergeser.
+ */
+function _obtSelesai(d, obt) {
+  if (_cycleTerbitLengkap(obt)) return true;
+  const prods = Object.keys((obt && obt.products) || {});
+  if (!prods.length) return false;
+  const kanon = p => (typeof canonicalProduct === 'function') ? canonicalProduct(p) : p;
+  const negatif = new Set();
+  ((d && d.cycles) || []).forEach(c =>
+    Object.entries((c && c.products) || {}).forEach(([p, m]) => {
+      if ((Number(m) || 0) < 0) negatif.add(kanon(p));
+    }));
+  const semuaDipindah = prods.every(p => negatif.has(kanon(p)));
+  if (!semuaDipindah) return false;
+  return ((d && d.cycles) || []).some(c =>
+    /^obtained/i.test((c && c.type) || '') && _cycleTerbitLengkap(c));
+}
+
 function outstandingStage(d) {
   const cy = (d && d.cycles) || [];
   const obtained = cy.filter(c => /^obtained/i.test(c.type || ''));
@@ -90,7 +132,7 @@ function outstandingStage(d) {
     let m = t.match(/^submit\s*#(\d+)/i);
     if (m) {
       const p = obtained.find(o => new RegExp(`^obtained\\s*#${m[1]}\\b`, 'i').test(o.type || ''));
-      if (!p || !_cycleTerbitLengkap(p)) kandidat.push({ c, jenis: 'submit', n: +m[1] });
+      if (!p || !_obtSelesai(d, p)) kandidat.push({ c, jenis: 'submit', n: +m[1] });
       continue;
     }
     m = t.match(/^revision\s*#(\d+)/i);
