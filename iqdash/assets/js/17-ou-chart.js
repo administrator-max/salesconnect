@@ -354,7 +354,7 @@ function buildOUChart() {
 
   if (ouFilterMode === 'PROD') {
     const agg = aggregateOU(filtered, 'product');
-    labels      = agg.map(r => r.label);
+    labels      = agg.map(r => coLabel(r.label));
     obtData     = agg.map(r => r.obtained);
     utilData    = agg.map(r => r.utilized);
     remainData  = agg.map(r => r.remaining);
@@ -362,7 +362,7 @@ function buildOUChart() {
     productKeys = agg.map(r => r.label);
   } else if (ouFilterMode === 'CO') {
     const agg = aggregateOU(filtered, 'company');
-    labels      = agg.map(r => r.label);
+    labels      = agg.map(r => coLabel(r.label));
     obtData     = agg.map(r => r.obtained);
     utilData    = agg.map(r => r.utilized);
     remainData  = agg.map(r => r.remaining);
@@ -378,7 +378,7 @@ function buildOUChart() {
       if (a.product !== b.product) return a.product.localeCompare(b.product);
       return b.obtained - a.obtained; // within same product: largest first
     });
-    labels      = sorted.map(r => `${r.code} · ${prodLabel(r.product)}`);
+    labels      = sorted.map(r => `${coLabel(r.code)} · ${prodLabel(r.product)}`);
     obtData     = sorted.map(r => r.obtained);
     utilData    = sorted.map(r => r.utilized);
     remainData  = sorted.map(r => r.remaining);
@@ -631,7 +631,7 @@ function buildOUChartOverview() {
 
   if (ouOvFilterMode === 'PROD') {
     const agg = aggregateOU(filtered, 'product');
-    labels       = agg.map(r => r.label);
+    labels       = agg.map(r => coLabel(r.label));
     obtData      = agg.map(r => r.obtained);
     utilData     = agg.map(r => r.utilized);
     remainData   = agg.map(r => r.remaining);
@@ -640,7 +640,7 @@ function buildOUChartOverview() {
     tooltipSource = agg;
   } else if (ouOvFilterMode === 'CO') {
     const agg = aggregateOU(filtered, 'company');
-    labels       = agg.map(r => r.label);
+    labels       = agg.map(r => coLabel(r.label));
     obtData      = agg.map(r => r.obtained);
     utilData     = agg.map(r => r.utilized);
     remainData   = agg.map(r => r.remaining);
@@ -655,7 +655,7 @@ function buildOUChartOverview() {
       if (a.product !== b.product) return a.product.localeCompare(b.product);
       return b.obtained - a.obtained;
     });
-    labels       = sorted.map(r => `${r.code} · ${r.product.split(' ')[0]}`);
+    labels       = sorted.map(r => `${coLabel(r.code)} · ${r.product.split(' ')[0]}`);
     obtData      = sorted.map(r => r.obtained);
     utilData     = sorted.map(r => r.utilized);
     remainData   = sorted.map(r => r.remaining);
@@ -693,7 +693,7 @@ function buildOUChartOverview() {
           callbacks: {
             title: ctx => {
               const r = tooltipSource[ctx[0].dataIndex];
-              return r ? (r.code ? `${r.code} · ${prodLabel(r.product)}` : r.label) : labels[ctx[0].dataIndex];
+              return r ? (r.code ? `${coLabel(r.code)} · ${prodLabel(r.product)}` : coLabel(r.label)) : labels[ctx[0].dataIndex];
             },
             label: ctx => {
               const i = ctx.dataIndex;

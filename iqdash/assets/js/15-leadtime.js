@@ -160,7 +160,7 @@ function buildLeadTimeAnalytics() {
     </div>`;
 
   /* ── Stacked Bar Chart: 3 stages per cycle ── */
-  const labels    = chartData.map(r => r.code + (chartData.filter(x=>x.code===r.code).length>1 ? ` (${r.cycleType.replace(/submit /i,'').replace(/ #/,'#')})` : ''));
+  const labels    = chartData.map(r => coLabel(r.code) + (chartData.filter(x=>x.code===r.code).length>1 ? ` (${r.cycleType.replace(/submit /i,'').replace(/ #/,'#')})` : ''));
   const s1Data    = chartData.map(r => r.s1);
   const s2Data    = chartData.map(r => r.s2);
   const s3Data    = chartData.map(r => r.s3);
@@ -188,7 +188,7 @@ function buildLeadTimeAnalytics() {
           callbacks: {
             title: ctx => {
               const r = chartData[ctx[0].dataIndex];
-              return `${r.code} · ${r.cycleType}`;
+              return `${coLabel(r.code)} · ${r.cycleType}`;
             },
             label: ctx => {
               if (ctx.dataset.type === 'line') return ` Avg: ${avg}d`;

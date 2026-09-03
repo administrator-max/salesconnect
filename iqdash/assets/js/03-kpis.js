@@ -57,7 +57,7 @@ function updateOverviewKPIs() {
   const _real = reportRealizedTotal();
   const realizedCount   = _real.companies;
   const totalRealizedMT = _real.mt;
-  const arrivedCodes    = (_real.codes || []).map(c => coLabel(c)).join(', ') || '—';
+  const arrivedCodes    = (_real.codes || []).map(c => coLabelUtuh(c)).join(', ') || '—';
 
   /* ── KPI 4: Re-Apply Eligible / Submitted ───────────────────────────── */
   // Scope re-apply pool to companies whose SPI cycles match the active period
@@ -337,10 +337,10 @@ function updateOverviewKPIs() {
     `${_AA.new.length} Baru · ${revRevision.length} Revisi · ${revReapply.length} Re-Apply · ${revPending.length} PERTEK`;
   if (insSubEl) {
     const parts = [];
-    if (_AA.new.length)     parts.push(_AA.new.map(d=>coLabel(d.code)).join(', ')     + ' (New Submission)');
-    if (revRevision.length) parts.push(revRevision.map(d=>coLabel(d.code)).join(', ') + ' (Revision)');
-    if (revReapply.length)  parts.push(revReapply.map(d=>coLabel(d.code)).join(', ')  + ' (Re-Apply)');
-    if (revPending.length)  parts.push(revPending.map(d=>coLabel(d.code)).join(', ')  + ' (PERTEK Pending)');
+    if (_AA.new.length)     parts.push(_AA.new.map(d=>coLabelUtuh(d.code)).join(', ')     + ' (New Submission)');
+    if (revRevision.length) parts.push(revRevision.map(d=>coLabelUtuh(d.code)).join(', ') + ' (Revision)');
+    if (revReapply.length)  parts.push(revReapply.map(d=>coLabelUtuh(d.code)).join(', ')  + ' (Re-Apply)');
+    if (revPending.length)  parts.push(revPending.map(d=>coLabelUtuh(d.code)).join(', ')  + ' (PERTEK Pending)');
     insSubEl.textContent = parts.length ? parts.join(' · ') : 'Tidak ada permohonan berjalan';
   }
   const revBadge = document.getElementById('revCardBadge');

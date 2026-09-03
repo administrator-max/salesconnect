@@ -875,7 +875,7 @@ function buildTopCo() {
   mkChart('topCoChart', {
     type: 'bar',
     data: {
-      labels: dataset.map(d => d.code),
+      labels: dataset.map(d => coLabel(d.code)),
       datasets: [{
         label: 'Obtained (MT)',
         data: dataset.map(d => d.periodObtained),
@@ -976,7 +976,7 @@ function buildCmpChart() {
   mkChart('cmpChart', {
     type: 'bar',
     data: {
-      labels: data.map(d => d.code),
+      labels: data.map(d => coLabel(d.code)),
       datasets: [
         { label:'Submitted', data:data.map(d=>d.submit1), backgroundColor:'rgba(24,38,68,.18)', borderColor:'rgba(24,38,68,.45)', borderWidth:1, borderRadius:2 },
         { label:'Obtained',  data:data.map(d=>d.obtained), backgroundColor:'rgba(12,124,132,.8)', borderColor:'#0c7c84', borderWidth:0, borderRadius:2 },
@@ -1220,7 +1220,7 @@ function buildUtilChart() {
   mkChart('utilChart', {
     type: 'bar',
     data: {
-      labels: sorted.map(d => d.code),
+      labels: sorted.map(d => coLabel(d.code)),
       datasets: [
         { label:'Realization %', data:sorted.map(d => +(d.realPct*100).toFixed(1)),
           backgroundColor: sorted.map(d => isReapplySubmitted(d) ? '#8b5cf6' : isEligible(d) ? '#21c55d' : !d.cargoArrived ? '#f97316' : '#ef4444'), borderRadius:3, borderWidth:0 },
@@ -1244,7 +1244,7 @@ function buildUtilChart() {
             title: ctx => {
               if (ctx[0]?.dataset?.label === '60% Threshold') return null;
               const d = sorted[ctx[0].dataIndex];
-              return `${d.code} · ${d.product}`;
+              return `${coLabel(d.code)} · ${d.product}`;
             },
             label: ctx => {
               if (ctx.dataset.label === '60% Threshold') return null;

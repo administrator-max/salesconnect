@@ -614,6 +614,20 @@ function coLabel(code) {
   return (n && n.toUpperCase() !== K && n.toUpperCase().startsWith(K)) ? n : k;
 }
 
+/**
+ * Label yang TIDAK BOLEH PATAH di tengah.
+ *
+ * Dipakai di daftar berkoma yang sempit (kartu KPI Realization, ringkasan
+ * Insight). Diukur di peramban: pada kartu selebar 115px, "AMP / SUJU"
+ * pecah jadi "…, ADP, AMP" / "/ SUJU, BBB, …" — terbaca seperti DUA
+ * company. Spasi biasa diganti spasi tanpa-patah; teks yang terlihat sama
+ * persis, hanya tidak bisa dipotong pembungkus baris.
+ *
+ * Sengaja TIDAK dipakai di sel tabel: di sana labelnya berdiri sendiri dan
+ * spasi biasa lebih aman untuk salin-tempel dan pencarian.
+ */
+function coLabelUtuh(code) { return coLabel(code).replace(/ /g, "\u00A0"); }
+
 const getSPI = c => SPI.find(s => s.code === c);
 /* Stage 2: Re-Apply already submitted — PERTEK Pending / On Process */
 const isReapplySubmitted = r => r && r.reapplyStage === 2;
