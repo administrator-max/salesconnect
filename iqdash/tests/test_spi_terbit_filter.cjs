@@ -214,12 +214,19 @@ console.log('\nF · Label siklus revisi diberi arah — tapi hanya bila memang b
     const m = String(r.cycle || '').match(/^Revision Request\s*[—–-]\s*(.+)$/);
     return m && kanon(m[1]) === kanon(r.product);
   });
-  ok(alias.length > 0, `${alias.length} baris revisi yang asal & tujuannya produk SAMA — jebakannya nyata`,
-    'tidak ada; uji ini kehilangan maknanya');
+  /* Pemindaian data ini BERSYARAT. Sampai 03-Sep-2026 DIOR adalah contohnya
+     (Revision Request — BORDES ALLOY dengan produk BORDES ALLOY); sesudah
+     revisinya dibetulkan menjadi GL ALLOY, kasusnya tidak ada lagi di data.
+     Menuntutnya tetap ada akan membuat uji ini gagal justru karena datanya
+     membaik — jadi yang dijaga: KALAU ada, tak satu pun boleh berpanah.
+     Perilakunya sendiri dikunci pemeriksaan langsung di bawah, yang tidak
+     bergantung pada data hari ini. */
   const salahPanah = alias.filter(r =>
     /→/.test(JSON.parse(call(`JSON.stringify(_stLabelCycle(${JSON.stringify(r.cycle)}, ${JSON.stringify(r.product)}))`))));
   ok(salahPanah.length === 0,
-    'tidak satu pun diberi panah — panah palsu menyatakan perpindahan yang tak pernah terjadi',
+    alias.length
+      ? `${alias.length} baris revisi ber-alias di data, tak satu pun diberi panah palsu`
+      : 'tidak ada baris revisi ber-alias di data saat ini — dikunci lewat masukan buatan di bawah',
     salahPanah.slice(0, 3).map(r => `${r.code} ${r.cycle} -> ${r.product}`).join(' · '));
 
   /* Bentuk PECAH SEBAGIAN diuji LANGSUNG, bukan lewat data.
