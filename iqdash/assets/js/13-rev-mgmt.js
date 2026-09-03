@@ -438,6 +438,149 @@ function prTargetText(pr) {
 }
 
 /* Build the full Revision & Re-Apply panel */
+/* ═══════════════════════════════════════════════════════════════════════════
+   CYCLE HISTORY — penyuntingan TANGGAL pada siklus yang sudah ada
+   ───────────────────────────────────────────────────────────────────────────
+   Diminta tim 03-Sep-2026. Sebelum ini timeline Cycle History murni BACA:
+   siklus yang sudah tercatat hanya bisa diperbaiki lewat spreadsheet.
+
+   TAHAP PERTAMA SENGAJA HANYA TANGGAL — Submit, Release, PERTEK Terbit, dan
+   SPI Terbit. Produk dan tonase menyusul dengan pagarnya sendiri, karena
+   justru dua field itu yang melahirkan Obtained #2..#8 milik DIOR: alur yang
+   menyentuh tonase bisa menggandakan kuota, dan itu perlu penjagaan yang
+   berbeda dari sekadar menyunting tanggal. Tanggal tidak memindahkan satu MT
+   pun.
+
+   BENTUK TANGGAL. Sheet menyimpan dd/mm/yyyy (dan beberapa bentuk lain);
+   <input type="date"> berbicara YYYY-MM-DD. Konversi dua arah dilakukan di
+   sini — pDate() untuk membaca apa pun bentuknya, dd/mm/yyyy saat menulis —
+   supaya isian baru tidak menambah bentuk ketiga ke dalam data.
+
+   KOSONG BERARTI TBA. Mengosongkan kolom tanggal adalah tindakan yang sah
+   (mis. SPI dibatalkan), jadi field kosong disimpan sebagai '' dan bukan
+   diabaikan.
+
+   SIMPAN LEWAT patchCyclesToServer(), BUKAN fetch sendiri: fungsi itu sudah
+   memuat pagar "kirim siklus SEMUA tahun kuota". PATCH /cycles mengganti
+   seluruh baris siklus company, jadi menyimpan hasil irisan tahun akan
+   MENGHAPUS siklus tahun lain diam-diam.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Siklus yang sedang disunting: "CODE|index", atau null. */
+let _chEdit = null;
+
+/* Tanggal apa pun -> 'YYYY-MM-DD' untuk <input type="date">. '' bila tak terbaca. */
+function _chToIso(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s || /^tba$/i.test(s)) return '';
+  const d = (typeof pDate === 'function') ? pDate(s) : null;
+  if (!d || isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/* 'YYYY-MM-DD' -> 'dd/mm/yyyy', bentuk yang dipakai sheet. '' tetap ''. */
+function _chFromIso(v) {
+  const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
+function chStartEdit(code, idx) { _chEdit = code + '|' + idx; _chRerender(code); }
+function chCancelEdit(code)     { _chEdit = null;              _chRerender(code); }
+
+function _chRerender(code) {
+  const co = (typeof getSPI === 'function' ? getSPI(code) : null)
+          || ((typeof PENDING !== 'undefined' && PENDING) || []).find(c => c.code === code);
+  if (co && typeof buildRevMgmtSection === 'function') buildRevMgmtSection(co);
+}
+
+/**
+ * Simpan tanggal siklus ke-idx milik `code`.
+ * HANYA menyentuh empat field tanggal — mt, produk, tipe, dan status dibiarkan
+ * apa adanya, supaya penyuntingan tanggal tidak bisa menggeser tonase.
+ */
+async function chSaveDates(code, idx) {
+  const co = (typeof getSPI === 'function' ? getSPI(code) : null)
+          || ((typeof PENDING !== 'undefined' && PENDING) || []).find(c => c.code === code);
+  if (!co || !Array.isArray(co.cycles) || !co.cycles[idx]) {
+    alert('Siklus tidak ditemukan — coba muat ulang halaman.');
+    return;
+  }
+  const cy = co.cycles[idx];
+  const ambil = id => { const el = document.getElementById(id); return el ? el.value : null; };
+
+  const baru = {
+    submitDate:  _chFromIso(ambil('chSubmit_' + idx)),
+    releaseDate: _chFromIso(ambil('chRelease_' + idx)),
+    pertekDate:  _chFromIso(ambil('chPertek_' + idx)),
+    spiDate:     _chFromIso(ambil('chSpi_' + idx)),
+  };
+
+  /* Apa yang BERUBAH dicatat untuk pesan konfirmasi — supaya pemakai melihat
+     yang tersimpan, bukan sekadar "berhasil". */
+  const ubah = [];
+  const label = { submitDate: 'Submit', releaseDate: 'Release', pertekDate: 'PERTEK Terbit', spiDate: 'SPI Terbit' };
+  Object.keys(baru).forEach(k => {
+    const lamaIso = _chToIso(cy[k]);
+    const baruIso = _chToIso(baru[k]);
+    if (lamaIso !== baruIso) {
+      ubah.push(`${label[k]}: ${lamaIso ? (typeof fmtDateStd === 'function' ? fmtDateStd(cy[k]) : cy[k]) : 'TBA'}` +
+                ` → ${baruIso ? (typeof fmtDateStd === 'function' ? fmtDateStd(baru[k]) : baru[k]) : 'TBA'}`);
+    }
+  });
+  if (!ubah.length) { _chEdit = null; _chRerender(code); return; }
+
+  const btn = document.getElementById('chSaveBtn_' + idx);
+  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan…'; }
+
+  const cadangan = { submitDate: cy.submitDate, releaseDate: cy.releaseDate,
+                     pertekDate: cy.pertekDate, spiDate: cy.spiDate };
+  Object.assign(cy, baru);
+
+  try {
+    if (typeof patchCyclesToServer !== 'function') throw new Error('patchCyclesToServer tidak tersedia');
+    await patchCyclesToServer(co);
+    if (typeof loadData === 'function') await loadData();
+    _chEdit = null;
+    if (typeof nsShowToast === 'function') nsShowToast(`✓ ${code} — ${ubah.join(' · ')}`);
+    _chRerender(code);
+  } catch (err) {
+    /* Nilai lama dikembalikan supaya layar tidak menampilkan tanggal yang
+       sebenarnya GAGAL tersimpan — kesalahan yang jauh lebih mahal daripada
+       sekadar pesan error. */
+    Object.assign(cy, cadangan);
+    _chEdit = null;
+    _chRerender(code);
+    alert('Gagal menyimpan tanggal siklus: ' + (err && err.message ? err.message : err));
+    if (typeof notifySaveError === 'function') notifySaveError('cycleHistory/dates', err);
+  }
+}
+
+/* Baris penyuntingan untuk satu siklus. */
+function _chEditRow(code, idx, c) {
+  const f = (id, label, val) =>
+    `<label style="display:flex;flex-direction:column;gap:2px">
+       <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--txt3)">${label}</span>
+       <input type="date" id="${id}_${idx}" value="${_chToIso(val)}"
+         style="font-size:10.5px;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;background:var(--surf);color:var(--txt);font-family:'DM Mono',monospace">
+     </label>`;
+  return `<div style="margin-top:6px;padding:8px;border:1px dashed var(--navy);border-radius:6px;background:var(--bg2)">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      ${f('chSubmit', 'Submit', c.submitDate)}
+      ${f('chRelease', 'Release', c.releaseDate)}
+      ${f('chPertek', 'PERTEK Terbit', c.pertekDate)}
+      ${f('chSpi', 'SPI Terbit', c.spiDate)}
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button id="chSaveBtn_${idx}" onclick="chSaveDates('${code}',${idx})"
+        style="font-size:10.5px;font-weight:700;padding:4px 12px;border:none;border-radius:4px;background:var(--navy);color:#fff;cursor:pointer">Simpan</button>
+      <button onclick="chCancelEdit('${code}')"
+        style="font-size:10.5px;font-weight:600;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surf);color:var(--txt3);cursor:pointer">Batal</button>
+      <span style="font-size:9.5px;color:var(--txt3)">Kosongkan berarti TBA. Tonase &amp; produk tidak ikut berubah.</span>
+    </div>
+  </div>`;
+}
+
 function buildRevMgmtSection(co) {
   const el = g('revMgmtBody');
   if (!el) return;
@@ -655,7 +798,7 @@ function buildRevMgmtSection(co) {
   // ── 3. Cycle timeline ──────────────────────────────────────────────────
   html += `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--txt3);margin-bottom:6px">Cycle History</div>`;
   html += `<div class="rr-cycle-timeline">`;
-  ac.forEach(c => {
+  ac.forEach((c, _chIdx) => {
     const isActive   = (c === activeCycle);
     const isObtained = /^obtained/i.test(c.type);
     const isTBA      = c.releaseDate === 'TBA' || !c.releaseDate;
@@ -690,6 +833,11 @@ function buildRevMgmtSection(co) {
         }).join('')
       : mtDisp;
 
+    /* Baris ini sedang disunting? Kunci memakai kode company + indeks, supaya
+       membuka penyuntingan di satu company tidak ikut membuka baris company
+       lain yang kebetulan berindeks sama. */
+    const _chSedang = (_chEdit === co.code + '|' + _chIdx);
+
     // PERTEK/SPI date display
     const pertekDateDisp = c.pertekDate ? ` · PERTEK: <strong>${fmtDateStd(c.pertekDate)}</strong>` : '';
     const spiDateDisp    = c.spiDate    ? ` · SPI: <strong>${fmtDateStd(c.spiDate)}</strong>`       : '';
@@ -699,10 +847,16 @@ function buildRevMgmtSection(co) {
       <div class="rr-cycle-body">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
           <div class="rr-cycle-type">${canonProdInText(c.type)}${isActive ? ' <span style="font-size:9px;font-weight:700;padding:1px 5px;background:var(--amber-lt);color:#fff;border-radius:3px;margin-left:4px">ACTIVE</span>' : ''}</div>
+          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
           ${isObt2TBA ? `<button onclick="document.getElementById('rrObtTotal')?.scrollIntoView({behavior:'smooth',block:'center'}); document.querySelector('.rr-obt-prod-inp')?.focus()"
-            style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid var(--teal-bd);background:var(--teal-bg);color:var(--teal);cursor:pointer;white-space:nowrap;flex-shrink:0">
+            style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid var(--teal-bd);background:var(--teal-bg);color:var(--teal);cursor:pointer;white-space:nowrap">
             ✏️ Isi Obtained MT
           </button>` : ''}
+          ${_chSedang ? '' : `<button onclick="chStartEdit('${co.code}',${_chIdx})" title="Ubah tanggal Submit / Release / PERTEK Terbit / SPI Terbit"
+            style="font-size:9.5px;font-weight:600;padding:2px 8px;border-radius:4px;border:1px solid var(--border2);background:var(--surf);color:var(--txt3);cursor:pointer;white-space:nowrap">
+            ✏️ Tanggal
+          </button>`}
+          </div>
         </div>
         <div class="rr-cycle-meta" style="margin-top:3px;flex-wrap:wrap">${prodLines}</div>
         <div class="rr-cycle-meta" style="margin-top:2px">
@@ -710,6 +864,7 @@ function buildRevMgmtSection(co) {
           ${c.releaseType||'Release'}: <strong>${c.releaseDate==='TBA'?'TBA':(fmtDateStd(c.releaseDate)||'TBA')}</strong>${pertekDateDisp}${spiDateDisp}
         </div>
         ${c.status ? `<div class="rr-cycle-status">${c.status}</div>` : ''}
+        ${_chSedang ? _chEditRow(co.code, _chIdx, c) : ''}
       </div>
     </div>`;
   });
