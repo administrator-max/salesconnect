@@ -82,6 +82,24 @@ function buildCycleTimeline(co) {
   <div id="${cycleId}" style="padding:4px 0 8px">${rows}</div>`;
 }
 
+/**
+ * Nama yang dicetak di header drawer.
+ *
+ * Sumbernya companies.full_name — kolom yang memang diubah tim saat mengganti
+ * nama company. company_directory SENGAJA tidak dipakai: nama di sana dipakai
+ * lookupCompanyCodeByName() untuk menebak company dari NAMA BERKAS saat impor
+ * realisasi ("Andalan Maju Persada.xlsx" -> AMP). Menimpanya akan merusak
+ * pencocokan itu diam-diam — dan nama seperti "AMP / SUJU" tidak mungkin jadi
+ * nama berkas karena mengandung garis miring.
+ *
+ * Dicetak hanya bila BERBEDA dari kodenya, supaya company tanpa full_name
+ * tidak menampilkan pemisah yang menggantung.
+ */
+function _dwNama(co, code) {
+  const n = String((co && co.fullName) || '').trim();
+  return (n && n.toUpperCase() !== String(code).toUpperCase()) ? n : '';
+}
+
 function openDrawer(code) {
   const co = getSPI(code); if (!co) { openDrawerPending(code); return; }
   const ra = getRA(code);
@@ -101,7 +119,12 @@ function openDrawer(code) {
 
   document.getElementById('d-code').textContent = code;
   const _rs = revisionStatus(co);
-  document.getElementById('d-grp').textContent = `Group ${co.group}  ·  ${_rs==='clean'?'Completed':_rs==='active'?'Under Revision':_rs==='revpending'?'PENDING — PERTEK Terbit, SPI Belum':'COMPLETE — SPI Terbit'}`;
+  {
+    const _nm = _dwNama(co, code);
+    document.getElementById('d-grp').textContent =
+      (_nm ? _nm + '  ·  ' : '') +
+      `Group ${co.group}  ·  ${_rs==='clean'?'Completed':_rs==='active'?'Under Revision':_rs==='revpending'?'PENDING — PERTEK Terbit, SPI Belum':'COMPLETE — SPI Terbit'}`;
+  }
 
   const statRow = `<div class="d-stats">
     <div class="d-stat"><div class="d-sv" style="color:var(--teal)">${fmtMt(co.obtained)}</div><div class="d-sl">MT Obtained</div></div>
@@ -371,7 +394,12 @@ function openDrawerPending(code) {
   const statusColor = hasPertek ? 'var(--orange)' : 'var(--red2)';
 
   document.getElementById('d-code').textContent = code;
-  document.getElementById('d-grp').textContent = `Group ${co.group}  ·  ${hasPertek ? 'PENDING — PERTEK Terbit' : 'New Submission'}`;
+  {
+    const _nm = _dwNama(co, code);
+    document.getElementById('d-grp').textContent =
+      (_nm ? _nm + '  ·  ' : '') +
+      `Group ${co.group}  ·  ${hasPertek ? 'PENDING — PERTEK Terbit' : 'New Submission'}`;
+  }
   document.getElementById('d-body').innerHTML = `
     <div class="notice ${hasPertek ? 'n-orange' : 'n-red'}" style="margin-bottom:14px">
       <strong>${statusLabel}</strong><br>${co.status||''} · ${co.date||''}
