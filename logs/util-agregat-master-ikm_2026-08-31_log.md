@@ -200,3 +200,35 @@ Yang ditunggu dari CorpSec cuma satu: **apakah benar SNSD belum punya utilisasi
 sama sekali?** Kalau ya, barisnya tinggal dibuat `GI BORON · util 0 · avail 120`
 dan selesai — tidak ada angka yang bergerak, hanya berhenti bergantung pada
 cadangan.
+
+## SJH — ledger 90 MT di depan siklus (03-Sep-2026)
+
+Ditemukan saat memverifikasi kelima permintaan tim 03-Sep. Dua permukaan
+memberi angka berbeda untuk company yang sama:
+
+```
+quotaLedger.json  SJH  {7225.99.90: {obtained: 390, util: 390}}   <- snapshot 3-Agu
+cycles            Obtained #1  300 MT GL ALLOY  SPI 06/01/2026
+                  Revision Request — GL ALLOY  3.000 MT, CorpSec 01-Sep-26
+```
+
+`canonicalObtained()` membaca siklus dan memberi **300**; peta per-produk
+dipatok ledger dan memberi **390**. Akibatnya kartu Overview (35.170) berbeda
+90 MT dari Σ tabel PERTEK & SPI (35.260).
+
+**Bukan akibat perubahan 03-Sep.** Perubahan saya hari itu hanya menyentuh
+DIOR (cycles + cycle_products), AMP (`full_name`), dan SATU entri ledger milik
+DIOR — dibuktikan oleh diff ledger yang hanya berisi pergantian kunci HS DIOR,
+dan oleh cadangan pra-perubahan yang sudah memuat SJH dengan tiga siklus yang
+sama persis. Pemeriksaan Σ-tabel-vs-kartu sempat LULUS di 35.260 sebelum tim
+menyunting data hari itu.
+
+**Tidak diperbaiki, dan sengaja.** Menentukan mana yang benar butuh master
+Excel terbaru atau konfirmasi CorpSec:
+
+- kalau **390** benar, siklusnya kurang 90 MT — ada Obtained yang belum dicatat;
+- kalau **300** benar, ledger-nya yang tertinggal, dan itu memperkuat temuan
+  lama bahwa `quotaLedger.json` (regen terakhir 03/08/2026) sudah usang —
+  `test_ledger.php` pun sudah lama melaporkannya meleset ~300 MT dari master.
+
+Menebak salah satunya berarti menulis angka kuota yang tidak berdasar.
