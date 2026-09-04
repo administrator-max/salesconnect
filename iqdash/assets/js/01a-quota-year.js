@@ -582,10 +582,31 @@ function productGrantHistory(co) {
  *
  * All | Completed | Under Submission | Pending | New Submission
  */
+/**
+ * Apakah company ini SUDAH punya SPI yang terbit.
+ *
+ * Kolom `section` pada sheet companies menyimpan asal-usul baris, dan tidak
+ * ikut berubah ketika SPI-nya keluar. SNSD masih bersection PENDING padahal
+ * SPI-nya terbit 07/08/2026 dengan Validity 31/12/2026 — dan karena itu
+ * terus terbaca "⏳ Pending" di tab PERTEK & SPI. Dilaporkan tim
+ * 04-Sep-2026.
+ *
+ * Yang ditanyakan di sini adalah faktanya, bukan keterangan asalnya: ada
+ * siklus Obtained ber-MT dengan tanggal SPI yang sah.
+ */
+function _spiSudahTerbit(co) {
+  return ((co && co.cycles) || []).some(c => {
+    if (!/^obtained/i.test(c.type || '')) return false;
+    if ((Number(c.mt) || 0) <= 0) return false;
+    const sd = String(c.spiDate || '').trim();
+    return !!sd && !/^(TBA|null|undefined|—)$/i.test(sd);
+  });
+}
+
 function processStatus(co) {
   if (!co) return { key: 'pending', label: '⏳ Pending' };
   const seksi = String(co.section || '').toUpperCase();
-  if (seksi === 'PENDING') {
+  if (seksi === 'PENDING' && !_spiSudahTerbit(co)) {
     const adaPertek = (typeof _pendingHasPertek === 'function') ? _pendingHasPertek(co) : false;
     return adaPertek
       ? { key: 'pending', label: '⏳ Pending' }

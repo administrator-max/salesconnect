@@ -1029,6 +1029,57 @@ function getObtainedByProdAgg(co) {
         if (v > 0) { const k = canonicalProduct(p); result[k] = (result[k] || 0) + v; }
       });
     });
+    return result;
+  }
+
+  /* Cadangan KEDUA — stats ADA tapi TERTINGGAL.
+   *
+   * Cadangan di atas hanya menyala kalau stats sama sekali kosong. Tapi
+   * bentuk yang lebih sering terjadi adalah stats yang ada namun belum
+   * mencakup kuota terbaru: master di-refresh berkala, sedangkan kuota
+   * dicatat lewat UI kapan saja. AMP punya stats (GL 400 · PPGL 400) dan
+   * Obtained #2 sebesar 200 MT GL ALLOY yang belum masuk ke sana. Karena
+   * cadangan pertama tidak menyala, 200 MT itu tidak pernah muncul di
+   * Available Quota — padahal total company-nya sudah benar 1.000.
+   * Dilaporkan tim 04-Sep-2026.
+   *
+   * KENAPA SELISIH, BUKAN max(stats, siklus) PER PRODUK: stats menyimpan
+   * NET SESUDAH revisi, siklus menyimpan produk SEBELUM revisi. Mengambil
+   * yang terbesar per produk akan menghidupkan kembali produk lama pada 8
+   * company berrevisi — BDG stats GL 650 + GI 350 sementara siklusnya
+   * BORDES 1.000, jadi max() menambah 1.000 MT BORDES yang sudah tidak
+   * dimiliki siapa pun. Yang benar: stats tetap berwenang atas apa yang
+   * sudah dicakupnya, dan hanya KEKURANGANNYA yang diambil dari siklus,
+   * dimulai dari siklus TERBARU — karena justru yang terbaru itu yang
+   * belum sempat masuk master.
+   *
+   * Diukur ke 41 company: hanya AMP yang kekurangan (+200 GL ALLOY).
+   * 38 company selisihnya nol. SJH selisihnya NEGATIF (-90; stats 390 vs
+   * siklus 300) dan sengaja tidak disentuh — itu perbedaan data yang
+   * sedang ditanyakan ke CorpSec, dan __auditObtained() sudah melaporkannya.
+   * Menambal diam-diam akan menghapus laporan itu sebelum dijawab. */
+  if (typeof canonicalObtained === 'function' && typeof getCycleBreakdown === 'function') {
+    let adaDiStats = 0;
+    Object.values(result).forEach(v => { adaDiStats += Number(v) || 0; });
+    let kurang = (Number(canonicalObtained(co)) || 0) - adaDiStats;
+    if (kurang > 0.001) {
+      const noSiklus = t => { const m = String(t || '').match(/#\s*(\d+)/); return m ? +m[1] : 0; };
+      const siklus = getCycleBreakdown(co, 'obtained').slice()
+        .sort((a, b) => noSiklus(b.type) - noSiklus(a.type));
+      siklus.forEach(cy => {
+        if (kurang <= 0.001) return;
+        const isi = Object.entries(cy.products || {}).filter(([, v]) => (Number(v) || 0) > 0);
+        const totalSiklus = isi.reduce((a, [, v]) => a + (Number(v) || 0), 0);
+        if (totalSiklus <= 0) return;
+        const ambil = Math.min(kurang, totalSiklus);
+        isi.forEach(([p, v]) => {
+          const bagian = ambil * ((Number(v) || 0) / totalSiklus);
+          const k = canonicalProduct(p);
+          result[k] = (result[k] || 0) + bagian;
+        });
+        kurang -= ambil;
+      });
+    }
   }
   return result;
 }
@@ -1060,7 +1111,7 @@ function getCycleBreakdown(co, mode, prod) {
     // — for obtained mode — skip not-yet-terbit (release TBA / invalid).
     const cycMt = typeof c.mt === 'number' ? c.mt : 0;
     if (cycMt <= 0) return;
-    if (mode === 'obtained' && typeof _isObtainedTerbit === 'function' && !_isObtainedTerbit(c)) return;
+    if (mode === 'obtained' && typeof _isObtainedTerbit === 'function' && !_isObtainedTerbit(c, co.cycles || [])) return;
     let mt;
     if (prod) {
       const v = (c.products || {})[prod];
