@@ -286,7 +286,7 @@ function renderMain() {
           <div class="t-code" onclick="openDrawer('${d.code}')">${coLabel(d.code)}</div>
           <div style="font-size:9px;color:var(--txt3);margin-top:1px">▼ ${d.subRows.length} products</div>
         </td>
-        <td style="font-size:11.5px;font-weight:600">${d.group}</td>
+        <td style="font-size:11.5px;font-weight:600">${d.group || '—'}</td>
         <td style="font-size:10.5px;color:var(--txt3);font-style:italic">${d.products.length} products · total</td>
         <td class="t-r t-mono" style="font-weight:700">${fmtMt(d.submit1)}</td>
         <td class="t-r t-mono" style="color:${d.obtained>0?'var(--teal)':'var(--txt3)'};font-weight:700">${d.obtained>0?fmtMt(d.obtained):'—'}</td>
@@ -324,7 +324,7 @@ function renderMain() {
     } else {
       tr.innerHTML = `
         <td><div class="t-code" onclick="openDrawer('${d.code}')">${coLabel(d.code)}</div></td>
-        <td style="font-size:11.5px;font-weight:600">${d.group}</td>
+        <td style="font-size:11.5px;font-weight:600">${d.group || '—'}</td>
         <td>${chips(d.products)}</td>
         <td class="t-r t-mono">${fmtMt(d.submit1)}</td>
         <td class="t-r t-mono" style="color:${d.obtained>0?'var(--teal)':'var(--txt3)'}">${d.obtained>0?fmtMt(d.obtained):'—'}</td>
