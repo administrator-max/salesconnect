@@ -625,7 +625,8 @@ function refreshAvqDrill() {
   if (_avqHsSearch)  rows = rows.filter(r =>
     r.product.toLowerCase().includes(_avqHsSearch) ||
     r.hs.toLowerCase().includes(_avqHsSearch) ||
-    r.code.toLowerCase().includes(_avqHsSearch)
+    r.code.toLowerCase().includes(_avqHsSearch) ||
+    coLabel(r.code).toLowerCase().includes(_avqHsSearch)
   );
 
   // ── Summary stats (on filtered rows) ─────────────────────────────────

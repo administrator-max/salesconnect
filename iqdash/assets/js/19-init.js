@@ -668,7 +668,8 @@ function buildAvqTable() {
   if (_avqTableHsSearch) rows = rows.filter(r =>
     r.prod.toLowerCase().includes(_avqTableHsSearch) ||
     r.hs.toLowerCase().includes(_avqTableHsSearch) ||
-    r.code.toLowerCase().includes(_avqTableHsSearch)
+    r.code.toLowerCase().includes(_avqTableHsSearch) ||
+    coLabel(r.code).toLowerCase().includes(_avqTableHsSearch)
   );
 
   tbody.innerHTML = rows.map(r => {

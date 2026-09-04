@@ -187,6 +187,7 @@ function renderMain() {
   let rows = all.filter(d => {
     const mq = !q
       || d.code.toLowerCase().includes(q.toLowerCase())
+      || coLabel(d.code).toLowerCase().includes(q.toLowerCase())
       || d.products.some(p => p.toLowerCase().includes(q.toLowerCase()))
       || (d.spiRef||'').toLowerCase().includes(q.toLowerCase());
     const mf = mFilter==='ALL'      ? true

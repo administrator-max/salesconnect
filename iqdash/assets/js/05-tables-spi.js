@@ -555,6 +555,7 @@ function renderSPI() {
   if (spiFilter === 'NEWSUB') {
     let pRows = filteredPending().filter(d => {
       if (!(!q || d.code.toLowerCase().includes(q.toLowerCase()) ||
+            coLabel(d.code).toLowerCase().includes(q.toLowerCase()) ||
         (d.products||[]).some(p => p.toLowerCase().includes(q.toLowerCase())))) return false;
       // Exclude PENDING companies with PERTEK (they show under REVPENDING tab)
       const hasPendingPertek = _pendingHasPertek(d);
@@ -588,7 +589,9 @@ function renderSPI() {
   /* ── All other tabs: SPI companies ── */
   let rows = [...filteredSPI()].filter(d => {
     const rs = revisionStatus(d);
-    const mq = !q || d.code.toLowerCase().includes(q.toLowerCase()) || d.products.some(p=>p.toLowerCase().includes(q.toLowerCase()));
+    const mq = !q || d.code.toLowerCase().includes(q.toLowerCase())
+      || coLabel(d.code).toLowerCase().includes(q.toLowerCase())
+      || d.products.some(p=>p.toLowerCase().includes(q.toLowerCase()));
     const mf = spiFilter==='ALL'         ? true
              : spiFilter==='CLEAN'       ? (rs==='clean' || rs==='completed')
              : spiFilter==='REV'         ? (rs==='active' || rs==='reapply')
@@ -603,6 +606,7 @@ function renderSPI() {
     const pertekPending = filteredPending().filter(d =>
       _pendingHasPertek(d) &&
       (!q || d.code.toLowerCase().includes(q.toLowerCase()) ||
+       coLabel(d.code).toLowerCase().includes(q.toLowerCase()) ||
        (d.products||[]).some(p => p.toLowerCase().includes(q.toLowerCase())))
     );
     pertekPending.forEach(d => {

@@ -431,11 +431,13 @@ function handleSearch(q) {
   const results = [];
   filteredSPI().forEach(co => {
     const sc = (co.code.toLowerCase().startsWith(ql)?3:0)+(co.code.toLowerCase().includes(ql)?2:0)+
+               (coLabel(co.code).toLowerCase().includes(ql)?2:0)+
                (co.products.some(p=>p.toLowerCase().includes(ql))?1:0)+(co.spiRef.toLowerCase().includes(ql)?1:0);
     if (sc > 0) results.push({type:'SPI', co, sc});
   });
   PENDING.forEach(co => {
-    const sc = (co.code.toLowerCase().includes(ql)?2:0)+(co.products.some(p=>p.toLowerCase().includes(ql))?1:0);
+    const sc = (co.code.toLowerCase().includes(ql)?2:0)+(coLabel(co.code).toLowerCase().includes(ql)?2:0)+
+               (co.products.some(p=>p.toLowerCase().includes(ql))?1:0);
     if (sc > 0) results.push({type:'PENDING', co, sc});
   });
   results.sort((a,b) => b.sc - a.sc);

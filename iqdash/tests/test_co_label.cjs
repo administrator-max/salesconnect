@@ -100,5 +100,27 @@ console.log('\nE · kunci penghubung tidak ikut diganti di berkas render');
     JSON.stringify(bocor));
 }
 
+console.log('\nF · Pencarian mengenali label, bukan cuma kode');
+{
+  /* Tim melihat "AMP / SUJU" di kolom COMPANY, jadi wajar mereka mengetik
+     "SUJU". Kotak pencarian yang tidak menemukan nama yang tercetak di
+     layarnya sendiri adalah jebakan — sebelum diperbaiki, cari "AMP" dapat 2
+     baris sedangkan "SUJU" cuma 1. Dikunci di tingkat sumber: setiap tempat
+     yang mencocokkan kode harus mencocokkan labelnya juga, supaya penyaring
+     baru tidak diam-diam mengulang lubang yang sama. */
+  const lolos = [], bolong = [];
+  fs.readdirSync(JS).filter(f => f.endsWith('.js')).forEach(f => {
+    const baris = fs.readFileSync(path.join(JS, f), 'utf8').split(/\r?\n/);
+    baris.forEach((ln, i) => {
+      if (!/\.code\.toLowerCase\(\)/.test(ln)) return;
+      const jendela = baris.slice(Math.max(0, i - 2), i + 3).join('\n');
+      (/coLabel\(/.test(jendela) ? lolos : bolong).push(f + ':' + (i + 1));
+    });
+  });
+  ok(bolong.length === 0,
+    `${lolos.length} tempat pencocokan kode semuanya berpasangan dengan coLabel`,
+    'tanpa pasangan: ' + JSON.stringify(bolong));
+}
+
 console.log(`\n${pass} pass · ${fail} fail`);
 process.exit(fail ? 1 : 0);

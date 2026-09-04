@@ -238,6 +238,7 @@ function buildSpiTerbitTable() {
      dilihat. */
   const cocokQ = r => !q || (
        r.code.toLowerCase().includes(q)
+    || coLabel(r.code).toLowerCase().includes(q)
     || String(r.product).toLowerCase().includes(q)
     || String(r.group).toLowerCase().includes(q)
     || String(r.spiNo).toLowerCase().includes(q)
