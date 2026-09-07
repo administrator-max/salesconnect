@@ -30,6 +30,61 @@ function toggleUtilCo(code) {
   });
 }
 
+/* Bagi realisasi satu company ke produk-produknya.
+   Porsinya dari realizationByProd (bentuk realisasi company itu sepanjang
+   waktu); kalau kosong, jatuh ke porsi obtained; kalau itu pun nol, seluruhnya
+   ke produk pertama. Sisa pembagian ditaruh di produk TERAKHIR supaya Σ baris
+   persis sama dengan totalnya — bukan sama "kurang-lebih".
+
+   Di ruang lingkup berkas, bukan di dalam renderUtilTable(): tabel Re-Apply
+   Monitoring (#raBody) membagi realisasi yang SAMA ke produk yang sama. Menyalin
+   fungsinya ke sana akan membuat dua pembagi yang bisa menyimpang diam-diam —
+   persis pola yang sedang dibereskan di berkas ini. */
+function splitRealPd(total, prods, rbp, obtByProd) {
+  const out = {};
+  if (!prods.length) return out;
+  if (!(total > 0)) { prods.forEach(p => { out[p] = 0; }); return out; }
+  let basis = prods.map(p => Math.max(0, (rbp && rbp[p]) || 0));
+  let sum   = basis.reduce((a, b) => a + b, 0);
+  if (sum <= 0) {
+    basis = prods.map(p => Math.max(0, (obtByProd && obtByProd[p]) || 0));
+    sum   = basis.reduce((a, b) => a + b, 0);
+  }
+  if (sum <= 0) { prods.forEach((p, i) => { out[p] = i === 0 ? total : 0; }); return out; }
+  let acc = 0;
+  prods.forEach((p, i) => {
+    if (i === prods.length - 1) { out[p] = Math.round((total - acc) * 1e6) / 1e6; return; }
+    const v = Math.round(total * (basis[i] / sum) * 1e6) / 1e6;
+    out[p] = v; acc += v;
+  });
+  return out;
+}
+
+/* Satu record per COMPANY dari beberapa gelombang kedatangan (raTotals), dengan
+   realPct dihitung ulang dari berat gabungannya. Dipakai dua tabel di berkas
+   ini; keduanya dulu mengulang filteredRA() apa adanya dan mencetak company
+   dua-gelombang (AMP, SGD) dua kali. */
+function raPerCompany(pool) {
+  const rows = pool || (typeof filteredRA === 'function' ? filteredRA() : []);
+  const perKode = {};
+  rows.forEach(r => { if (r && r.code) (perKode[r.code] = perKode[r.code] || []).push(r); });
+  return Object.keys(perKode).map(code => {
+    const ws = perKode[code];
+    if (ws.length === 1) return ws[0];
+    const t = (typeof raTotals === 'function')
+      ? raTotals(code, ws)
+      : { berat: ws.reduce((s, r) => s + (Number(r.berat) || 0), 0), arrived: ws.some(r => r.cargoArrived) };
+    const dasar = ws[ws.length - 1];
+    const obt   = Number(dasar.obtained) || 0;
+    return Object.assign({}, dasar, {
+      berat:        t.berat,
+      cargoArrived: t.arrived,
+      realPct:      obt > 0 ? t.berat / obt : (dasar.realPct || 0),
+      _gelombang:   ws.length,
+    });
+  });
+}
+
 /* Realization Monitoring — flat per-product rows, one row per product per company */
 function renderUtilTable() {
   buildFlowKPIStrip();
@@ -70,31 +125,6 @@ function renderUtilTable() {
      harus dipisah — kalau tidak, cadangan utilMT dan aturan 'arrived' ikut
      berubah di All Time, jauh melampaui yang diukur. */
   const periodeAktif = (typeof PERIOD !== 'undefined' && PERIOD.active);
-
-  /* Bagi realisasi periode satu company ke produk-produknya.
-     Porsinya dari realizationByProd (bentuk realisasi company itu sepanjang
-     waktu); kalau kosong, jatuh ke porsi obtained; kalau itu pun nol, seluruhnya
-     ke produk pertama. Sisa pembagian ditaruh di produk TERAKHIR supaya Σ baris
-     persis sama dengan totalnya — bukan sama "kurang-lebih". */
-  function splitRealPd(total, prods, rbp, obtByProd) {
-    const out = {};
-    if (!prods.length) return out;
-    if (!(total > 0)) { prods.forEach(p => { out[p] = 0; }); return out; }
-    let basis = prods.map(p => Math.max(0, (rbp && rbp[p]) || 0));
-    let sum   = basis.reduce((a, b) => a + b, 0);
-    if (sum <= 0) {
-      basis = prods.map(p => Math.max(0, (obtByProd && obtByProd[p]) || 0));
-      sum   = basis.reduce((a, b) => a + b, 0);
-    }
-    if (sum <= 0) { prods.forEach((p, i) => { out[p] = i === 0 ? total : 0; }); return out; }
-    let acc = 0;
-    prods.forEach((p, i) => {
-      if (i === prods.length - 1) { out[p] = Math.round((total - acc) * 1e6) / 1e6; return; }
-      const v = Math.round(total * (basis[i] / sum) * 1e6) / 1e6;
-      out[p] = v; acc += v;
-    });
-    return out;
-  }
 
   // ── Build flat per-product rows from RA + SPI data ────────────────────────────
   function buildFlatRows(d) {
@@ -188,23 +218,7 @@ function renderUtilTable() {
    * memang benar, dua gelombang itu nyata.
    *
    * Kolamnya dioper apa adanya supaya penyaringan periode tetap berlaku. */
-  const baseRA = (() => {
-    const pool = filteredRA();
-    const urut = [];
-    const sudah = new Set();
-    pool.forEach(r => {
-      const k = String(r.code || '').toUpperCase();
-      if (!k || sudah.has(k)) return;
-      sudah.add(k);
-      const t = (typeof raTotals === 'function') ? raTotals(r.code, pool) : null;
-      urut.push(t ? Object.assign({}, r, {
-        berat:        t.berat,
-        cargoArrived: t.arrived,
-        _gelombang:   t.count,
-      }) : r);
-    });
-    return urut;
-  })();
+  const baseRA = raPerCompany(filteredRA());
   /* ── Company ber-UTILISASI, dari kolam dan ukuran yang sama dengan kartunya ─
      Kolamnya utilizationPool(kpiPool()) dan ukurannya scopedUtilTotal() —
      dua fungsi yang persis dipakai reportUtilizedTotal(). Sebelumnya baris ini
@@ -570,7 +584,41 @@ function renderRATable() {
     if (!d.cargoArrived)       return 2;
     return 3;
   };
-  const sorted = [...filteredRA()].sort((a,b) => {
+  /* ── Realisasi per company: sumber yang sama dengan kartunya ───────────────
+     Dulu tabel ini menghitung realisasinya SENDIRI — Σ realizationByProd untuk
+     baris induk, rbp[prod] untuk baris anak, utilizationByProd untuk kolom
+     utilisasi. Tiga-tiganya kolom SEPANJANG WAKTU, sehingga begitu periode
+     dipilih tabel ini menjawab pertanyaan yang berbeda dari kartu Realized dan
+     dari tabel Realization Monitoring di layar yang sama. Terukur pada Q3 2026:
+     kartu 2.176,008 sementara tabel ini menjumlah 12.822,326.
+
+     Sekarang lewat realizedByCompany() — kolam dan gerbang tanggal yang sama
+     dengan kartu — lalu dibagi ke produk oleh splitRealPd(). */
+  const periodeAktifRA = (typeof PERIOD !== 'undefined' && PERIOD.active);
+  const realPd  = (typeof realizedByCompany === 'function') ? realizedByCompany() : null;
+  const realPdOf = code => (realPd ? (realPd[String(code).toUpperCase()] || 0) : 0);
+
+  /* Realisasi SEPANJANG WAKTU, dipakai HANYA untuk kelayakan re-apply.
+     "Eligible" (realisasi ≥ 60%) adalah pernyataan tentang KEADAAN company —
+     kesiapannya mengajukan ulang — bukan tentang jendela yang sedang dilihat.
+     Kalau ia ikut diiris periode, company yang sudah 80% terealisasi akan
+     berpindah ke "< 60%" hanya karena penggunanya menyempitkan filter ke satu
+     hari, dan daftar "siap re-apply" jadi tidak bisa dipakai. Sama alasannya
+     dengan gerbang "Awaiting Utilization" di tabel atas. */
+  const realSeumur = (typeof _asOfPeriod === 'function' && typeof realizedByCompany === 'function')
+    ? _asOfPeriod(null, null, () => realizedByCompany())
+    : (realPd || {});
+  const realSeumurOf = code => (realSeumur[String(code).toUpperCase()] || 0);
+
+  /* realPct diseragamkan ke definisi realisasi yang sama — isEligible() membaca
+     properti ini, jadi kalau ia tetap dari `ra.berat` sementara kolomnya dari
+     realizedByCompany(), badge dan angka di baris yang sama bisa bercerita
+     berbeda. Satu definisi untuk keduanya. */
+  const sorted = raPerCompany(filteredRA()).map(d => {
+    const obt = Number(d.obtained) || 0;
+    const rs  = realSeumurOf(d.code);
+    return (obt > 0) ? Object.assign({}, d, { realPct: rs / obt }) : d;
+  }).sort((a,b) => {
     const gd = group(a) - group(b);
     if (gd !== 0) return gd;
     // Within same group: sort A→Z by company code
@@ -637,32 +685,44 @@ function renderRATable() {
       : `<div><span style='font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-bd)'>🚢 In Shipment</span>
          <div style='font-size:9px;color:var(--txt3);margin-top:2px'>ETA: ${d.etaJKT||'—'}</div></div>`;
 
-    // Company-level Realization MT
-    // Use sum of realizationByProd if present (exact per-product figures); else fall back to d.berat
+    // Company-level Realization MT — realizedByCompany(), sama dengan kartunya
     const rbpParent   = coSPI ? (coSPI.realizationByProd || {}) : {};
     const abpParent   = coSPI ? (coSPI.arrivedByProd     || {}) : {};
-    const hasRBPParent = Object.keys(rbpParent).length > 0;
-    const realMT = hasRBPParent
-      ? Object.values(rbpParent).reduce((s, v) => s + (v || 0), 0)
-      : (d.cargoArrived ? d.berat : 0);
-    const realPctCalc = d.obtained > 0 ? realMT / d.obtained : d.realPct;
-    const realMTCell = (d.cargoArrived || hasRBPParent)
+    /* SEPANJANG WAKTU, bukan diiris periode — dan itu bukan kelalaian.
+       Tooltip kolomnya sendiri yang menetapkannya: "Realization MT ÷ Obtained ×
+       100%. Eligibility threshold: ≥ 60%" dan "Obtained − Realization MT. Quota
+       not yet realized." Dua-duanya pernyataan tentang KEDUDUKAN company, bukan
+       tentang jendela — sama seperti kartu Available dan Pending Shipment, yang
+       juga kumulatif. Kalau angkanya diiris, rumus di tooltip itu patah: badge
+       ✅ Eligible akan berdiri di sebelah "12,5%".
+
+       Jadi di tabel ini periode menyaring BARIS MANA yang tampil, bukan
+       mengiris angkanya. Bandingkan dengan Realization Monitoring di atas, yang
+       memang mengukur ALIRAN di dalam jendela dan karena itu Σ-nya = kartu. */
+    const realMT      = realSeumurOf(d.code);
+    const adaReal     = realMT > 0;
+    const realPctCalc = d.obtained > 0 ? realMT / d.obtained : 0;
+    const realMTCell = adaReal
       ? `<div>
            <span style='font-size:12px;font-weight:700;color:${realColor(realPctCalc)}'>${realMT.toLocaleString(MT_LOCALE)}</span>
-           ${hasRBPParent && Object.keys(rbpParent).some(p => rbpParent[p] > 0 && !(abpParent[p]))
+           ${Object.keys(rbpParent).some(p => rbpParent[p] > 0 && !(abpParent[p]))
              ? `<div style='font-size:9px;color:var(--txt3);font-style:italic;margin-top:1px'>Partial · some products pending</div>`
              : ''}
          </div>`
       : `<span style='font-size:10px;color:var(--txt3);font-style:italic'>Pending arrival</span>`;
 
     // Company-level Realization %
-    const realPctCell = (d.cargoArrived || hasRBPParent)
+    const realPctCell = adaReal
       ? `<div><div style='font-size:12px;font-weight:700;color:${realColor(realPctCalc)};margin-bottom:2px'>${(realPctCalc*100).toFixed(1)}%</div>
            <div class='u-trk' style='width:65px'><div class='u-fill' style='width:${Math.min(realPctCalc*100,100)}%;background:${realFill(realPctCalc)}'></div></div></div>`
       : `<div><div style='font-size:12px;font-weight:700;color:var(--blue);margin-bottom:2px'>${d.utilPct!=null?(d.utilPct*100).toFixed(1)+'%':'—'}</div>
            <div style='font-size:9px;color:var(--txt3);font-style:italic'>Util% · pending arrival</div></div>`;
 
-    // Remaining Balance = obtained − total realization (exact figures)
+    /* Remaining Balance = obtained − realisasi SEPANJANG WAKTU. Saldo itu STOCK,
+       bukan aliran: periode menyaring company mana yang tampil, tidak mengiris
+       sisa kuotanya — aturan yang sama dipakai kartu Available dan Pending
+       Shipment. Memakai realisasi periode di sini akan mencetak "sisa 2.000 MT"
+       untuk company yang kuotanya sudah habis, hanya karena jendelanya sempit. */
     const remaining = Math.max(0, d.obtained - realMT);
     const remCell   = remaining > 0
       ? `<span style='font-size:12px;font-weight:700;color:var(--teal)'>${remaining.toLocaleString(MT_LOCALE)}</span>`
@@ -712,9 +772,16 @@ function renderRATable() {
     </tr>`;
 
     // ── ↳ Sub-rows: one per product for ALL companies ──────────────────
+    const pecahReal = splitRealPd(realMT, prodKeys, rbpParent, obtByProd);
     prodKeys.forEach(prod => {
       const prodObt    = obtByProd[prod] || 0;
-      const ubp        = coSPI ? (coSPI.utilizationByProd  || {}) : {};
+      /* scopedUtilByProd(), bukan `utilizationByProd` mentah — kolom ini dulu
+         satu-satunya di tabel yang tetap sepanjang waktu walau periodenya
+         diganti, jadi baris anak bisa menyebut angka utilisasi yang tidak ada
+         hubungannya dengan jendela yang sedang dilihat. */
+      const ubp        = (coSPI && typeof scopedUtilByProd === 'function')
+                           ? scopedUtilByProd(coSPI)
+                           : (coSPI ? (coSPI.utilizationByProd || {}) : {});
       const rbp        = coSPI ? (coSPI.realizationByProd  || {}) : {};
       const abp        = coSPI ? (coSPI.arrivedByProd      || {}) : {};
       const prodUtilMT = ubp[prod] || 0;
@@ -722,15 +789,13 @@ function renderRATable() {
       // Per-product arrival: use arrivedByProd if present, else company-level cargoArrived
       const prodArrived = Object.keys(abp).length > 0 ? (abp[prod] === true) : d.cargoArrived;
 
-      // Per-product realization: use realizationByProd if present, else proportional of berat
-      const hasRBP     = Object.keys(rbp).length > 0;
-      const prodRealMT = hasRBP
-        ? (rbp[prod] || 0)
-        : (prodArrived && d.obtained > 0
-            ? Math.round(d.berat * (prodObt / d.obtained) * 10) / 10
-            : 0);
+      /* Realisasi per produk = bagian company ini dari realizedByCompany(),
+         dibagi porsi realizationByProd — pembagi yang SAMA dengan tabel
+         Realization Monitoring, supaya dua tabel di layar yang sama tidak
+         membagi realisasi satu company dengan dua cara. */
+      const prodRealMT  = pecahReal[prod] || 0;
       const prodRealPct = prodObt > 0 ? prodRealMT / prodObt : 0;
-      // Remaining = obtained − realization (exact per-product figures)
+      /* Sisa itu stock — lihat catatan di Remaining Balance baris induk. */
       const prodRem     = Math.max(0, prodObt - prodRealMT);
 
       // Utilization cell — show for in-shipment products; "—" for fully arrived
@@ -743,11 +808,18 @@ function renderRATable() {
                </div>`
             : `<span style='font-size:10px;color:var(--txt3)'>—</span>`);
 
-      // Realization cell — exact figure if arrived; util MT if still in shipment
-      const subRealMTCell = prodArrived
+      /* Gerbangnya realisasi produk itu sendiri, bukan `arrivedByProd`.
+         Kolom ini KOLOM REALISASI, tapi saat arrivedByProd kosong atau false ia
+         mencetak angka UTILISASI dengan label kecil "Util · Real pending" — dan
+         karena arrivedByProd hampir selalu false, itulah yang biasanya terlihat.
+         Akibatnya Σ baris anak tidak pernah sama dengan baris induknya: CGK
+         menjumlah 1.270 (utilisasinya) di bawah induk yang menunjuk 983,188.
+         Cadangan utilisasi tetap ada, tapi hanya ketika realisasinya memang
+         belum ada. */
+      const subRealMTCell = prodRealMT > 0
         ? `<div>
              <span style='font-size:11.5px;font-weight:600;color:${realColor(prodRealPct)}'>${prodRealMT.toLocaleString(MT_LOCALE)}</span>
-             <span style='font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:#dcfce7;color:var(--green);border:1px solid #bbf7d0;margin-left:4px'>✓ Arrived</span>
+             ${prodArrived ? `<span style='font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:#dcfce7;color:var(--green);border:1px solid #bbf7d0;margin-left:4px'>✓ Arrived</span>` : ''}
            </div>`
         : (prodUtilMT > 0
             ? `<div>
@@ -756,7 +828,7 @@ function renderRATable() {
                </div>`
             : `<span style='font-size:10px;color:var(--txt3);font-style:italic'>Pending arrival</span>`);
 
-      const subRealPctCell = prodArrived
+      const subRealPctCell = prodRealMT > 0
         ? `<div style='display:flex;flex-direction:column;gap:2px'>
              <span style='font-size:11.5px;font-weight:700;color:${realColor(prodRealPct)}'>${(prodRealPct*100).toFixed(1)}%</span>
              <div class='u-trk' style='width:55px'><div class='u-fill' style='width:${Math.min(prodRealPct*100,100)}%;background:${realFill(prodRealPct)}'></div></div>
@@ -769,7 +841,7 @@ function renderRATable() {
             : `<span style='font-size:10px;color:var(--txt3);font-style:italic'>Pending arrival</span>`);
 
       // Remaining = obtained − realization; "—" if product not yet arrived
-      const subRemCell = prodArrived
+      const subRemCell = prodRealMT > 0
         ? (prodRem > 0
             ? `<span style='font-size:11.5px;font-weight:600;color:var(--teal)'>${prodRem.toLocaleString(MT_LOCALE)}</span>`
             : `<span style='font-size:10px;font-weight:700;color:var(--green)'>✓ Full</span>`)

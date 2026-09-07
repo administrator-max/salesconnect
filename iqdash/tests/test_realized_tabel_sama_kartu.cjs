@@ -428,5 +428,112 @@ SEMUA.forEach(([nama, f, t, mode]) => {
 }
 
 
+console.log('\nJ · Re-Apply Monitoring (#raBody) — satu sumber realisasi, satu baris per company');
+/* Tabel keempat yang menjawab "berapa realisasi company ini" dengan caranya
+   sendiri: Σ realizationByProd untuk baris induk, rbp[prod] untuk baris anak,
+   utilizationByProd untuk kolom utilisasinya. Ketiganya kolom mentah.
+
+   BEDA DENGAN TABEL DI ATAS, DAN SENGAJA: tabel ini memakai realisasi
+   SEPANJANG WAKTU, bukan yang diiris periode. Tooltip kolomnya sendiri yang
+   menetapkan — "Realization MT ÷ Obtained × 100%. Eligibility threshold: ≥ 60%"
+   dan "Obtained − Realization MT. Quota not yet realized." Dua-duanya
+   pernyataan tentang KEDUDUKAN company, bukan tentang jendelanya; kalau
+   diiris, badge ✅ Eligible akan berdiri di sebelah "12,5%". Jadi di sini
+   periode menyaring BARIS MANA yang tampil, bukan mengiris angkanya.
+
+   Yang dikunci: angkanya = realizedByCompany() sepanjang waktu, sisanya =
+   obtained − angka itu, Σ baris anak = induknya, dan tiap company tepat satu
+   baris. */
+function bacaRA() {
+  call('renderRATable()');
+  const html = nodes['raBody'].innerHTML;
+  const bersihRA = s => String(s).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').replace(/&amp;/g, '&').trim();
+  const angkaRA = s => { const m = bersihRA(s).replace(/,/g, '').match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : 0; };
+  const induk = [], anak = [];
+  const trRe = /<tr\b([^>]*)>([\s\S]*?)<\/tr>/g;
+  let m;
+  while ((m = trRe.exec(html))) {
+    const tds = [];
+    const tdRe = /<td\b([^>]*)>([\s\S]*?)<\/td>/g;
+    let t; while ((t = tdRe.exec(m[2]))) tds.push({ attr: t[1], html: t[2] });
+    if (tds.length === 1 && /colspan/i.test(tds[0].attr)) continue;   // group header
+    if (tds.length < 9) continue;
+    const code = ((m[0].match(/openDrawer\('([^']+)'\)/) || [])[1]) || bersihRA(tds[0].html);
+    const isSub = /↳/.test(bersihRA(tds[0].html));
+    const rec = { code,
+      produk: bersihRA(tds[1].html).split('Obtained')[0].trim(),
+      real: angkaRA(tds[3].html),
+      sisa: /Full/i.test(bersihRA(tds[5].html)) ? 0 : angkaRA(tds[5].html),
+      status: bersihRA(tds[6].html) };
+    (isSub ? anak : induk).push(rec);
+  }
+  return { induk, anak,
+           counter: nodes['raMonitorCount'] ? nodes['raMonitorCount'].textContent : '',
+           badges: bersihRA(nodes['raMonitorBadges'] ? nodes['raMonitorBadges'].innerHTML : '') };
+}
+const PERIODE_RA = PERIODE.concat([['All Time', null, null, 'both']]);
+PERIODE_RA.forEach(([nama, f, t, mode]) => {
+  setPeriode(f, t, nama, mode);
+  const seumur = JSON.parse(call('JSON.stringify(_asOfPeriod(null,null,function(){return realizedByCompany();}))'));
+  const obtMap = JSON.parse(call('(function(){var o={};raPerCompany(filteredRA()).forEach(function(d){o[d.code]=d.obtained;});return JSON.stringify(o);})()'));
+  const { induk, anak, counter } = bacaRA();
+  const salah = [];
+  induk.forEach(r => {
+    const harus = seumur[String(r.code).toUpperCase()] || 0;
+    if (!dekat(r.real, harus, 0.01)) salah.push(r.code + ' MT ' + r.real + ' vs ' + harus.toFixed(3));
+    const sisaHarus = Math.max(0, (obtMap[r.code] || 0) - harus);
+    if (!dekat(r.sisa, sisaHarus, 0.05)) salah.push(r.code + ' sisa ' + r.sisa + ' vs ' + sisaHarus.toFixed(3));
+  });
+  const hitung = {};
+  induk.forEach(r => { hitung[r.code] = (hitung[r.code] || 0) + 1; });
+  Object.keys(hitung).forEach(c => { if (hitung[c] > 1) salah.push(c + ' muncul ' + hitung[c] + '×'); });
+  const perCo = {};
+  anak.forEach(r => { perCo[r.code] = perCo[r.code] || {}; perCo[r.code][r.produk] = r.real; });
+  induk.forEach(r => {
+    if (!perCo[r.code]) return;
+    const s = Object.values(perCo[r.code]).reduce((a, b) => a + b, 0);
+    if (!dekat(s, r.real, 0.05)) salah.push(r.code + ' Σanak ' + s.toFixed(3) + ' vs induk ' + r.real);
+  });
+  const counterHarus = induk.length + ' compan' + (induk.length === 1 ? 'y' : 'ies');
+  if (counter !== counterHarus) salah.push('counter "' + counter + '" vs "' + counterHarus + '"');
+  ok(!salah.length, nama + ': ' + induk.length + ' baris — MT, sisa, Σanak dan counter konsisten',
+     salah.slice(0, 6).join('; '));
+});
+{
+  /* AMP dan SGD: dua gelombang kedatangan. Dulu tercetak dua baris, dan yang
+     paling merugikan bukan barisnya melainkan badge-nya — realPct dinilai PER
+     GELOMBANG, jadi AMP terbaca 399,942/1.000 = 40% dan dicap "✗ <60%" alias
+     belum boleh re-apply. Digabung, ia 799,12/1.000 = 79,9% dan memang sudah
+     Eligible. Salah baca yang langsung berakibat operasional. */
+  setPeriode(null, null, 'All Time', 'both');
+  const { induk } = bacaRA();
+  const amp = induk.filter(r => r.code === 'AMP');
+  const sgd = induk.filter(r => r.code === 'SGD');
+  ok(amp.length === 1, 'AMP tepat satu baris (dulu dua)', 'dapat ' + amp.length);
+  ok(sgd.length === 1, 'SGD tepat satu baris (dulu dua)', 'dapat ' + sgd.length);
+  ok(amp[0] && dekat(amp[0].real, 799.12, 0.01),
+     'AMP menjumlah kedua gelombang: 799,12 (dulu 399,942 per baris)',
+     amp[0] ? String(amp[0].real) : '-');
+  ok(amp[0] && /Eligible/i.test(amp[0].status),
+     'AMP kini ✅ Eligible — 79,9% dari 1.000 MT (dulu dicap ✗ <60%)',
+     amp[0] ? amp[0].status : '-');
+  ok(sgd[0] && dekat(sgd[0].sisa, 3.902, 0.05),
+     'SGD sisa 3,902 — bukan 2.003,902 yang dulu terhitung dua kali',
+     sgd[0] ? String(sgd[0].sisa) : '-');
+}
+{
+  /* Kolom realisasi baris anak dulu mencetak angka UTILISASI kalau
+     arrivedByProd kosong/false — dan itu hampir selalu. CGK menjumlah 1.270
+     (utilisasinya) di bawah induk yang menunjuk 983,188. */
+  setPeriode(null, null, 'All Time', 'both');
+  const { induk, anak } = bacaRA();
+  const cgkInduk = induk.find(r => r.code === 'CGK');
+  const cgkAnak  = anak.filter(r => r.code === 'CGK').reduce((s, r) => s + r.real, 0);
+  ok(cgkInduk && dekat(cgkAnak, cgkInduk.real, 0.05),
+     'CGK: Σ baris anak = induk (dulu 1.270 vs 983,188 — kolom utilisasi tercetak di kolom realisasi)',
+     cgkInduk ? cgkAnak.toFixed(3) + ' vs ' + cgkInduk.real : 'tidak ada baris CGK');
+}
+
+
 console.log('\n' + pass + ' pass · ' + fail + ' fail');
 process.exit(fail ? 1 : 0);
