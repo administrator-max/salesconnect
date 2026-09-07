@@ -782,7 +782,6 @@ function renderRATable() {
       const ubp        = (coSPI && typeof scopedUtilByProd === 'function')
                            ? scopedUtilByProd(coSPI)
                            : (coSPI ? (coSPI.utilizationByProd || {}) : {});
-      const rbp        = coSPI ? (coSPI.realizationByProd  || {}) : {};
       const abp        = coSPI ? (coSPI.arrivedByProd      || {}) : {};
       const prodUtilMT = ubp[prod] || 0;
 
