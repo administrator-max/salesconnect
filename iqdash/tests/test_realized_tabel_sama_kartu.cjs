@@ -242,23 +242,31 @@ console.log('\nE · UTILIZED tidak jatuh ke d.berat saat utilisasi periode nol')
      menyala.map(r => r.code).join(', '));
 }
 
-console.log('\nF · All Time tidak bergeser — jalur lama sengaja dipertahankan');
+console.log('\nF · All Time memakai sumber yang sama dengan kartunya');
 {
+  /* Semula bagian ini menahan angka All Time LAMA (REALIZED 17.685,120,
+     UTILIZED 29.046, OBTAINED 38.540) supaya perbaikan periode tidak merembes
+     ke sana. Patok itu sudah selesai tugasnya: pemilik data meminta cacat
+     SGD + AMP dibereskan juga, jadi All Time memang SENGAJA digeser — dan
+     digeser ke angka yang benar. Yang dikunci sekarang bukan lagi 'jangan
+     bergerak', melainkan 'harus sama dengan kartunya'. */
   setPeriode(null, null, 'All Time', 'both');
   const { induk } = bacaTabel();
   const sigma = induk.reduce((s, r) => s + r.real, 0);
   const util  = induk.reduce((s, r) => s + r.util, 0);
   const obt   = induk.reduce((s, r) => s + r.obtained, 0);
-  /* Angka-angka ini DIUKUR pada HEAD sebelum perubahan. Bukan angka "benar" —
-     Σ All Time memang belum sama dengan kartunya (selisih −1.906,714, dari AMP
-     dan SGD) — melainkan patok bahwa perbaikan periode tidak merembes ke All
-     Time. Kalau angka ini bergerak, yang berubah bukan hanya jalur periode. */
-  ok(dekat(sigma, 17685.120, 0.01), 'Σ REALIZED All Time tetap 17.685,120', 'dapat ' + sigma.toFixed(3));
-  ok(dekat(util, 29046, 0.01),      'Σ UTILIZED All Time tetap 29.046',     'dapat ' + util.toFixed(3));
-  ok(dekat(obt, 38540, 0.01),       'Σ OBTAINED All Time tetap 38.540',     'dapat ' + obt.toFixed(3));
-  ok(induk.length === 30,           'jumlah baris All Time tetap 30 PT',    'dapat ' + induk.length);
+  const kartu = call('reportRealizedTotal().mt');
+  ok(dekat(sigma, kartu, 0.01),
+     'Σ REALIZED All Time = kartu Realized (dulu meleset -1.906,714)',
+     'Σ ' + sigma.toFixed(3) + ' vs kartu ' + kartu.toFixed(3));
+  ok(dekat(util, 25746, 0.01),
+     'Σ UTILIZED All Time 25.746 — turun 3.300 dari 29.046 (gelombang kembar AMP 800 + SGD 2.500)',
+     'dapat ' + util.toFixed(3));
+  ok(dekat(obt, 35040, 0.01),
+     'Σ OBTAINED All Time 35.040 — turun 3.500 dari 38.540 (AMP 1.000 + SGD 2.500)',
+     'dapat ' + obt.toFixed(3));
+  ok(induk.length === 30, 'jumlah baris All Time tetap 30 PT', 'dapat ' + induk.length);
 }
-
 console.log('\nG · Tidak ada company yang muncul dua kali');
 {
   const kasus = [];
@@ -272,39 +280,51 @@ console.log('\nG · Tidak ada company yang muncul dua kali');
   ok(!kasus.length, 'setiap company tepat satu baris induk di semua periode', kasus.join('; '));
 }
 
-console.log('\nH · Cacat lama yang TERUKUR di sini, dan sengaja belum disentuh');
+console.log('\nH · Gelombang kedatangan tidak lagi menggandakan barisnya');
 {
   /* Satu akar, dua gejala: `ra_records` adalah satu baris per GELOMBANG
      kedatangan, bukan per perusahaan. AMP dan SGD punya dua record.
 
-       - Kolam baris memanggil buildFlatRows() untuk tiap record, sehingga
-         produk mereka terbit dua kali → kolom UTILIZED All Time menunjukkan
-         SGD 5.000 (sebenarnya 2.500) dan AMP 1.600 (sebenarnya 800).
+       - Kolam baris memanggil buildFlatRows() untuk TIAP record, sehingga
+         produk mereka terbit dua kali: AMP tampil '4p' dengan GL ALLOY dan
+         PPGL CARBON masing-masing dua kali, UTILIZED 1.600 (sebenarnya 800);
+         SGD '4p', UTILIZED 5.000 (sebenarnya 2.500).
        - `raMap[r.code] = r` hanya menyimpan gelombang TERAKHIR, dan jalur All
-         Time memakai `ra.berat` dari situ → SGD tampil 488,562 padahal dua
-         gelombangnya berjumlah 1.996,098; AMP 399,942 padahal 799,12. Persis
-         −1.906,714, seluruh selisih Σ REALIZED All Time terhadap kartunya.
+         Time membaca `ra.berat` dari situ, jadi SGD tampil 488,562 padahal
+         dua gelombangnya berjumlah 1.996,098.
 
-     Memperbaikinya akan MENGGESER angka All Time, jadi dipisahkan dari
-     perubahan periode ini dan diputuskan tersendiri. Dikunci di sini supaya
-     tetap terukur — dan supaya hari ia diperbaiki, uji ini yang memberi tahu. */
+     Sekarang kolamnya disatukan per company lewat raTotals(), dan REALIZED
+     memakai realizedByCompany() di All Time maupun di dalam periode.
+
+     Diperiksa ke data PIB sebelum diperbaiki: SGD 1.507,536 + 488,562 =
+     1.996,098, sama PERSIS dengan realisasi PIB-nya — jadi dua gelombang itu
+     nyata dan menjumlahkannya memang benar, bukan menutupi baris kembar. */
   setPeriode(null, null, 'All Time', 'both');
   const { induk } = bacaTabel();
   const cari = c => induk.find(r => r.code === c) || {};
   const rbc = JSON.parse(call('JSON.stringify(realizedByCompany())'));
-  ok(cari('SGD').util === 5000 && cari('AMP').util === 1600,
-     'UTILIZED All Time masih dobel untuk SGD (5.000 vs 2.500) dan AMP (1.600 vs 800)',
+
+  ok(cari('SGD').util === 2500 && cari('AMP').util === 800,
+     'UTILIZED All Time tidak lagi dobel: SGD 2.500, AMP 800',
      'SGD ' + cari('SGD').util + ', AMP ' + cari('AMP').util);
-  ok(dekat(cari('SGD').real, 488.562) && dekat(cari('AMP').real, 399.942),
-     'REALIZED All Time masih satu gelombang saja untuk SGD dan AMP',
+  ok(cari('SGD').obtained === 2500 && cari('AMP').obtained === 1000,
+     'OBTAINED All Time tidak lagi dobel: SGD 2.500, AMP 1.000',
+     'SGD ' + cari('SGD').obtained + ', AMP ' + cari('AMP').obtained);
+  ok(dekat(cari('SGD').real, rbc['SGD'], 0.01) && dekat(cari('AMP').real, rbc['AMP'], 0.01),
+     'REALIZED All Time menjumlah SELURUH gelombang: SGD 1.996,098 · AMP 799,12',
      'SGD ' + cari('SGD').real + ', AMP ' + cari('AMP').real);
+
+  /* Arah yang menahan: jangan sampai penyatuan gelombang justru MENGHAPUS
+     company dari tabel, atau memunculkannya dua kali lagi. */
+  ['SGD', 'AMP'].forEach(c => {
+    const n = induk.filter(r => r.code === c).length;
+    ok(n === 1, c + ' tepat satu baris induk — tidak hilang, tidak kembar', 'dapat ' + n);
+  });
   const kartu = call('reportRealizedTotal().mt');
   const sigma = induk.reduce((s, r) => s + r.real, 0);
-  const hilang = (rbc['SGD'] - cari('SGD').real) + (rbc['AMP'] - cari('AMP').real);
-  ok(dekat(kartu - sigma, hilang, 0.01),
-     'seluruh selisih All Time (' + (kartu - sigma).toFixed(3) + ' MT) memang hanya dari SGD + AMP',
-     'SGD+AMP menjelaskan ' + hilang.toFixed(3));
+  ok(dekat(kartu - sigma, 0, 0.01),
+     'tidak ada lagi selisih All Time yang tersisa',
+     'selisih ' + (kartu - sigma).toFixed(3));
 }
-
 console.log('\n' + pass + ' pass · ' + fail + ' fail');
 process.exit(fail ? 1 : 0);

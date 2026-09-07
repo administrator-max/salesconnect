@@ -50,12 +50,26 @@ function renderUtilTable() {
      punya realisasi hari itu sambil menyembunyikan yang punya — karena
      pemilihan barisnya ikut memakai gerbang yang berbeda dari kartu.
 
-     Hanya menyala saat PERIOD.active. All Time sengaja tetap lewat jalur lama:
-     mengganti sumbernya di sana akan menggeser angka yang tim sudah pakai. */
-  const realPd = (typeof PERIOD !== 'undefined' && PERIOD.active
-                  && typeof realizedByCompany === 'function')
-    ? realizedByCompany() : null;
+     BERLAKU JUGA UNTUK ALL TIME sejak 07-Sep-2026. Semula sengaja dibatasi ke
+     periode aktif supaya angka All Time yang sudah dipakai tim tidak bergeser —
+     tapi ternyata yang bergeser justru cuma DUA company, dan keduanya bergeser
+     ke angka yang BENAR:
+
+         AMP  399,942 -> 799,120   (+399,178)
+         SGD  488,562 -> 1.996,098 (+1.507,536)
+
+     Sebabnya jalur lama membaca `d.berat` dari SATU baris ra_records, padahal
+     tabel itu satu baris per GELOMBANG kedatangan. AMP dan SGD masing-masing
+     punya dua gelombang, jadi yang tampil hanya gelombang yang kebetulan
+     terakhir diproses. Diukur ke 27 company: hanya dua itu yang berubah, dan
+     sesudahnya Σ kolom REALIZED = kartu Realized persis (19.591,834). */
+  const realPd = (typeof realizedByCompany === 'function') ? realizedByCompany() : null;
   const realPdOf = code => (realPd ? (realPd[String(code).toUpperCase()] || 0) : null);
+  /* Tiga perilaku di bawah HANYA berlaku saat periode aktif, dan dulu ikut
+     menumpang bendera realPd. Sejak realPd menyala juga di All Time, keduanya
+     harus dipisah — kalau tidak, cadangan utilMT dan aturan 'arrived' ikut
+     berubah di All Time, jauh melampaui yang diukur. */
+  const periodeAktif = (typeof PERIOD !== 'undefined' && PERIOD.active);
 
   /* Bagi realisasi periode satu company ke produk-produknya.
      Porsinya dari realizationByProd (bentuk realisasi company itu sepanjang
@@ -110,7 +124,7 @@ function renderUtilTable() {
            ketika utilisasi periode = 0, sehingga kolom UTILIZED menampilkan
            berat REALISASI yang tidak berhubungan (BBB 975,132 saat difilter,
            700 saat All Time). Nol di dalam periode memang berarti nol. */
-        utilMT:       ubp[prod] || (realPd ? 0 : (d.berat || 0)),
+        utilMT:       ubp[prod] || (periodeAktif ? 0 : (d.berat || 0)),
         realMT:       pdSplit ? (pdSplit[prod] || 0)
                               : (rbp[prod] != null ? rbp[prod] : (d.cargoArrived ? d.berat : 0)),
         realPct:      d.realPct || 0,
@@ -152,7 +166,45 @@ function renderUtilTable() {
   }
 
   // ── Build pool ──────────────────────────────────────────────────────────────
-  const baseRA = [...filteredRA()];
+  /* SATU BARIS PER COMPANY, bukan per gelombang kedatangan.
+   *
+   * `ra_records` menyimpan satu baris per GELOMBANG. AMP dan SGD masing-masing
+   * punya dua, dan dulu keduanya diperluas jadi baris produk sendiri-sendiri —
+   * sehingga tiap produk tercetak DUA KALI dan angkanya ikut berlipat:
+   *
+   *     AMP  "GL ALLOY, GL ALLOY, PPGL CARBON, PPGL CARBON"
+   *          Obtained 2.000 (seharusnya 1.000) · Utilized 1.600 (seharusnya 800)
+   *     SGD  "GI ALLOY, GI ALLOY, SHEET PILE, SHEET PILE"
+   *          Obtained 5.000 (seharusnya 2.500) · Utilized 5.000 (seharusnya 2.500)
+   *
+   * Obtained dan Utilized per produk sebenarnya sudah dihitung per COMPANY
+   * (getObtainedByProd / scopedUtilByProd), jadi memperluas gelombang kedua
+   * murni menggandakan angka yang sama — bukan menambah informasi.
+   *
+   * raTotals() sudah ada untuk ini dan dipakai ekspor Excel maupun CSV:
+   * ia menjumlah berat seluruh gelombang dan menyatakan `arrived` bila ADA
+   * gelombang yang tiba. Diperiksa terhadap data PIB: SGD 1.507,536 + 488,562
+   * = 1.996,098, sama persis dengan realisasi PIB-nya — jadi menjumlahkannya
+   * memang benar, dua gelombang itu nyata.
+   *
+   * Kolamnya dioper apa adanya supaya penyaringan periode tetap berlaku. */
+  const baseRA = (() => {
+    const pool = filteredRA();
+    const urut = [];
+    const sudah = new Set();
+    pool.forEach(r => {
+      const k = String(r.code || '').toUpperCase();
+      if (!k || sudah.has(k)) return;
+      sudah.add(k);
+      const t = (typeof raTotals === 'function') ? raTotals(r.code, pool) : null;
+      urut.push(t ? Object.assign({}, r, {
+        berat:        t.berat,
+        cargoArrived: t.arrived,
+        _gelombang:   t.count,
+      }) : r);
+    });
+    return urut;
+  })();
   filteredSPI().forEach(co => {
     if (raMap[co.code]) return;
     if (!co.shipments || !Object.keys(co.shipments).length) return;
@@ -181,7 +233,7 @@ function renderUtilTable() {
 
      Ditambahkan setelah kolam utama supaya company yang sudah ada tidak
      terduplikasi, dan hanya saat periode aktif. */
-  if (realPd) {
+  if (periodeAktif && realPd) {
     const adaDiKolam = new Set(baseRA.map(r => r.code));
     Object.keys(realPd).forEach(code => {
       if (!(realPd[code] > 0) || adaDiKolam.has(code)) return;
@@ -397,7 +449,7 @@ function renderUtilTable() {
        Saat periode aktif, angkanya = realizedByCompany() — sama dengan Σ baris
        produk di bawahnya, dan Σ seluruh baris = kartu. */
     const pdReal  = realPdOf(code);
-    const arrived = realPd ? (pdReal > 0) : ((ra && ra.cargoArrived) || sumReal > 0);
+    const arrived = periodeAktif ? (pdReal > 0) : ((ra && ra.cargoArrived) || sumReal > 0);
     const real = realPd
       ? pdReal
       : (arrived ? ((ra && Number(ra.berat) > 0) ? Number(ra.berat) : sumReal) : 0);
