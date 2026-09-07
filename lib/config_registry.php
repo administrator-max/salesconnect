@@ -67,6 +67,9 @@ function cfg_registry(): array {
                     ['NET 7 Days',                                  '7', 'TRUE'],
                     ['NET 14 Days',                                 '8', 'TRUE'],
                     ['NET 30 Days',                                 '9', 'TRUE'],
+                    ['Full Payment At 60 Days After BL Date',       '10', 'TRUE'],
+                    ['Full Payment At 90 Days After BL Date',       '11', 'TRUE'],
+                    ['Full Payment At 150 Days After BL Date',      '12', 'TRUE'],
                 ],
             ],
             'hedging_days' => [
