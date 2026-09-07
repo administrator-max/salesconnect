@@ -79,6 +79,7 @@ window.ensureXLSX = function () {
         <div class="pf-preset active" id="pf-mode-both" onclick="setFilterMode('both',this)" style="font-size:10.5px">📅 Submit + Release</div>
         <div class="pf-preset" id="pf-mode-submit" onclick="setFilterMode('submit',this)" style="font-size:10.5px">↑ Submit Date Only</div>
         <div class="pf-preset" id="pf-mode-release" onclick="setFilterMode('release',this)" style="font-size:10.5px">↓ Release Date Only</div>
+        <div class="pf-preset" id="pf-mode-input" onclick="setFilterMode('input',this)" style="font-size:10.5px">📥 Tanggal Input</div>
       </div>
       <div style="margin-top:5px;font-size:10px;color:var(--txt3);line-height:1.4" id="pfModeDesc">
         Shows records where <strong>any cycle's</strong> submit or release date falls in range.
@@ -726,7 +727,12 @@ window.ensureXLSX = function () {
         <div style="display:flex;gap:4px">
           <button id="ouOvStatusAll"  class="fpill on"  onclick="setOUOvStatus('ALL',this)"     style="font-size:10.5px;padding:3px 10px">All Status</button>
           <button id="ouOvStatusNorm" class="fpill"     onclick="setOUOvStatus('NORMAL',this)"  style="font-size:10.5px;padding:3px 10px;color:var(--green)">✓ Normal</button>
-          <button id="ouOvStatusOver" class="fpill"     onclick="setOUOvStatus('OVERDUE',this)" style="font-size:10.5px;padding:3px 10px;color:var(--red2)">⚠ Revision</button>
+          <!-- Tombol ini menyaring leadStatus === 'overdue' (lead time melewati
+               ambang), BUKAN company yang punya revisi. Labelnya dulu tertulis
+               "⚠ Revision" sehingga menamai konsep yang sama sekali berbeda dari
+               yang dikerjakannya — dan berbeda pula dari legenda grafik tepat di
+               atasnya, yang menulis "⚠ Overdue". -->
+          <button id="ouOvStatusOver" class="fpill"     onclick="setOUOvStatus('OVERDUE',this)" style="font-size:10.5px;padding:3px 10px;color:var(--red2)">⚠ Overdue</button>
         </div>
         <button onclick="goPage('utilization',document.querySelectorAll('.nav-tab')[2])" style="font-size:10px;font-weight:600;padding:3px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg);color:var(--txt2);cursor:pointer">Full Detail ↗</button>
       </div>
@@ -1727,8 +1733,8 @@ window.ensureXLSX = function () {
 <script defer src="assets/js/00-num.js?v=1"></script>
 <script defer src="assets/js/01-data.js?v=28"></script>
 <script defer src="assets/js/01a-quota-year.js?v=6"></script>
-<script defer src="assets/js/02-period-filter.js?v=10"></script>
-<script defer src="assets/js/03-kpis.js?v=19"></script>
+<script defer src="assets/js/02-period-filter.js?v=13"></script>
+<script defer src="assets/js/03-kpis.js?v=22"></script>
 <script defer src="assets/js/04-charts.js?v=14"></script>
 <script defer src="assets/js/05-tables-spi.js?v=10"></script>
 <script defer src="assets/js/05a-spi-terbit.js?v=6"></script>
@@ -1740,7 +1746,7 @@ window.ensureXLSX = function () {
 <script defer src="assets/js/11-shipment.js?v=9"></script>
 <script defer src="assets/js/12-product-mt.js?v=6"></script>
 <script defer src="assets/js/13-rev-mgmt.js?v=12"></script>
-<script defer src="assets/js/14-export.js?v=7"></script>
+<script defer src="assets/js/14-export.js?v=10"></script>
 <script defer src="assets/js/15-leadtime.js?v=3"></script>
 <script defer src="assets/js/16-storage.js?v=9"></script>
 <script defer src="assets/js/17-ou-chart.js?v=6"></script>

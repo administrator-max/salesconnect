@@ -101,8 +101,25 @@ ok(/totalRealized\s*=\s*_kanon\.mt/.test(drill) && /nCompanies\s*=\s*_kanon\.com
    'MT dan jumlah perusahaan diambil dari sumber kanonik');
 ok(!/\['Companies',\s*rows\.length/.test(k03),
    'kartu "Companies" pada drill tidak lagi memakai rows.length');
-ok(/REALIZATIONS\.forEach/.test(drill) && /inPd\(pDate\(r\.pib_date\)\)/.test(drill),
-   'barisnya diringkas dari baris PIB dengan gerbang pib_date — sama dengan kartu');
+/* Gerbang tanggalnya kini SATU fungsi bersama, realisasiDalamPeriode(), bukan
+   `inPd(pDate(r.pib_date))` yang dulu ditulis ulang di tiga permukaan. Yang
+   diuji tetap sama — drill memakai gerbang yang sama persis dengan kartu —
+   tapi sekarang dikunci pada fungsinya, bukan pada ejaan salah satu salinannya.
+   Ini penting sejak jenis tanggal "Tanggal Input" ditambahkan: kalau salah satu
+   permukaan tertinggal memakai pib_date, angkanya langsung berbeda. */
+ok(/REALIZATIONS\.forEach/.test(drill) && /realisasiDalamPeriode\(r\)/.test(drill),
+   'barisnya diringkas dari baris PIB lewat gerbang bersama — sama dengan kartu');
+{
+  const k02c = kode('02-period-filter.js');
+  /* Yang dihitung khusus bentuk PENYARINGAN `inPd(pDate(… pib_date …))`.
+     Pemakaian pib_date untuk hal lain — misalnya mencari tanggal PIB terakhir
+     yang ditampilkan di drill — sah dan tidak dihitung di sini. */
+  const gerbang = /inPd\(pDate\([^)]*pib_date/g;
+  const sisaSalinan = (k02c.match(gerbang) || []).length + (k03.match(gerbang) || []).length;
+  ok(sisaSalinan === 1,
+    'gerbang pib_date hanya tinggal SATU tempat — di dalam realisasiDalamPeriode() sendiri',
+    'ketemu ' + sisaSalinan + ' salinan');
+}
 ok(/raTotals\(/.test(drill), 'cabang cadangannya memakai raTotals(), bukan satu baris per gelombang');
 
 /* ── Tabel All Companies: satu basis, bukan dua ─────────────────────────

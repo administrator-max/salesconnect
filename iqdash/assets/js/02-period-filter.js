@@ -11,7 +11,8 @@ let FILTER_MODE = 'both'; // 'submit' | 'release' | 'both'
 const MODE_DESC = {
   both:    "Shows records where <strong>any cycle's</strong> submit or release date falls in range.",
   submit:  "Shows records where <strong>any cycle's submit date</strong> (MOI/MOT) falls in range.",
-  release: "Shows records where <strong>any cycle's release date</strong> (PERTEK/SPI) falls in range."
+  release: "Shows records where <strong>any cycle's release date</strong> (PERTEK/SPI) falls in range.",
+  input:   "Menampilkan baris menurut <strong>kapan datanya direkam</strong> ke dashboard — realisasi memakai tanggal impornya, company memakai tanggal terakhir diubah. Pakai ini untuk melihat \"apa yang saya input hari ini\"."
 };
 
 const PRESETS = {
@@ -762,8 +763,51 @@ function getPertekTerbitForObtained(obtCycle, allCycles) {
  * This is the broad "show the company row" filter — KPI calculations use
  * narrower per-field filters below.
  */
-function companyInPeriod(cycles) {
+/**
+ * Cap waktu perekaman -> Date.
+ *
+ * pDate() sengaja tidak dipakai di sini: cabang ISO-nya menuntut persis
+ * "YYYY-MM-DD", sedangkan created_at/updated_at berbentuk cap waktu penuh
+ * ("2026-09-07T03:33:59.801Z") dan akan pulang null. Diurai sebagai waktu
+ * LOKAL supaya "hari ini" berarti hari ini menurut jam tim, bukan UTC —
+ * baris yang direkam pukul 03:33Z jatuh pada 7 September di WIB, dan
+ * memang itulah hari yang mereka maksud.
+ */
+function _tglRekam(v) {
+  const t = String(v == null ? '' : v).trim();
+  if (!t) return null;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(t)) { const d = new Date(t); return isNaN(d) ? null : d; }
+  return (typeof pDate === 'function') ? pDate(t) : null;
+}
+
+/**
+ * Apakah SATU baris realisasi masuk periode aktif.
+ *
+ * SATU aturan untuk tiga permukaan yang dulu masing-masing menulis
+ * `inPd(pDate(r.pib_date))` sendiri: kartu Realized, realisasi per company,
+ * dan drill Realized. Tiga salinan aturan yang sama adalah cara paling
+ * mudah agar ketiganya diam-diam berbeda begitu aturannya berubah — dan
+ * sekarang aturannya memang berubah (jenis tanggal keempat).
+ *
+ * Mode "input" memakai created_at (kapan barisnya diimpor), mode lain
+ * memakai pib_date (kapan barangnya masuk pabean) — seperti sebelumnya.
+ */
+function realisasiDalamPeriode(r) {
   if (!PERIOD.active) return true;
+  if (typeof FILTER_MODE !== 'undefined' && FILTER_MODE === 'input') {
+    return inPd(_tglRekam(r && (r.created_at || r.createdAt)));
+  }
+  return inPd(pDate(r && r.pib_date));
+}
+
+function companyInPeriod(cycles, co) {
+  if (!PERIOD.active) return true;
+  /* Mode "input" tidak bertanya soal siklus sama sekali — yang ditanya adalah
+     kapan baris company itu terakhir diubah. Company tanpa cap waktu gugur,
+     sama seperti company tanpa siklus gugur di mode lain. */
+  if (typeof FILTER_MODE !== 'undefined' && FILTER_MODE === 'input') {
+    return inPd(_tglRekam(co && (co.updatedAt || co.updated_at)));
+  }
   if (!cycles || !cycles.length) return false;  // no cycles → not in any period
   // A company matches only if at least one real (non-null) cycle date falls in period
   return cycles.some(c => {
@@ -785,20 +829,32 @@ function companyInPeriod(cycles) {
 /* Filter SPI array — company is included if any cycle date falls in period */
 function filteredSPI() {
   if (!PERIOD.active) return SPI;
-  return SPI.filter(d => companyInPeriod(d.cycles || []));
+  return SPI.filter(d => companyInPeriod(d.cycles || [], d));
 }
 
 /* Filter RA array — match based on SPI company cycle dates (consistent with filteredSPI) */
 function filteredRA() {
   if (!PERIOD.active) return RA;
-  const validCodes = new Set(SPI.filter(co => companyInPeriod(co.cycles||[])).map(co => co.code));
+  /* Mode "input": yang menentukan bukan siklus company, melainkan apakah
+     ADA baris realisasi company itu yang direkam dalam rentang ini. Itulah
+     pertanyaan yang benar-benar diajukan tim — "realisasi apa yang masuk
+     hari ini" — dan memakai gerbang siklus di sini akan memulangkan nol
+     justru pada hari mereka bekerja. */
+  if (typeof FILTER_MODE !== 'undefined' && FILTER_MODE === 'input') {
+    const dariReal = new Set();
+    (Array.isArray(window.REALIZATIONS) ? REALIZATIONS : []).forEach(r => {
+      if (realisasiDalamPeriode(r)) dariReal.add(String(r.company_code || '').toUpperCase());
+    });
+    return RA.filter(r => dariReal.has(String(r.code || '').toUpperCase()));
+  }
+  const validCodes = new Set(SPI.filter(co => companyInPeriod(co.cycles||[], co)).map(co => co.code));
   return RA.filter(r => validCodes.has(r.code));
 }
 
 /* Filter PENDING by cycle dates */
 function filteredPending() {
   if (!PERIOD.active) return PENDING;
-  return PENDING.filter(d => companyInPeriod(d.cycles || []));
+  return PENDING.filter(d => companyInPeriod(d.cycles || [], d));
 }
 
 /* kpiPool — the companies a KPI card counts: SPI + PENDING, period-filtered
@@ -921,7 +977,7 @@ function reportUtilizedTotal() {
    previous behaviour instead of showing zero. */
 function reportRealizedTotal() {
   if (Array.isArray(window.REALIZATIONS) && REALIZATIONS.length) {
-    const rows = REALIZATIONS.filter(r => !PERIOD.active || inPd(pDate(r.pib_date)));
+    const rows = REALIZATIONS.filter(r => realisasiDalamPeriode(r));
     const cos = new Set(rows.map(r => String(r.company_code || '').toUpperCase()).filter(Boolean));
     const mt = rows.reduce((s, r) => s + (parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0), 0);
     return { mt, companies: cos.size, codes: [...cos] };
@@ -953,7 +1009,7 @@ function realizedByCompany() {
   const REAL = (typeof REALIZATIONS !== 'undefined') ? REALIZATIONS : null;
   if (Array.isArray(REAL) && REAL.length) {
     REAL.forEach(r => {
-      if (PERIOD.active && !inPd(pDate(r.pib_date))) return;
+      if (!realisasiDalamPeriode(r)) return;
       const c = String(r.company_code || '').toUpperCase();
       if (!c) return;
       out[c] = (out[c] || 0) + (parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0);
@@ -1513,10 +1569,15 @@ function cycleMatchesPeriod(cycles) {
 /* Set filter mode */
 function setFilterMode(mode, el) {
   FILTER_MODE = mode;
-  document.querySelectorAll('#pf-mode-both,#pf-mode-submit,#pf-mode-release').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('#pf-mode-both,#pf-mode-submit,#pf-mode-release,#pf-mode-input').forEach(x => x.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('pfModeDesc').innerHTML = MODE_DESC[mode];
-  if (PERIOD.active) applyPeriodFilter();
+  /* Banner ikut disegarkan. Tanpa ini ia tetap menulis jenis tanggal LAMA dan
+     hitungan lama ("0 SPI · 0 Pending · 0 Realization records") padahal
+     tabelnya sudah berganti — pembaca lalu percaya filternya tidak jalan,
+     karena satu-satunya kalimat yang menjelaskan apa yang sedang disaring
+     memang belum berubah. Ketahuan saat menguji mode "Tanggal Input". */
+  if (PERIOD.active) { applyPeriodFilter(); updatePeriodUI(); }
 }
 
 /* ── UI CONTROLS ── */
@@ -1611,6 +1672,11 @@ function onCustomDate() {
 function clearPeriod() {
   PERIOD = { from:null, to:null, label:'All Time', active:false };
   FILTER_MODE = 'both';
+  /* Tombolnya ikut dikembalikan; tanpa ini tombol mode yang tadi dipilih
+     tetap tersorot padahal filternya sudah kembali ke 'both'. */
+  document.querySelectorAll('#pf-mode-both,#pf-mode-submit,#pf-mode-release,#pf-mode-input').forEach(x => x.classList.remove('active'));
+  { const b = document.getElementById('pf-mode-both'); if (b) b.classList.add('active'); }
+  { const d = document.getElementById('pfModeDesc'); if (d) d.innerHTML = MODE_DESC.both; }
   document.querySelectorAll('.pf-preset').forEach(x => x.classList.remove('active'));
   // #pre-all no longer exists (preset chips removed) — the date inputs below
   // are cleared instead, which is what "All Time" now means.
@@ -1640,7 +1706,7 @@ function updatePeriodUI() {
       wrap.insertBefore(dot, wrap.firstChild);
     }
     banner.classList.add('show');
-    const modeLabel = FILTER_MODE==='submit'?'Submit Date':FILTER_MODE==='release'?'Release Date':'Submit + Release Date';
+    const modeLabel = FILTER_MODE==='submit'?'Submit Date':FILTER_MODE==='release'?'Release Date':FILTER_MODE==='input'?'Tanggal Input':'Submit + Release Date';
     bTxt.textContent = 'Periode aktif: ' + PERIOD.label + ' · Filter: ' + modeLabel;
     const fSpi = filteredSPI().length, fPend = filteredPending().length, fRa = filteredRA().length;
     bSub.textContent = `${fSpi} SPI · ${fPend} Pending · ${fRa} Realization records ditampilkan`;

@@ -63,7 +63,7 @@ function updateOverviewKPIs() {
   // Scope re-apply pool to companies whose SPI cycles match the active period
   // (same logic as filteredSPI) — avoids using un-parseable etaJKT text
   const _raFilterCodes = new Set(
-    PERIOD.active ? SPI.filter(co => companyInPeriod(co.cycles||[])).map(co => co.code) : []
+    PERIOD.active ? SPI.filter(co => companyInPeriod(co.cycles||[], co)).map(co => co.code) : []
   );
   const raPool = PERIOD.active
     ? RA.filter(r => _raFilterCodes.has(r.code))
@@ -449,7 +449,7 @@ function refreshRealizedDrill() {
   if (Array.isArray(window.REALIZATIONS) && REALIZATIONS.length) {
     const per = {};
     REALIZATIONS.forEach(r => {
-      if (PERIOD.active && !inPd(pDate(r.pib_date))) return;
+      if (!realisasiDalamPeriode(r)) return;
       const code = String(r.company_code || '').toUpperCase();
       if (!code) return;
       const vol = parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0;
@@ -834,7 +834,7 @@ function refreshReapplyDrill() {
   const realColor = r => r>=0.8?'var(--green)':r>=0.6?'var(--teal)':'var(--red2)';
 
   // Pool: eligible + submitted, respecting period filter
-  const _codes = new Set(PERIOD.active ? SPI.filter(co=>companyInPeriod(co.cycles||[])).map(co=>co.code) : []);
+  const _codes = new Set(PERIOD.active ? SPI.filter(co=>companyInPeriod(co.cycles||[], co)).map(co=>co.code) : []);
   const pool = PERIOD.active ? RA.filter(r=>_codes.has(r.code)) : RA;
   const rows = pool
     .filter(r => isEligible(r) || isReapplySubmitted(r))

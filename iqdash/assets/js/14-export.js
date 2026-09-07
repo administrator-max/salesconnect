@@ -31,7 +31,7 @@ function exportExecutivePDF() {
   const s3_codes = (_real.codes || []).join(', ') || '—';
 
   const validSpiCodes = new Set(
-    PERIOD.active ? SPI.filter(co => companyInPeriod(co.cycles||[])).map(co => co.code) : SPI.map(co => co.code)
+    PERIOD.active ? SPI.filter(co => companyInPeriod(co.cycles||[], co)).map(co => co.code) : SPI.map(co => co.code)
   );
   /* Avg Realization = realisasi ÷ obtained atas perusahaan yang SAMA — definisi
      yang dipakai drill Realized di dashboard. Dulu rata-rata realPct per BARIS
@@ -1129,7 +1129,7 @@ async function doExportXLSX() {
     });
   });
 
-  const modeLabel = FILTER_MODE==='submit'?'Submit Date Only':FILTER_MODE==='release'?'Release Date Only':'Submit + Release Date';
+  const modeLabel = FILTER_MODE==='submit'?'Submit Date Only':FILTER_MODE==='release'?'Release Date Only':FILTER_MODE==='input'?'Tanggal Input':'Submit + Release Date';
   const summaryRows = [
     [`Import Quota Monitor ${QUOTA_YEAR} — Export Report`],
     [],
