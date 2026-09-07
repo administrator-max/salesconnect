@@ -370,108 +370,8 @@ function renderUtilTable() {
   const tbody = document.getElementById('utilBody');
   tbody.innerHTML = '';
 
-  // ── Row renderer — every product is a full standalone row ─────────────────
-  function renderRow(r) {
-    const isFirst  = r._isFirst  === true;
-    const isSub    = r._isSub    === true;
-    const isMulti  = (r._subCount || 0) > 1;
-    const arrived  = r.cargoArrived;
-    const isWait   = r._isWaiting === true;
-
-    // Left border: first product of company gets full accent; sub-products get lighter
-    const lBd = isWait
-      ? (isSub ? 'border-left:3px solid #e2e8f0' : 'border-left:3px solid #94a3b8')
-      : isSub
-        ? `border-left:3px solid ${arrived ? '#bbf7d0' : '#fed7aa'}`
-        : `border-left:3px solid ${arrived ? 'var(--green-lt)' : 'var(--orange)'}`;
-    const rowBg  = isWait ? 'background:#f8fafc'
-                 : arrived ? 'background:#f8fffe' : 'background:#fff8f3';
-    const topBd  = isSub ? 'border-top:1px dashed var(--border)'
-                 : isFirst && isMulti ? 'border-top:2px solid var(--border2)' : '';
-
-    // Company code cell — show code only on first product row; indent arrow for rest
-    const codeCell = isSub
-      ? `<div style="padding-left:14px;font-size:10.5px;color:var(--txt3)">↳</div>`
-      : `<div class='t-code' onclick="openDrawer('${r.code}');event.stopPropagation()">${coLabel(r.code)}</div>
-         ${isMulti ? `<div style="font-size:9px;color:var(--txt3);margin-top:1px">${r._subCount} products</div>` : ''}`;
-
-    // Product cell — indented for sub-products
-    const dot = `<span style="width:7px;height:7px;border-radius:50%;background:${pc(r.product).solid};flex-shrink:0"></span>`;
-    const prodCell = isSub
-      ? `<div style="padding-left:20px;display:flex;align-items:center;gap:5px">${dot}<span style="font-size:11.5px;color:var(--txt2)">${prodLabel(r.product)}</span></div>`
-      : `<div style="display:flex;align-items:center;gap:5px">${dot}<span style="font-size:11.5px;font-weight:${isMulti?'600':'400'}">${prodLabel(r.product)}</span></div>`;
-
-    // Obtained
-    const obtCell = `<span class="t-mono" style="font-size:11.5px;font-weight:700;color:${isSub?'var(--txt2)':'var(--txt)'}">${(r.obtained||0).toLocaleString(MT_LOCALE)}</span>`;
-
-    // Utilization
-    const utilMT  = r.utilMT || 0;
-    const utilPct = r.obtained > 0 ? utilMT / r.obtained : 0;
-    const uClr    = utilPct >= 0.8 ? 'var(--green)' : utilPct >= 0.5 ? 'var(--blue)' : 'var(--txt2)';
-    const utilCell = isWait
-      ? `<span style="font-size:10px;color:var(--txt3);font-style:italic">—</span>`
-      : utilMT > 0
-        ? `<div><span class="t-mono" style="font-size:11.5px;font-weight:700;color:var(--blue)">${utilMT.toLocaleString(MT_LOCALE)}</span>
-             <div style="font-size:9.5px;color:${uClr};margin-top:1px">${(utilPct*100).toFixed(1)}%</div></div>`
-        : `<span style="font-size:10px;color:var(--txt3)">—</span>`;
-
-    // Realization MT
-    const realMT  = r.realMT || 0;
-    const realPct = r.realPct || 0;
-    const realMTCell = isWait
-      ? `<span style="font-size:10px;color:var(--txt3);font-style:italic">—</span>`
-      : arrived
-        ? `<span class="t-mono" style="font-size:11.5px;font-weight:700;color:${realColor(realPct)}">${realMT.toLocaleString(MT_LOCALE)}</span>`
-        : `<span style="font-size:10px;color:var(--txt3);font-style:italic">—</span>`;
-
-    // Realization %
-    const realPctCell = isWait
-      ? `<span style="font-size:10px;color:var(--txt3);font-style:italic">—</span>`
-      : arrived
-        ? `<div><div style="font-size:11.5px;font-weight:700;color:${realColor(realPct)};margin-bottom:2px">${(realPct*100).toFixed(1)}%</div>
-             <div class="u-trk" style="width:68px"><div class="u-fill" style="width:${Math.min(realPct*100,100)}%;background:${realFill(realPct)}"></div></div></div>`
-        : `<span style="font-size:10px;color:var(--txt3);font-style:italic">Pending</span>`;
-
-    // ETA
-    const etaCell = isWait
-      ? `<span style="font-size:10px;color:var(--txt3)">—</span>`
-      : r.etaJKT
-        ? arrived
-          ? `<span style="font-size:11px;font-weight:700;color:var(--green)">✓ ${r.etaJKT}</span>`
-          : `<span style="font-size:11px;font-weight:600;color:var(--orange)">🚢 ${r.etaJKT}</span>`
-        : `<span style="font-size:10px;color:var(--txt3)">—</span>`;
-
-    // Status
-    const statusCell = isWait
-      ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:#f8fafc;color:#64748b;border:1px solid #e2e8f0">⏳ Awaiting Utilization</span>`
-      : arrived
-        ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">✓ Arrived JKT</span>`
-        : `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--orange-bg);color:var(--orange);border:1px solid var(--orange-bd)">🚢 In Shipment</span>`;
-
-    // All 8 td cells use the same padding (6px 10px) so column widths
-    // line up with the thead. Cell alignment matches header: Obtained/
-    // Utilization/Realization MT = right; Realization%/ETA/Status =
-    // center. Without these explicit classes the body would left-align
-    // while the header centers, creating the visual offset.
-    const cellPad = 'padding:6px 10px';
-    // For center-aligned cells, also wrap the inner content in a flex
-    // container so multi-line values (e.g. "50.0%" + progress bar) stay
-    // centered as a group.
-    const wrapCenter = inner => `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">${inner}</div>`;
-    return `<tr style="cursor:pointer;${rowBg};${topBd}" onclick="openDrawer('${r.code}')">
-      <td style="${cellPad};${lBd}">${codeCell}</td>
-      <td style="${cellPad}">${prodCell}</td>
-      <td class="t-r" style="${cellPad}">${obtCell}</td>
-      <td class="t-r" style="${cellPad}">${utilCell}</td>
-      <td class="t-r" style="${cellPad}">${realMTCell}</td>
-      <td class="t-c" style="${cellPad}">${wrapCenter(realPctCell)}</td>
-      <td class="t-c" style="${cellPad}">${etaCell}</td>
-      <td class="t-c" style="${cellPad}">${statusCell}</td>
-    </tr>`;
-  }
-
   // ── UNIFIED per-PT table (one summary row per company, expandable) ───────────
-  // Reuses the already-correct per-product rows (waitingFlat/inShipRows/arrivedRows);
+  // Groups the per-product rows (waitingFlat/inShipRows/arrivedRows);
   // groups by company, picks the furthest-along phase, and dims metrics that don't
   // apply to that phase. Phase filter chips replace the old 4 tabs.
   // Arrived = realization recorded (realMT>0 or cargo arrived) — same source as
@@ -490,13 +390,16 @@ function renderUtilTable() {
     const ra = raMap[code];
     const sumUtil = rs.reduce((s, r) => s + (Number(r.utilMT) || 0), 0);
     const sumReal = rs.reduce((s, r) => s + (Number(r.realMT) || 0), 0);
-    // Company-level "arrived/realized" from the RA record (same source as the
-    // Total Realized KPI) so multi-product PTs (whose per-product realMT can't
-    // distribute) still land in Arrived. Realized MT = RA berat when arrived.
-    /* Baris induk company inilah yang benar-benar tampil di #utilBody — bukan
-       renderRow() di atas. Sebelumnya ia menghitung realisasinya SENDIRI dari
-       `ra.berat`, kolom sepanjang waktu, sehingga menambal buildFlatRows saja
-       tidak berefek apa pun pada yang terlihat.
+    /* Baris induk company inilah yang benar-benar tampil di #utilBody.
+       Sebelumnya ia menghitung realisasinya SENDIRI dari `ra.berat` — kolom
+       sepanjang waktu — sehingga menambal buildFlatRows() saja tidak berefek
+       apa pun pada yang terlihat di layar.
+
+       Sampai 2026-09-07 masih ada renderRow() di atas sini: perender baris
+       per-produk sepanjang 98 baris yang sudah tidak dipanggil siapa pun sejak
+       tabel beralih ke bentuk satu-baris-per-PT. Ia terlihat persis seperti
+       perender tabel ini, dan percobaan memperbaiki kolom REALIZED sempat
+       menambalnya — tanpa satu pun perubahan yang terlihat. Sudah dihapus.
 
        Saat periode aktif, angkanya = realizedByCompany() — sama dengan Σ baris
        produk di bawahnya, dan Σ seluruh baris = kartu. */
