@@ -263,15 +263,28 @@ console.log('\nF · All Time memakai sumber yang sama dengan kartunya');
   ok(dekat(util, kartuUtil, 0.01),
      'Σ UTILIZED All Time = kartu Utilized (26.046) — lihat bagian I',
      'Σ ' + util.toFixed(3) + ' vs kartu ' + kartuUtil.toFixed(3));
-  /* 35.340, bukan 38.540 lama dan bukan 35.040 sesudah SGD+AMP dibereskan:
-     −3.500 dari gelombang kembar, lalu +300 karena AADC, KARA dan PPGL yang
-     dulu tidak punya baris sama sekali kini punya (obtained 150+100+50). */
-  ok(dekat(obt, 35340, 0.01),
-     'Σ OBTAINED All Time 35.340 (38.540 −3.500 gelombang kembar +300 AADC/KARA/PPGL)',
+  /* Riwayat angka ini, supaya tiap loncatannya punya sebab yang tercatat:
+       38.540  keadaan lama
+       35.040  −3.500 sesudah gelombang kembar SGD + AMP dibereskan
+       35.340    +300 AADC, KARA, PPGL yang dulu tidak punya baris sama sekali
+       35.460    +120 SNSD — kolam Waiting semula hanya menyusuri filteredSPI(),
+                        jadi satu-satunya company bersection PENDING yang
+                        memegang kuota tidak pernah muncul di tab ini. */
+  ok(dekat(obt, 35460, 0.01),
+     'Σ OBTAINED All Time 35.460 (35.340 + 120 SNSD yang dulu tidak punya baris)',
      'dapat ' + obt.toFixed(3));
-  ok(induk.length === 33,
-     'jumlah baris All Time 33 PT (30 + AADC, KARA, PPGL yang dulu lenyap)',
+  ok(induk.length === 34,
+     'jumlah baris All Time 34 PT (33 + SNSD)',
      'dapat ' + induk.length);
+  /* Arah yang menahan: SNSD harus benar-benar ADA, dan sebagai Waiting —
+     bukan terhitung sebagai realisasi atau utilisasi yang tidak pernah terjadi. */
+  {
+    const s = induk.find(r => r.code === 'SNSD');
+    ok(!!s, 'SNSD ada di tabel Realization Monitoring', 'tidak ketemu');
+    ok(s && s.util === 0 && s.real === 0,
+       'SNSD tercatat nol utilisasi dan nol realisasi — hanya kuota yang menunggu',
+       s ? ('util ' + s.util + ', real ' + s.real) : '-');
+  }
 }
 console.log('\nG · Tidak ada company yang muncul dua kali');
 {
@@ -418,12 +431,28 @@ SEMUA.forEach(([nama, f, t, mode]) => {
     const diSiklus = new Set([].concat(
       call('filteredSPI().map(function(c){return c.code;})'),
       call('filteredRA().map(function(c){return c.code;})')));
+    /* Ukurannya BUKAN "dari kolam mana ia datang", melainkan "apakah ia
+       memegang kuota".
+       Versi pertama pagar ini memakai keanggotaan kolam sebagai penanda
+       "menyumbang sesuatu". Penanda itu tepat selama satu-satunya sumber adalah
+       SPI dan RA — tapi sejak kolam Waiting ikut menyusuri PENDING (07-Sep-2026,
+       supaya SNSD dengan 120 MT tidak lagi tak terlihat di tab ini), ia jadi
+       salah sasaran: SNSD memang util 0 dan real 0, tapi ia memegang kuota
+       yang belum jalan — itu justru yang ingin dilihat tim di fase Waiting.
+       Yang tetap dilarang: company yang masuk lewat pelebaran TANPA kuota sama
+       sekali. Itu baru baris yang tidak menjelaskan apa pun. */
+    const kuota = {};
+    call('[].concat(filteredSPI(), filteredPending()).map(function(c){'
+       + 'return c.code + "=" + (canonicalObtained(c) || 0);})')
+      .forEach(s => { const [k, v] = String(s).split('='); kuota[k] = Number(v) || 0; });
     bacaTabel().induk.forEach(r => {
       if (diSiklus.has(r.code)) return;
+      if ((kuota[r.code] || 0) > 0) return;
       if (r.util === 0 && r.real === 0) kosong.push(nama + '/' + r.code);
     });
   });
-  ok(!kosong.length, 'pelebaran kolam tidak menambah satu pun baris tanpa util maupun real',
+  ok(!kosong.length,
+     'pelebaran kolam tidak menambah baris tanpa util, tanpa real, DAN tanpa kuota',
      kosong.slice(0, 8).join('; '));
 }
 

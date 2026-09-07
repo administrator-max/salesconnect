@@ -298,7 +298,26 @@ function renderUtilTable() {
      sekali sebagai baris realisasi, sekali lagi sebagai "Awaiting Utilization".
      Dua-duanya masuk byCo, dan realisasinya terhitung dobel. */
   const kodeDiKolam = new Set(baseRA.map(r => r.code));
-  filteredSPI().forEach(co => {
+  /* Kolamnya SPI + PENDING, bukan SPI saja.
+   *
+   * Ditemukan saat audit menyeluruh 07-Sep-2026: SNSD memegang 120 MT GI ALLOY
+   * dengan nol pengiriman, dan tidak muncul di tab ini sama sekali — padahal
+   * "⏳ Waiting — No shipment scheduled yet" persis menggambarkan keadaannya.
+   * Sebabnya ia bersection PENDING di sheet, dan kolam ini hanya menyusuri
+   * filteredSPI().
+   *
+   * Kolom `section` itu keterangan ASAL-USUL baris, bukan keadaan terkini —
+   * alasan yang sama yang membuat processStatus() berhenti memakainya. SNSD
+   * SPI-nya sudah terbit 07/08/2026 dan terbaca Completed di tab PERTEK & SPI;
+   * menyembunyikannya di sini hanya karena kolom asal-usulnya membuat 120 MT
+   * kuota tidak terlihat di satu-satunya layar yang menjawab "apa yang belum
+   * jalan".
+   *
+   * Diukur: dari 41 company, hanya SATU yang bersection PENDING sekaligus
+   * punya kuota — SNSD. Jadi tepat satu baris bertambah, dan gerbang di
+   * bawahnya (sudah ada di kolam, utilisasi > 0, kuota <= 0) tetap menyaring
+   * seperti semula. */
+  [...filteredSPI(), ...(typeof filteredPending === 'function' ? filteredPending() : [])].forEach(co => {
     if (kodeDiKolam.has(co.code)) return;
     /* Sengaja gerbang SEPANJANG WAKTU, bukan utilisasi periode. Badge-nya
        berbunyi "⏳ Awaiting Utilization" — pernyataan tentang KEADAAN company,
