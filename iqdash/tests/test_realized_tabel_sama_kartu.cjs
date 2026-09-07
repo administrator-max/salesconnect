@@ -259,13 +259,19 @@ console.log('\nF · All Time memakai sumber yang sama dengan kartunya');
   ok(dekat(sigma, kartu, 0.01),
      'Σ REALIZED All Time = kartu Realized (dulu meleset -1.906,714)',
      'Σ ' + sigma.toFixed(3) + ' vs kartu ' + kartu.toFixed(3));
-  ok(dekat(util, 25746, 0.01),
-     'Σ UTILIZED All Time 25.746 — turun 3.300 dari 29.046 (gelombang kembar AMP 800 + SGD 2.500)',
-     'dapat ' + util.toFixed(3));
-  ok(dekat(obt, 35040, 0.01),
-     'Σ OBTAINED All Time 35.040 — turun 3.500 dari 38.540 (AMP 1.000 + SGD 2.500)',
+  const kartuUtil = call('reportUtilizedTotal().mt');
+  ok(dekat(util, kartuUtil, 0.01),
+     'Σ UTILIZED All Time = kartu Utilized (26.046) — lihat bagian I',
+     'Σ ' + util.toFixed(3) + ' vs kartu ' + kartuUtil.toFixed(3));
+  /* 35.340, bukan 38.540 lama dan bukan 35.040 sesudah SGD+AMP dibereskan:
+     −3.500 dari gelombang kembar, lalu +300 karena AADC, KARA dan PPGL yang
+     dulu tidak punya baris sama sekali kini punya (obtained 150+100+50). */
+  ok(dekat(obt, 35340, 0.01),
+     'Σ OBTAINED All Time 35.340 (38.540 −3.500 gelombang kembar +300 AADC/KARA/PPGL)',
      'dapat ' + obt.toFixed(3));
-  ok(induk.length === 30, 'jumlah baris All Time tetap 30 PT', 'dapat ' + induk.length);
+  ok(induk.length === 33,
+     'jumlah baris All Time 33 PT (30 + AADC, KARA, PPGL yang dulu lenyap)',
+     'dapat ' + induk.length);
 }
 console.log('\nG · Tidak ada company yang muncul dua kali');
 {
@@ -326,5 +332,101 @@ console.log('\nH · Gelombang kedatangan tidak lagi menggandakan barisnya');
      'tidak ada lagi selisih All Time yang tersisa',
      'selisih ' + (kartu - sigma).toFixed(3));
 }
+console.log('\nI · Σ kolom UTILIZED = kartu Utilized, di setiap periode');
+/* Pasangan kedua di tabel yang sama, dan cacatnya sekembar dengan REALIZED:
+   tabel memilih kolam DAN mengukur utilisasinya sendiri.
+
+     - kolamnya `filteredSPI()` (gerbang siklus), sementara kartu memakai
+       utilizationPool(kpiPool()) yang sengaja DILEBARKAN supaya company yang
+       memakai kuota di dalam jendela tetap terhitung walau permitnya terbit di
+       luar. Q1 2026: AMP 400, LSJ 500, SPP 250, BHG 200, NCT 150 — 1.500 MT
+       tanpa satu pun baris.
+     - ukurannya jumlah lot `shipments`, padahal sejak 2026-08-04 tanggal
+       utilisasi tinggal di `etaByProd`. AADC 150, KARA 100, PPGL 50 lenyap dari
+       tabel: ditolak kolam utilisasi karena lotnya kosong, ditolak kolam
+       Waiting karena `utilizationMT`-nya > 0.
+
+   Sekarang keduanya memakai utilizationPool(kpiPool()) + scopedUtilTotal() —
+   dua fungsi yang persis dijumlah reportUtilizedTotal(). */
+const SEMUA = PERIODE.concat([['All Time', null, null, 'both']]);
+SEMUA.forEach(([nama, f, t, mode]) => {
+  setPeriode(f, t, nama, mode);
+  const kartu = call('reportUtilizedTotal().mt');
+  const { induk } = bacaTabel();
+  const sigma = induk.reduce((s, r) => s + r.util, 0);
+  ok(dekat(sigma, kartu, 0.01), nama + ': Σ UTILIZED ' + sigma.toFixed(3) + ' = kartu ' + kartu.toFixed(3),
+     'selisih ' + (sigma - kartu).toFixed(3) + ' MT');
+});
+{
+  /* Per company juga — supaya totalnya tidak lulus lewat dua kesalahan yang
+     kebetulan saling menutup. */
+  const salah = [];
+  SEMUA.forEach(([nama, f, t, mode]) => {
+    setPeriode(f, t, nama, mode);
+    const perKartu = JSON.parse(call('(function(){'
+      + ' var pool = PERIOD.active ? utilizationPool(kpiPool()) : allCompaniesPool();'
+      + ' var out = {}; pool.forEach(function(co){ var v = scopedUtilTotal(co); if (v) out[co.code] = v; });'
+      + ' return JSON.stringify(out); })()'));
+    const { induk } = bacaTabel();
+    const perTabel = {};
+    induk.forEach(r => { perTabel[r.code] = (perTabel[r.code] || 0) + r.util; });
+    [...new Set([...Object.keys(perKartu), ...Object.keys(perTabel)])].forEach(c => {
+      if (!dekat(perKartu[c] || 0, perTabel[c] || 0, 0.01))
+        salah.push(nama + '/' + c + ': kartu ' + (perKartu[c] || 0) + ' vs tabel ' + (perTabel[c] || 0));
+    });
+  });
+  ok(!salah.length, 'per company juga cocok, di ' + SEMUA.length + ' periode', salah.slice(0, 8).join('; '));
+}
+{
+  /* Tiga company yang paling mudah hilang lagi: utilisasinya hanya hidup di
+     utilizationByProd (master), lotnya kosong. KARA persis yang disebut
+     companiesWithLotsInPeriod() waktu kartunya sendiri pernah kehilangan mereka. */
+  setPeriode(null, null, 'All Time', 'both');
+  const { induk } = bacaTabel();
+  [['AADC', 150], ['KARA', 100], ['PPGL', 50]].forEach(([c, mt]) => {
+    const r = induk.find(x => x.code === c);
+    ok(r && dekat(r.util, mt, 0.01),
+       c + ' punya barisnya, UTILIZED ' + mt + ' (dulu tidak ada barisnya sama sekali)',
+       r ? 'util ' + r.util : 'tidak ada baris');
+  });
+}
+{
+  /* Company yang siklusnya di luar jendela tapi kuotanya dipakai di dalamnya —
+     yang dilebarkan utilizationPool(). Tanpa itu Q1 kehilangan 1.500 MT. */
+  setPeriode(new Date(2026,0,1), new Date(2026,2,31,23,59,59), 'Q1 2026', 'both');
+  const { induk } = bacaTabel();
+  const diSPI = call('filteredSPI().map(function(c){return c.code;})');
+  [['AMP', 400], ['LSJ', 500], ['SPP', 250], ['BHG', 200], ['NCT', 150]].forEach(([c, mt]) => {
+    const r = induk.find(x => x.code === c);
+    ok(r && dekat(r.util, mt, 0.01) && diSPI.indexOf(c) === -1,
+       'Q1: ' + c + ' di luar filteredSPI tapi tetap berbaris, UTILIZED ' + mt,
+       r ? 'util ' + r.util + ' · diFilteredSPI=' + (diSPI.indexOf(c) !== -1) : 'tidak ada baris');
+  });
+}
+{
+  /* Pagar arah sebaliknya: pelebaran itu tidak boleh menyeret masuk company
+     yang utilisasi DAN realisasi periodenya nol — kalau ya, tabel akan penuh
+     baris kosong yang tidak menjelaskan apa pun. */
+  const kosong = [];
+  SEMUA.forEach(([nama, f, t, mode]) => {
+    setPeriode(f, t, nama, mode);
+    /* Hanya company yang MASUK lewat pelebaran itu yang diperiksa. Company yang
+       memang lolos gerbang siklus boleh saja berbaris dengan util dan real nol
+       — permitnya terbit di jendela ini, barangnya belum jalan; itu keadaan
+       nyata, bukan baris kosong. Yang tidak boleh: pelebaran menyeret masuk
+       company yang tidak menyumbang apa pun. */
+    const diSiklus = new Set([].concat(
+      call('filteredSPI().map(function(c){return c.code;})'),
+      call('filteredRA().map(function(c){return c.code;})')));
+    bacaTabel().induk.forEach(r => {
+      if (diSiklus.has(r.code)) return;
+      if (r.util === 0 && r.real === 0) kosong.push(nama + '/' + r.code);
+    });
+  });
+  ok(!kosong.length, 'pelebaran kolam tidak menambah satu pun baris tanpa util maupun real',
+     kosong.slice(0, 8).join('; '));
+}
+
+
 console.log('\n' + pass + ' pass · ' + fail + ' fail');
 process.exit(fail ? 1 : 0);

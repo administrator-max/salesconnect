@@ -205,19 +205,45 @@ function renderUtilTable() {
     });
     return urut;
   })();
-  filteredSPI().forEach(co => {
-    if (raMap[co.code]) return;
-    if (!co.shipments || !Object.keys(co.shipments).length) return;
-    const allLots   = Object.values(co.shipments).flat();
-    const totalUtil = allLots.reduce((s,l) => s+(l.utilMT||0), 0);
+  /* ── Company ber-UTILISASI, dari kolam dan ukuran yang sama dengan kartunya ─
+     Kolamnya utilizationPool(kpiPool()) dan ukurannya scopedUtilTotal() —
+     dua fungsi yang persis dipakai reportUtilizedTotal(). Sebelumnya baris ini
+     menjawabnya sendiri, dan meleset di dua arah sekaligus:
+
+       1. KOLAMNYA `filteredSPI()` — gerbang SIKLUS. Kartu melebarkannya lewat
+          utilizationPool() supaya company yang MEMAKAI kuota di dalam jendela
+          tetap terhitung walau permitnya terbit di luar. Di Q1 2026 pelebaran
+          itu berisi AMP 400, LSJ 500, SPP 250, BHG 200, NCT 150 — 1.500 MT
+          yang tidak punya barisnya sama sekali di tabel.
+       2. UKURANNYA jumlah lot `shipments`, padahal sejak 2026-08-04 tanggal
+          utilisasi pindah ke `etaByProd` dan banyak company tidak punya lot
+          berisi sama sekali. AADC 150, KARA 100, PPGL 50 karena itu lenyap
+          dari tabel — bukan tampil nol, tapi TIDAK ADA barisnya: kolam ini
+          menolaknya karena lotnya kosong, dan kolam Waiting di bawah juga
+          menolaknya karena utilizationMT-nya > 0.
+
+     Cacat kedua itu persis yang pernah menimpa kartunya sendiri — komentar di
+     companiesWithLotsInPeriod() menyebut "BDG 350 MT dan KARA 100 MT menghilang
+     dari Juni" karena alasan yang sama. Kartunya sudah diperbaiki; tabel ini
+     yang tertinggal, dengan KARA yang sama. */
+  const kolamUtil = (typeof utilizationPool === 'function' && typeof kpiPool === 'function')
+    ? (periodeAktif ? utilizationPool(kpiPool()) : (typeof allCompaniesPool === 'function' ? allCompaniesPool() : filteredSPI()))
+    : filteredSPI();
+  const sudahDiKolamUtil = new Set(baseRA.map(r => r.code));
+  kolamUtil.forEach(co => {
+    if (!co || sudahDiKolamUtil.has(co.code)) return;
+    sudahDiKolamUtil.add(co.code);
+    const totalUtil = (typeof scopedUtilTotal === 'function') ? scopedUtilTotal(co) : 0;
     if (totalUtil <= 0) return;
+    const allLots = co.shipments ? Object.values(co.shipments).flat() : [];
+    const obt = (typeof canonicalObtained === 'function' ? canonicalObtained(co) : null) || co.obtained || 0;
     baseRA.push({
       code: co.code, product: (co.products||[]).join(' + '),
       // Use canonical obtained — consistent with KPI2 and OU chart
       berat: totalUtil,
-      obtained: (typeof canonicalObtained === 'function' ? canonicalObtained(co) : null) || co.obtained || 0,
+      obtained: obt,
       cargoArrived: false, realPct: 0,
-      utilPct: Math.min(1, totalUtil/((typeof canonicalObtained === 'function' ? canonicalObtained(co) : null) || co.obtained||1)),
+      utilPct: Math.min(1, totalUtil/(obt||1)),
       etaJKT: allLots.filter(l=>l.etaJKT).map(l=>l.etaJKT)[0] || '',
       reapplyStage: null,
     });
@@ -260,9 +286,21 @@ function renderUtilTable() {
   const kodeDiKolam = new Set(baseRA.map(r => r.code));
   filteredSPI().forEach(co => {
     if (kodeDiKolam.has(co.code)) return;
+    /* Sengaja gerbang SEPANJANG WAKTU, bukan utilisasi periode. Badge-nya
+       berbunyi "⏳ Awaiting Utilization" — pernyataan tentang KEADAAN company,
+       bukan tentang jendelanya. Company yang kuotanya sudah terpakai tahun lalu
+       tidak sedang menunggu apa pun; menyebutnya begitu hanya karena jendela
+       yang dipilih sempit akan salah baca. Diukur: menggantinya dengan ukuran
+       periode menambah 14 baris "Awaiting" palsu pada periode 04/09/2026. */
     if ((co.utilizationMT || 0) > 0) return;
     const coObtWait = (typeof canonicalObtained === 'function' ? canonicalObtained(co) : null) || co.obtained || 0;
     if (coObtWait <= 0) return;
+    /* Sekarang berlebihan pada data yang ada — diukur: menghapusnya tidak
+       mengubah satu angka pun di 15 skenario. Dipertahankan untuk kasus yang
+       belum muncul: statistik server bilang nol sementara Sales sudah memasukkan
+       lot berisi. Di situ scopedUtilTotal() ikut nol, kolam utilisasi tidak
+       menangkapnya, dan tanpa baris ini ia akan berdiri sebagai "Awaiting"
+       padahal lotnya sudah ada. */
     if (co.shipments) {
       const lots = Object.values(co.shipments).flat();
       if (lots.some(l => (l.utilMT||0) > 0)) return;
