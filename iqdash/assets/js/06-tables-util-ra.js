@@ -37,6 +37,51 @@ function renderUtilTable() {
   const raMap = {};
   filteredRA().forEach(r => { raMap[r.code] = r; });
 
+  /* ── Realisasi per company, DIIRIS PERIODE ─────────────────────────────────
+     Sumber kanonik: realizedByCompany() di 02-period-filter.js — kolam dan
+     gerbang tanggal yang SAMA persis dengan kartu Realized, sehingga Σ-nya
+     selalu = kartu.
+
+     Sebelumnya tabel ini menjawab "berapa realisasi company ini" sendiri, dari
+     `realizationByProd` dan `ra.berat` — dua kolom SEPANJANG WAKTU yang tidak
+     pernah mengenal periode. Di periode 07/09/2026 kartu menunjuk angka satu
+     hari sementara kolom REALIZED menjumlah seumur hidup company (BBB 975,132
+     + BTS 1.698,988); di 04/09/2026 tabel malah menampilkan company yang TIDAK
+     punya realisasi hari itu sambil menyembunyikan yang punya — karena
+     pemilihan barisnya ikut memakai gerbang yang berbeda dari kartu.
+
+     Hanya menyala saat PERIOD.active. All Time sengaja tetap lewat jalur lama:
+     mengganti sumbernya di sana akan menggeser angka yang tim sudah pakai. */
+  const realPd = (typeof PERIOD !== 'undefined' && PERIOD.active
+                  && typeof realizedByCompany === 'function')
+    ? realizedByCompany() : null;
+  const realPdOf = code => (realPd ? (realPd[String(code).toUpperCase()] || 0) : null);
+
+  /* Bagi realisasi periode satu company ke produk-produknya.
+     Porsinya dari realizationByProd (bentuk realisasi company itu sepanjang
+     waktu); kalau kosong, jatuh ke porsi obtained; kalau itu pun nol, seluruhnya
+     ke produk pertama. Sisa pembagian ditaruh di produk TERAKHIR supaya Σ baris
+     persis sama dengan totalnya — bukan sama "kurang-lebih". */
+  function splitRealPd(total, prods, rbp, obtByProd) {
+    const out = {};
+    if (!prods.length) return out;
+    if (!(total > 0)) { prods.forEach(p => { out[p] = 0; }); return out; }
+    let basis = prods.map(p => Math.max(0, (rbp && rbp[p]) || 0));
+    let sum   = basis.reduce((a, b) => a + b, 0);
+    if (sum <= 0) {
+      basis = prods.map(p => Math.max(0, (obtByProd && obtByProd[p]) || 0));
+      sum   = basis.reduce((a, b) => a + b, 0);
+    }
+    if (sum <= 0) { prods.forEach((p, i) => { out[p] = i === 0 ? total : 0; }); return out; }
+    let acc = 0;
+    prods.forEach((p, i) => {
+      if (i === prods.length - 1) { out[p] = Math.round((total - acc) * 1e6) / 1e6; return; }
+      const v = Math.round(total * (basis[i] / sum) * 1e6) / 1e6;
+      out[p] = v; acc += v;
+    });
+    return out;
+  }
+
   // ── Build flat per-product rows from RA + SPI data ────────────────────────────
   function buildFlatRows(d) {
     const co  = getSPI(d.code);
@@ -47,14 +92,27 @@ function renderUtilTable() {
     const obtByProd = co ? getObtainedByProd(co) : {};
     const prods = Object.keys(obtByProd).filter(p => (obtByProd[p]||0) > 0);
 
+    /* Periode aktif → realisasi datang dari realizedByCompany(), dibagi ke
+       produk; periode mati → jalur lama (realizationByProd / ra.berat). */
+    const pdReal   = realPdOf(d.code);
+    const pdSplit  = realPd
+      ? splitRealPd(pdReal, prods.length ? prods : [prods[0] || d.product], rbp, obtByProd)
+      : null;
+
     // Single-product: one row
     if (!prods.length || prods.length === 1) {
       const prod = prods[0] || d.product;
       return [{
         code: d.code, product: prod,
         obtained:     obtByProd[prod] || d.obtained || 0,
-        utilMT:       ubp[prod] || d.berat || 0,
-        realMT:       rbp[prod] != null ? rbp[prod] : (d.cargoArrived ? d.berat : 0),
+        /* `|| d.berat` itu cadangan untuk company yang statistik per-produknya
+           kosong sama sekali. Saat periode aktif ia justru menyala persis
+           ketika utilisasi periode = 0, sehingga kolom UTILIZED menampilkan
+           berat REALISASI yang tidak berhubungan (BBB 975,132 saat difilter,
+           700 saat All Time). Nol di dalam periode memang berarti nol. */
+        utilMT:       ubp[prod] || (realPd ? 0 : (d.berat || 0)),
+        realMT:       pdSplit ? (pdSplit[prod] || 0)
+                              : (rbp[prod] != null ? rbp[prod] : (d.cargoArrived ? d.berat : 0)),
         realPct:      d.realPct || 0,
         etaJKT:       ebp[prod] || d.etaJKT || '',
         cargoArrived: abp[prod] != null ? (abp[prod] === true) : d.cargoArrived,
@@ -69,11 +127,13 @@ function renderUtilTable() {
       const prodObt     = obtByProd[prod] || 0;
       const prodUtil    = ubp[prod] || 0;
       const prodArrived = Object.keys(abp).length > 0 ? (abp[prod] === true) : d.cargoArrived;
-      const prodReal    = hasRBP
-        ? (rbp[prod] || 0)
-        : (prodArrived && d.obtained > 0
-            ? Math.round(d.berat * (prodObt / d.obtained) * 100) / 100
-            : 0);
+      const prodReal    = pdSplit
+        ? (pdSplit[prod] || 0)
+        : (hasRBP
+            ? (rbp[prod] || 0)
+            : (prodArrived && d.obtained > 0
+                ? Math.round(d.berat * (prodObt / d.obtained) * 100) / 100
+                : 0));
       const prodRealPct = prodObt > 0 ? prodReal / prodObt : 0;
       return {
         code: d.code, product: prod,
@@ -111,10 +171,43 @@ function renderUtilTable() {
     });
   });
 
+  /* ── Company yang PUNYA realisasi di periode ini tapi belum masuk kolam ────
+     Kolam di atas dipilih lewat filteredRA() + filteredSPI(), yaitu gerbang
+     SIKLUS. Kartu Realized memilih lewat gerbang BARIS REALISASI (pib_date,
+     atau created_at di mode "Tanggal Input"). Keduanya rutin berbeda: pada
+     04/09/2026 kartu berisi BBB/BTS/KJK/LCP/SJH sementara tabel hanya
+     menampilkan AMP. Selama pemilihan barisnya berbeda, Σ kolom REALIZED tidak
+     akan pernah bisa sama dengan kartu — berapa pun benarnya angka per baris.
+
+     Ditambahkan setelah kolam utama supaya company yang sudah ada tidak
+     terduplikasi, dan hanya saat periode aktif. */
+  if (realPd) {
+    const adaDiKolam = new Set(baseRA.map(r => r.code));
+    Object.keys(realPd).forEach(code => {
+      if (!(realPd[code] > 0) || adaDiKolam.has(code)) return;
+      const co = (typeof getSPI === 'function' ? getSPI(code) : null)
+              || (typeof PENDING !== 'undefined' ? PENDING.find(c => c.code === code) : null);
+      if (!co) return;
+      baseRA.push({
+        code, product: (co.products || []).join(' + '),
+        berat: 0,
+        obtained: (typeof canonicalObtained === 'function' ? canonicalObtained(co) : null) || co.obtained || 0,
+        cargoArrived: true, realPct: 0, utilPct: 0,
+        etaJKT: '', reapplyStage: null,
+      });
+    });
+  }
+
   // ── Waiting pool ────────────────────────────────────────────────────────────
   const waitingFlat = [];
+  /* Gerbangnya kode yang SUDAH ada di kolom, bukan raMap (yang hanya tahu
+     filteredRA). Kolam sekarang punya sumber ketiga — company ber-realisasi
+     periode — dan tanpa ini company tanpa utilisasi bisa muncul dua kali:
+     sekali sebagai baris realisasi, sekali lagi sebagai "Awaiting Utilization".
+     Dua-duanya masuk byCo, dan realisasinya terhitung dobel. */
+  const kodeDiKolam = new Set(baseRA.map(r => r.code));
   filteredSPI().forEach(co => {
-    if (raMap[co.code]) return;
+    if (kodeDiKolam.has(co.code)) return;
     if ((co.utilizationMT || 0) > 0) return;
     const coObtWait = (typeof canonicalObtained === 'function' ? canonicalObtained(co) : null) || co.obtained || 0;
     if (coObtWait <= 0) return;
@@ -296,8 +389,18 @@ function renderUtilTable() {
     // Company-level "arrived/realized" from the RA record (same source as the
     // Total Realized KPI) so multi-product PTs (whose per-product realMT can't
     // distribute) still land in Arrived. Realized MT = RA berat when arrived.
-    const arrived = (ra && ra.cargoArrived) || sumReal > 0;
-    const real = arrived ? ((ra && Number(ra.berat) > 0) ? Number(ra.berat) : sumReal) : 0;
+    /* Baris induk company inilah yang benar-benar tampil di #utilBody — bukan
+       renderRow() di atas. Sebelumnya ia menghitung realisasinya SENDIRI dari
+       `ra.berat`, kolom sepanjang waktu, sehingga menambal buildFlatRows saja
+       tidak berefek apa pun pada yang terlihat.
+
+       Saat periode aktif, angkanya = realizedByCompany() — sama dengan Σ baris
+       produk di bawahnya, dan Σ seluruh baris = kartu. */
+    const pdReal  = realPdOf(code);
+    const arrived = realPd ? (pdReal > 0) : ((ra && ra.cargoArrived) || sumReal > 0);
+    const real = realPd
+      ? pdReal
+      : (arrived ? ((ra && Number(ra.berat) > 0) ? Number(ra.berat) : sumReal) : 0);
     const phase = arrived ? 'ARRIVED' : (sumUtil > 0 ? 'INSHIP' : 'WAITING');
     return {
       code, rows: rs,
@@ -339,6 +442,12 @@ function renderUtilTable() {
         <td class="t-r" style="padding:8px 10px">${realDisp}</td>
         <td class="t-c" style="padding:8px 10px"><span onclick="openDrawer('${c.code}');event.stopPropagation()" style="font-size:10px;font-weight:600;color:var(--blue);cursor:pointer">detail ↗</span></td>
       </tr>`;
+      /* Gerbangnya realMT, bukan `cargoArrived && realMT`. `arrivedByProd`
+         kosong atau false untuk hampir semua produk, sehingga rincian yang
+         bisa dibuka SELALU menampilkan "—" sementara baris induknya menunjuk
+         angka penuh — semua 9 company ber-produk banyak begitu, juga di All
+         Time. Yang ditanya kolom ini adalah "berapa realisasinya", bukan
+         "apakah kargonya tercatat tiba". */
       if (multi) c.rows.forEach(r => {
         const sp = phaseOf(r);
         tbody.innerHTML += `<tr class="uph-sub-${c.code}" style="display:none;background:var(--bg2)">
@@ -347,7 +456,7 @@ function renderUtilTable() {
           <td style="padding:5px 10px">${phaseBadge(sp)}</td>
           <td class="t-r" style="padding:5px 10px;font-size:11px">${(r.obtained || 0).toLocaleString(MT_LOCALE)}</td>
           <td class="t-r" style="padding:5px 10px;font-size:11px">${r.utilMT > 0 ? r.utilMT.toLocaleString(MT_LOCALE) : '—'}</td>
-          <td class="t-r" style="padding:5px 10px;font-size:11px">${(r.cargoArrived && r.realMT > 0) ? r.realMT.toLocaleString(MT_LOCALE) : '—'}</td>
+          <td class="t-r" style="padding:5px 10px;font-size:11px">${r.realMT > 0 ? r.realMT.toLocaleString(MT_LOCALE) : '—'}</td>
           <td></td>
         </tr>`;
       });
