@@ -51,8 +51,12 @@ unset($_SESSION['flash'], $_SESSION['flash_bad']);
          padding: 36px; width: 100%; max-width: 400px; }
   .brand { font-weight: 700; font-size: 24px; text-align: center; margin-bottom: 4px; }
   .brand span { color: #38bdf8; }
-  .tag { text-align: center; color: #94a3b8; font-size: 14px; margin-bottom: 20px; line-height: 1.6; }
+  .tag { text-align: center; color: #94a3b8; font-size: 14px; margin-bottom: 14px; line-height: 1.6; }
   .tag b { color: #e2e8f0; }
+  .note { background: #0f172a; border: 1px solid #1e293b; border-radius: 9px;
+          padding: 10px 12px; margin-bottom: 18px; color: #94a3b8;
+          font-size: 12.5px; line-height: 1.6; text-align: center; }
+  .note b { color: #cbd5e1; }
   label { display: block; font-size: 13px; color: #cbd5e1; margin: 14px 0 6px; font-weight: 500; }
   input { width: 100%; padding: 12px 13px; border-radius: 9px; border: 1px solid #334155;
           background: #0f172a; color: #e2e8f0; font-size: 22px; text-align: center;
@@ -78,7 +82,16 @@ unset($_SESSION['flash'], $_SESSION['flash_bad']);
   <div class="box">
     <div class="brand">Sales<span>Connect</span></div>
     <div class="tag">Kode dikirim ke <b><?= htmlspecialchars($email) ?></b>.<br>
-      Berlaku <?= SC_OTP_TTL_MIN ?> menit. Cek juga folder spam.</div>
+      Cek juga folder spam.</div>
+
+    <?php /* "Berlaku 10 menit" saja terbaca seolah LOGIN-nya yang cuma 10
+             menit, dan itu bikin orang mengira harus bolak-balik minta kode.
+             Yang dibatasi 10 menit adalah waktu mengetik kodenya; sesinya
+             sendiri sehari penuh. Dua-duanya disebut supaya tidak ada yang
+             perlu menebak. */ ?>
+    <div class="note">Kode ini berlaku <b><?= SC_OTP_TTL_MIN ?> menit</b> — itu batas waktu
+      memasukkannya, bukan lama login. Setelah masuk, Anda tidak akan diminta kode lagi
+      selama <b><?= sc_session_hours() ?> jam</b>.</div>
 
     <?php if ($flash): ?>
       <div class="<?= $flashBad ? 'err' : 'ok' ?>"><?= htmlspecialchars($flash) ?></div>

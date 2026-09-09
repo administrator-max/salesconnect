@@ -102,6 +102,7 @@ $prefill = (string) ($_SESSION['otp_email'] ?? '') ?: sc_remembered_email();
           font-size: 13px; margin-bottom: 6px; text-align: center; }
   .hint { color: #64748b; font-size: 12.5px; line-height: 1.55; margin-top: 18px; text-align: center; }
   .hint a { color: #64748b; }
+  .hint b { color: #94a3b8; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -127,8 +128,11 @@ $prefill = (string) ($_SESSION['otp_email'] ?? '') ?: sc_remembered_email();
       <input id="email" name="email" type="email" required autofocus
              placeholder="nama@gunungprisma.com" value="<?= htmlspecialchars($prefill, ENT_QUOTES) ?>">
       <button type="submit">✉ Kirim kode</button>
-      <div class="hint">Hanya email yang terdaftar yang bisa masuk.<br>
-        Butuh akses? Hubungi admin SalesConnect.</div>
+      <?php /* Harapannya disebut di muka, sebelum orang menekan tombolnya:
+               kode ini sekali sehari, bukan tiap kali membuka dashboard. */ ?>
+      <div class="hint">Cukup <b>sekali sehari</b> — setelah masuk, Anda tidak akan
+        diminta kode lagi selama <?= sc_session_hours() ?> jam.<br>
+        Hanya email yang terdaftar yang bisa masuk. Butuh akses? Hubungi admin SalesConnect.</div>
     <?php endif; ?>
   </form>
 </body>

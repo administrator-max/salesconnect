@@ -98,12 +98,18 @@ function sc_mail_config(): array {
 /** Kirim kode OTP. true = server mail menerima (bukan jaminan sampai inbox). */
 function sc_send_otp_email(string $to, string $code, ?int $ttlMin = null, &$err = null): bool {
     $ttlMin = $ttlMin ?? SC_OTP_TTL_MIN;
+    // Sama seperti di halaman verifikasi: "berlaku 10 menit" saja terbaca
+    // seolah login-nya yang sebentar. Umur sesi ikut disebut supaya orang tahu
+    // ini sekali sehari, bukan tiap kali membuka dashboard.
+    $hours = function_exists('sc_session_hours') ? sc_session_hours() : 24;
     $subject = 'SalesConnect Login Code';
     $body = "Halo,\r\n\r\n"
           . "Kode masuk SalesConnect Anda:\r\n\r\n"
           . "    $code\r\n\r\n"
-          . "Kode berlaku $ttlMin menit dan hanya bisa dipakai sekali.\r\n"
-          . "Jangan bagikan kode ini kepada siapa pun.\r\n\r\n"
+          . "Kode ini berlaku $ttlMin menit dan hanya bisa dipakai sekali — itu batas\r\n"
+          . "waktu memasukkannya, bukan lama login. Setelah masuk, Anda tidak akan\r\n"
+          . "diminta kode lagi selama $hours jam.\r\n\r\n"
+          . "Jangan bagikan kode ini kepada siapa pun.\r\n"
           . "Jika Anda tidak meminta kode ini, abaikan email ini.\r\n";
     return sc_mail($to, $subject, $body, $err);
 }
