@@ -38,6 +38,7 @@ return [
         'liwa'   => ['name' => 'Liwa',    'email' => 'liwa.s@gunungprisma.com'],
         'herdiani' => ['name' => 'Herdiani', 'email' => 'herdiani@gunungprisma.com'],
         'hendra'   => ['name' => 'Hendra',   'email' => 'hendra.satria@gunungprisma.com'],
+        'jessica'  => ['name' => 'Jessica',  'email' => 'jessica.nathania@gunungprisma.com'],
     ],
 
     // ── Hak akses per dashboard ──────────────────────────────────────────
@@ -50,9 +51,12 @@ return [
         'cil'      => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
         'taskflow' => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
 
-        // Cost Core & Sales Pulse — tim sales inti + Irma, Angely, Putri
+        // Cost Core — tim sales inti + Irma, Angely, Putri
         'costcore'   => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
-        'salespulse' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
+
+        // Sales Pulse — sama seperti Cost Core, DITAMBAH Jessica
+        // (ditambahkan menyusul, 9 September 2026).
+        'salespulse' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra', 'jessica'],
 
         // IQ Dash — sama seperti dua di atas, DITAMBAH Herdiani & Jeany
         // (keduanya ditambahkan menyusul, 26 Agustus 2026).

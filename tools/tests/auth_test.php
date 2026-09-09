@@ -14,11 +14,11 @@ function t(string $name, $got, $want) {
 
 // ── Daftar orang & hak akses ─────────────────────────────────────────────
 $a = sc_access();
-t('jumlah orang terdaftar', count($a['people']), 15);
+t('jumlah orang terdaftar', count($a['people']), 16);
 t('akses cil',        count($a['access']['cil']), 9);
 t('akses taskflow',   count($a['access']['taskflow']), 9);
 t('akses costcore',   count($a['access']['costcore']), 12);
-t('akses salespulse', count($a['access']['salespulse']), 12);
+t('akses salespulse', count($a['access']['salespulse']), 13);
 t('akses iqdash',     count($a['access']['iqdash']), 14);
 t('akses scot',       count($a['access']['scot']), 13);
 t('Putri TIDAK di scot', in_array('putri', $a['access']['scot'], true), false);
@@ -36,6 +36,12 @@ t('Herdiani bukan admin', !empty(sc_person_by_email('herdiani@gunungprisma.com')
 t('Hendra: SEMUA dashboard', sc_person_by_email('hendra.satria@gunungprisma.com')['tools'],
                              array_keys($a['access']));
 t('Hendra bukan admin', !empty(sc_person_by_email('hendra.satria@gunungprisma.com')['admin']), false);
+t('Jessica hanya di salespulse', sc_person_by_email('jessica.nathania@gunungprisma.com')['tools'],
+                                 ['salespulse']);
+t('Jessica bukan admin', !empty(sc_person_by_email('jessica.nathania@gunungprisma.com')['admin']), false);
+// Ejaan yang sempat salah ketik ("jessca") tidak boleh ikut terdaftar — email
+// yang meleset satu huruf berarti orangnya tidak bisa masuk sama sekali.
+t('ejaan lama tidak terdaftar', sc_person_by_email('jessca.nathania@gunungprisma.com'), null);
 t('email besar-kecil',   sc_person_by_email('  JERI@GunungPrisma.com ')['name'], 'Ko Jeri');
 t('email asing ditolak', sc_person_by_email('orang.luar@example.com'), null);
 t('Aldi admin',   !empty(sc_person_by_email('aldi.pratantio@gunungcapital.com')['admin']), true);
