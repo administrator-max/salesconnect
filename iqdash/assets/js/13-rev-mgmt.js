@@ -202,14 +202,38 @@ function rrSyncReqStatus(req, sourceProd, state) {
    konfirmasi, jadi membatalkan satu target tidak pernah memperbarui siklusnya. */
 function rrRebuildFromConfirmed(co, prod, req) {
   if (!co.cycles) co.cycles = [];
-  co.cycles = co.cycles.filter(c => !(c.type === `Revision Request — ${prod}`));
+  /* AKAR MASALAH "satu produk, dua kolom".
+
+     Satu produk bisa punya DUA kunci permintaan yang hidup berdampingan:
+     ejaan ledger ("GL BORON") dan ejaan kanonik ("GL ALLOY"). Semua pembanding
+     di bawah ini dulu memakai nama MENTAH, jadi keduanya dianggap produk yang
+     berbeda — dan konfirmasi lewat kunci kedua MENAMBAH pasangan revFrom/revTo
+     serta siklus "Revision Request — ..." baru, alih-alih menggantikan yang lama.
+
+     Itulah yang membuat BBB menampilkan "GL ALLOY 400 MT → 3.000 MT" bertumpuk
+     dengan "GL ALLOY 1.100 MT → 3.000 MT", lalu dua baris input Obtained yang
+     menjumlah 6.000 MT — padahal request sales-nya satu, 3.000 MT.
+     Dilaporkan pemilik data 10-Sep-2026.
+
+     Yang DITULIS pun kini nama kanonik, supaya data baru berhenti menambah
+     ejaan kembar. Data lama tidak ditulis ulang — itu urusan migrasi
+     tersendiri, dan sisi tampilan sudah menggabungkannya. */
+  const _kan = p => (typeof prodLabel === 'function')
+    ? prodLabel(String(p == null ? '' : p).trim())
+    : String(p == null ? '' : p).trim();
+  const prodK = _kan(prod);
+  co.cycles = co.cycles.filter(c => {
+    const t = String(c.type || '');
+    if (!/^Revision Request — /.test(t)) return true;
+    return _kan(t.replace(/^Revision Request — /, '')) !== prodK;
+  });
   if (!co.revFrom) co.revFrom = [];
   if (!co.revTo)   co.revTo   = [];
   const st  = rrTargetState(req, prod);
   const oke = st.filter(s => s.status === 'confirmed');
 
-  co.revFrom = co.revFrom.filter(f => f.prod !== prod);
-  co.revTo   = co.revTo.filter(f => !st.some(s => s.product === f.prod));
+  co.revFrom = co.revFrom.filter(f => _kan(f.prod) !== prodK);
+  co.revTo   = co.revTo.filter(f => !st.some(s => _kan(s.product) === _kan(f.prod)));
 
   if (!oke.length) {                       // semua target dibatalkan
     if (!co.revFrom.length && !co.revTo.length) { co.revType = 'none'; co.revStatus = ''; }
@@ -218,12 +242,12 @@ function rrRebuildFromConfirmed(co, prod, req) {
 
   const total   = oke.reduce((a, s) => a + (Number(s.mt) || 0), 0);
   const prodObj = {};
-  oke.forEach(s => { if (s.product) prodObj[s.product] = (prodObj[s.product] || 0) + (Number(s.mt) || 0); });
+  oke.forEach(s => { const k = _kan(s.product); if (k) prodObj[k] = (prodObj[k] || 0) + (Number(s.mt) || 0); });
   const now = (typeof todayStd === 'function') ? todayStd()
             : new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-');
 
   co.cycles.push({
-    type:        `Revision Request — ${prod}`,
+    type:        `Revision Request — ${prodK}`,
     mt:          total,
     products:    prodObj,
     submitType:  'Sales Request',
@@ -235,13 +259,20 @@ function rrRebuildFromConfirmed(co, prod, req) {
     _isRevReq:   true,
   });
 
-  const obtMap = (typeof getObtainedByProd === 'function') ? getObtainedByProd(co) : {};
-  co.revFrom.push({ prod, mt: obtMap[prod] != null ? obtMap[prod] : (co.obtained || 0), label: 'Before' });
-  oke.forEach(s => co.revTo.push({ prod: s.product, mt: Number(s.mt) || 0, label: 'After' }));
+  /* getObtainedByProd() tidak pernah ada — yang ada getObtainedByProdAgg().
+     Jadi pemanggilan ini selalu gagal diam-diam dan sisi "Before" jatuh ke
+     co.obtained: TOTAL seluruh company, bukan obtained produk yang ini. Untuk
+     company satu produk angkanya kebetulan sama; untuk yang banyak produk,
+     salah. co.obtained tetap dipakai sebagai jaring terakhir. */
+  const obtMap = (typeof getObtainedByProdAgg === 'function') ? (getObtainedByProdAgg(co) || {}) : {};
+  const beforeMT = obtMap[prodK] != null ? obtMap[prodK]
+                 : (obtMap[prod] != null ? obtMap[prod] : (co.obtained || 0));
+  co.revFrom.push({ prod: prodK, mt: beforeMT, label: 'Before' });
+  oke.forEach(s => co.revTo.push({ prod: _kan(s.product), mt: Number(s.mt) || 0, label: 'After' }));
 
   co.revType   = 'active';
-  co.revStatus = `Revision Request dikonfirmasi — ${prod} → `
-               + oke.map(s => `${s.product} ${Number(s.mt).toLocaleString(MT_LOCALE)} MT`).join(' + ')
+  co.revStatus = `Revision Request dikonfirmasi — ${prodK} → `
+               + oke.map(s => `${_kan(s.product)} ${Number(s.mt).toLocaleString(MT_LOCALE)} MT`).join(' + ')
                + ` · ${now}`;
   if (!co.revNote) co.revNote = req.note || '';
 }
@@ -885,8 +916,19 @@ function buildRevMgmtSection(co) {
       : `<span style="color:var(--txt3);font-style:italic">TBA MT</span>`;
 
     // Build per-product MT display
-    const prodLines = c.products && Object.keys(c.products).length
-      ? Object.entries(c.products).map(([p,m]) => {
+    /* Digabung per nama KANONIK dulu. cycles[].products bisa memuat dua ejaan
+       untuk produk yang sama (GL BORON + GL ALLOY), sisa data yang ditulis
+       sebelum penamaan diseragamkan — dan tanpa ini riwayat siklus
+       menampilkan satu produk sebagai dua chip. */
+    const _prodGab = {};
+    Object.entries(c.products || {}).forEach(([p, m]) => {
+      const k = prodLabel(String(p).trim());
+      if (!k) return;
+      const v = Number(String(m).replace(/,/g, ''));
+      _prodGab[k] = (_prodGab[k] || 0) + (isNaN(v) ? 0 : v);
+    });
+    const prodLines = Object.keys(_prodGab).length
+      ? Object.entries(_prodGab).map(([p,m]) => {
           const dotC = (typeof prodDot==='function') ? prodDot(p) : '#94a3b8';
           const safeM = (!isNaN(Number(m)) && Number(m) > 0) ? Number(m).toLocaleString(MT_LOCALE) + ' MT' : 'TBA';
           return `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px">
@@ -944,12 +986,43 @@ function buildRevMgmtSection(co) {
       changeHtml = `<div style="margin-bottom:10px">
         <div class="fl" style="margin-bottom:5px">Product Change (From → To)</div>
         <div style="display:flex;flex-direction:column;gap:4px">`;
+      /* Satu perpindahan produk = SATU baris.
+
+         revFrom/revTo diisi sepasang per kunci permintaan, dan satu produk bisa
+         punya dua kunci (ejaan lama + ejaan kanonik). Data yang tersimpan
+         sebelum perbaikan di rrRebuildFromConfirmed() masih membawa pasangan
+         kembar itu, jadi penggabungan tetap dikerjakan di sisi tampilan.
+
+         Angkanya TIDAK dijumlahkan. Sisi kiri adalah obtained produk itu PADA
+         SAAT pasangannya dibuat, jadi 400 lalu 1.100 adalah besaran yang SAMA
+         dicatat dua kali di waktu berbeda — bukan dua kepemilikan yang berdiri
+         sendiri; menjumlahkannya mengarang 1.500 MT. Yang diambil nilai
+         terbesar, yaitu pencatatan terakhir. Sisi kanan sama: request sales-nya
+         satu, 3.000 MT, bukan 6.000. */
+      const _angka = v => {
+        if (v == null || v === '') return null;
+        const n = Number(String(v).replace(/,/g, ''));
+        return isNaN(n) ? null : n;
+      };
+      const _pasang = new Map();
       co.revFrom.forEach((f, i) => {
-        const t = (co.revTo || [])[i] || {};
+        const t     = (co.revTo || [])[i] || {};
+        const dari  = prodLabel(f.prod || '');
+        const ke    = t.prod ? prodLabel(t.prod) : '';
+        const kunci = dari + '\u0000' + ke;
+        const fMT = _angka(f.mt), tMT = _angka(t.mt);
+        const ada = _pasang.get(kunci);
+        if (!ada) { _pasang.set(kunci, { dari, ke, fMT, tMT, fMentah: f.mt, tMentah: t.mt }); return; }
+        if (fMT != null) ada.fMT = ada.fMT == null ? fMT : Math.max(ada.fMT, fMT);
+        if (tMT != null) ada.tMT = ada.tMT == null ? tMT : Math.max(ada.tMT, tMT);
+      });
+      [..._pasang.values()].forEach(pr => {
+        const fDisp = pr.fMT != null ? pr.fMT.toLocaleString(MT_LOCALE) : (pr.fMentah || 'TBA');
+        const tDisp = pr.tMT != null ? pr.tMT.toLocaleString(MT_LOCALE) : (pr.tMentah || 'TBA');
         changeHtml += `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px">
-          <span style="padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-weight:600">${prodLabel(f.prod)} — ${(f.mt||'').toLocaleString ? (typeof f.mt==='number'?f.mt.toLocaleString(MT_LOCALE):f.mt) : f.mt} MT</span>
+          <span style="padding:2px 8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-weight:600">${pr.dari} — ${fDisp} MT</span>
           <span style="color:var(--txt3)">→</span>
-          <span style="padding:2px 8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:3px;font-weight:700;color:var(--green)">${t.prod?prodLabel(t.prod):'?'} — ${(typeof t.mt==='number'?t.mt.toLocaleString(MT_LOCALE):t.mt)||'TBA'} MT</span>
+          <span style="padding:2px 8px;background:var(--green-bg);border:1px solid var(--green-bd);border-radius:3px;font-weight:700;color:var(--green)">${pr.ke || '?'} — ${tDisp} MT</span>
         </div>`;
       });
       changeHtml += `</div></div>`;
@@ -959,24 +1032,56 @@ function buildRevMgmtSection(co) {
       `<option value="${s}" ${s===stageVal?'selected':''}>${s}</option>`
     ).join('');
 
-    // Build per-product obtained input rows from ALL confirmed salesRevRequest targets
-    // This accumulates across multiple confirmed products (e.g. 2 ERW products)
+    /* SATU BARIS INPUT PER PRODUK — sejumlah yang diminta sales.
+
+       Dibangun dari reqProds, daftar permintaan yang SUDAH dikelompokkan per
+       produk kanonik di atas, bukan dari salesRevRequest mentah. Yang mentah
+       memuat dua kunci untuk satu produk (BBB: "GL BORON" ditolak 29-Apr dan
+       "GL ALLOY" dikonfirmasi 09-Sep), dan pembanding lama `x.prod === nm`
+       tidak mengenali keduanya sebagai produk yang sama. Hasilnya dua baris
+       3.000 MT dengan Total 6.000 MT — dua kali lipat permintaan sebenarnya.
+       Dilaporkan pemilik data 10-Sep-2026.
+
+       Memakai reqProds sekaligus menyelaraskan panel ini dengan panel Sales
+       Revision Request di atasnya: satu aturan pemenang, satu daftar produk.
+
+       MT dijumlahkan hanya DI DALAM satu permintaan (split satu sumber ke
+       beberapa tujuan yang ternyata produk yang sama). Antar permintaan aman
+       dijumlahkan karena reqProds sudah memastikan tiap entri adalah produk
+       sumber yang berbeda. */
     let prodList = [];
-    const salesRevReq2 = co.salesRevRequest || {};
-    Object.entries(salesRevReq2).filter(([,v]) => v && v.requested).forEach(([p, req]) => {
-      const targets = req.targetProducts && req.targetProducts.length
-        ? req.targetProducts
-        : [{ product: req.newProduct || p, mt: req.confirmedMT || req.requestedMT || null }];
-      targets.forEach(t => {
-        const nm = t.product || p;
-        if (nm && !prodList.find(x => x.prod === nm)) {
-          prodList.push({ prod: nm, mt: t.mt || req.confirmedMT || req.requestedMT || null });
-        }
+    {
+      const perProduk = new Map();                    // nama kanonik -> MT
+      reqProds.forEach(([p, req]) => {
+        const targets = (req.targetProducts && req.targetProducts.length)
+          ? req.targetProducts
+          : [{ product: req.newProduct || p, mt: req.confirmedMT || req.requestedMT || null }];
+        const dalamEntri = new Map();
+        targets.forEach(t => {
+          const nm = prodLabel(t.product || p);
+          if (!nm) return;
+          const raw = (t.mt != null && t.mt !== '') ? t.mt : (req.confirmedMT || req.requestedMT);
+          const v   = Number(String(raw == null ? '' : raw).replace(/,/g, ''));
+          dalamEntri.set(nm, (dalamEntri.get(nm) || 0) + (isNaN(v) ? 0 : v));
+        });
+        dalamEntri.forEach((mt, nm) => perProduk.set(nm, (perProduk.get(nm) || 0) + mt));
       });
-    });
+      prodList = [...perProduk.entries()].map(([prod, mt]) => ({ prod, mt: mt > 0 ? mt : null }));
+    }
     // Fallback to revTo if salesRevRequest empty
     if (!prodList.length && co.revTo && co.revTo.length) {
-      prodList = co.revTo;
+      /* Digabung dengan aturan yang sama seperti Product Change di atas:
+         pasangan kembar adalah pencatatan ulang, bukan tambahan. */
+      const gab = new Map();
+      co.revTo.forEach(t => {
+        const nm = prodLabel(t.prod || t.product || '');
+        if (!nm) return;
+        const v = Number(String(t.mt == null ? '' : t.mt).replace(/,/g, ''));
+        const lama = gab.get(nm);
+        gab.set(nm, (lama == null) ? (isNaN(v) ? null : v)
+                  : (isNaN(v) ? lama : Math.max(lama, v)));
+      });
+      prodList = [...gab.entries()].map(([prod, mt]) => ({ prod, mt }));
     }
 
     // Load existing obtained #2 cycle values for pre-fill
@@ -985,7 +1090,21 @@ function buildRevMgmtSection(co) {
     const _tipeObt = (typeof rrObtainedTypeFor === 'function') ? rrObtainedTypeFor(co) : 'Obtained #2';
     const _nrm = v => String(v || '').toLowerCase().replace(/\s+/g, ' ').trim();
     const obt2Cy = (co.cycles || []).find(c => _nrm(c.type) === _nrm(_tipeObt));
-    const obt2Prods = obt2Cy ? (obt2Cy.products || {}) : {};
+    /* Dikunci nama KANONIK supaya baris "GL ALLOY" tetap menemukan nilai yang
+       pernah tersimpan dengan ejaan "GL BORON". Dua ejaan dalam SATU siklus
+       diambil yang terbesar, bukan dijumlahkan: satu siklus menerbitkan satu
+       besaran untuk satu produk, jadi kembarannya pencatatan ulang. */
+    const obt2Prods = (() => {
+      const out = {};
+      Object.entries((obt2Cy && obt2Cy.products) || {}).forEach(([p, m]) => {
+        const k = prodLabel(String(p).trim());
+        if (!k) return;
+        const v = Number(String(m).replace(/,/g, ''));
+        if (isNaN(v)) { if (out[k] == null) out[k] = m; return; }
+        out[k] = (out[k] == null || isNaN(Number(out[k]))) ? v : Math.max(Number(out[k]), v);
+      });
+      return out;
+    })();
     const obt2MT    = obt2Cy ? obt2Cy.mt : null;
     // Document NUMBERS come from co.spiNo / co.pertekNo — the company-level
     // fields that have always been their real home. They used to be read back
@@ -1233,24 +1352,32 @@ function csBatalRev(prod, pid, code, ti) {
 
 /* Save approval stage + date + note to the live record */
 
-/* ── Read obtained MT from revision edit form ── */
+/* ── Read obtained MT from revision edit form ──
+
+   Kuncinya DIKANONIKKAN sebelum disimpan, jadi yang tertulis ke cycle selalu
+   "GL ALLOY" — tidak pernah menambah "GL BORON" sebagai produk kedua.
+
+   Kembar tidak dijumlahkan melainkan diambil yang terbesar. Perendernya
+   sekarang memang hanya mengeluarkan satu baris per produk kanonik, jadi ini
+   pagar untuk halaman yang terlanjur terbuka sebelum pembaruan ini: penjumlahan
+   di sanalah yang dulu menghasilkan Total 6.000 MT untuk request 3.000 MT.
+   Totalnya dihitung ulang dari byProd, bukan diakumulasi sambil jalan, supaya
+   angka yang disimpan tidak mungkin berbeda dari rinciannya. */
 function rrReadObtainedFromForm(co) {
   const inputs = document.querySelectorAll('.rr-obt-prod-inp');
   if (!inputs.length) return { total: null, byProd: {} };
   const byProd = {};
   let total = 0;
   inputs.forEach(inp => {
-    const prod = inp.dataset.prod;
     const raw  = (inp.value || '').replace(/,/g,'').trim();
     const val  = parseFloat(raw);
     const safeVal = (!isNaN(val) && val > 0) ? val : 0;
-    if (prod === '_total') {
-      total = safeVal;
-    } else if (prod && safeVal > 0) {
-      byProd[prod] = safeVal;
-      total += safeVal;
-    }
+    if (inp.dataset.prod === '_total') { total = safeVal; return; }
+    const prod = prodLabel(String(inp.dataset.prod || '').trim());
+    if (prod && safeVal > 0) byProd[prod] = Math.max(byProd[prod] || 0, safeVal);
   });
+  const jumlah = Object.values(byProd).reduce((a, v) => a + v, 0);
+  if (jumlah > 0) total = jumlah;
   return { total, byProd };
 }
 
@@ -1368,14 +1495,17 @@ async function rrSavePertekPerubahan(code) {
   }
 }
 
-/* ── Update obtained total display ── */
+/* ── Update obtained total display ──
+
+   Memakai pembaca yang SAMA dengan jalur simpan. Dulu fungsi ini punya
+   penjumlahannya sendiri, jadi angka "Total" di layar bisa berbeda dari angka
+   yang benar-benar tersimpan — dan pembaca itulah yang tahu bahwa dua ejaan
+   satu produk bukan dua besaran. */
 function rrUpdateObtTotal() {
   const el = document.getElementById('rrObtTotal');
   if (!el) return;
-  let t = 0;
-  document.querySelectorAll('.rr-obt-prod-inp').forEach(inp => {
-    t += parseFloat(inp.value.replace(/,/g,'')) || 0;
-  });
+  const { total } = rrReadObtainedFromForm();
+  const t = Number(total) || 0;
   el.textContent = t > 0 ? t.toLocaleString(MT_LOCALE) + ' MT' : '—';
 }
 
