@@ -234,12 +234,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   updatePeriodUI();
   updateOverviewKPIs();
 
-  // Phase 2 (deferred): off-screen tabs + heavy analytics. Scheduled
-  // via requestAnimationFrame + microtask so initial Overview paint
-  // commits FIRST, then the rest renders in the next frame. This keeps
-  // navigation to other tabs safe (renders complete within ~16-32ms,
-  // far faster than human click latency).
-  requestAnimationFrame(() => {
+  /* Phase 2 (deferred): off-screen tabs + heavy analytics. Ditunda supaya
+     Overview tercetak DULU, baru sisanya menyusul di frame berikutnya.
+
+     TIDAK boleh bergantung pada requestAnimationFrame saja.
+
+     rAF adalah panggilan balik MENGGAMBAR, bukan penjadwal. Di tab yang
+     tersembunyi ia tidak pernah menyala — dan tab tersembunyi bukan kasus
+     langka: membuka tautan dashboard di tab latar, atau peramban yang
+     memulihkan sesi berisi banyak tab, keduanya menghasilkan itu. Akibatnya
+     seluruh Group A dan B tidak pernah jalan, dan orang menemukan tabel
+     PERTEK & SPI, Available Quota, serta All Companies KOSONG saat berpindah
+     ke tab itu. Terbaca sebagai "kosong lagi", persis keluhan yang sedang
+     dibereskan. Terbukti terukur 10-Sep-2026: dengan document.hidden true,
+     rAF tidak menyala sama sekali dalam 1,5 detik dan #spiTerbitBody tetap
+     nol baris; dipanggil manual, tabelnya terisi 57 baris tanpa galat.
+
+     Jebakan yang sama sudah kena sekali hari ini di penyegar otomatis.
+
+     Jadi keduanya dipasang: rAF untuk tab yang terlihat supaya cetakan
+     pertama tidak tertahan, dan setTimeout sebagai jaring untuk tab yang
+     tersembunyi. Yang menyala duluan yang mengerjakan; _fase2Sudah menjaga
+     supaya tidak dikerjakan dua kali. */
+  let _fase2Sudah = false;
+  const _fase2 = () => {
+    if (_fase2Sudah) return;
+    _fase2Sudah = true;
     // Group A — table renders for other tabs (cheap, immediate)
     renderSPI();
     buildSpiTerbitTable();
@@ -250,7 +270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     buildRevDetailTable();
     buildCmpList();
     // Group B — heavier chart renders, next frame
-    requestAnimationFrame(() => {
+    const _grupB = () => {
       buildCmpChart();
       buildGauge();
       buildUtilChart();
@@ -261,8 +281,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateOUOverviewKPIs();
       updateSalesIntelKPIs();
       buildLeadTimeAnalytics();
-    });
-  });
+    };
+    let _bSudah = false;
+    const _b = () => { if (_bSudah) return; _bSudah = true; _grupB(); };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(_b);
+    if (typeof setTimeout === 'function') setTimeout(_b, 50);
+  };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(_fase2);
+  if (typeof setTimeout === 'function') setTimeout(_fase2, 50);
 });
 
 /* ── LAST UPDATE (data-edit time from server) ───────────────────────
