@@ -263,16 +263,35 @@ console.log('\nF · All Time memakai sumber yang sama dengan kartunya');
   ok(dekat(util, kartuUtil, 0.01),
      'Σ UTILIZED All Time = kartu Utilized (26.046) — lihat bagian I',
      'Σ ' + util.toFixed(3) + ' vs kartu ' + kartuUtil.toFixed(3));
-  /* Riwayat angka ini, supaya tiap loncatannya punya sebab yang tercatat:
+  /* Riwayat perbaikan yang membentuk angka ini, supaya tiap loncatannya punya
+     sebab yang tercatat:
        38.540  keadaan lama
        35.040  −3.500 sesudah gelombang kembar SGD + AMP dibereskan
        35.340    +300 AADC, KARA, PPGL yang dulu tidak punya baris sama sekali
        35.460    +120 SNSD — kolam Waiting semula hanya menyusuri filteredSPI(),
                         jadi satu-satunya company bersection PENDING yang
-                        memegang kuota tidak pernah muncul di tab ini. */
-  ok(dekat(obt, 35460, 0.01),
-     'Σ OBTAINED All Time 35.460 (35.340 + 120 SNSD yang dulu tidak punya baris)',
-     'dapat ' + obt.toFixed(3));
+                        memegang kuota tidak pernah muncul di tab ini.
+
+     Angka MUTLAKNYA tidak dipatok lagi. Fixture uji ini dibangun dari data
+     master yang sungguhan, dan tim menginput hampir tiap hari — mematok 35.460
+     berarti uji ini gagal beberapa hari sekali tanpa ada yang rusak, lalu
+     kegagalannya jadi kebisingan yang diabaikan. Persis kegagalan yang paling
+     berbahaya: uji merah yang orang belajar untuk tidak percayai.
+
+     Yang dipatok sekarang HUBUNGANNYA: Σ kolom Obtained di tabel harus sama
+     dengan Σ canonicalObtained untuk company yang sama. Itu invarian yang
+     benar, tidak ikut bergeser saat data bertambah, dan tetap menangkap
+     kerusakan yang dulu ada — gelombang kembar dulu membuatnya meleset 3.500. */
+  {
+    const kanon = {};
+    call('[].concat(SPI, PENDING).map(function(c){'
+       + 'return c.code + "=" + (canonicalObtained(c) || 0);})')
+      .forEach(s => { const [k, v] = String(s).split('='); kanon[k] = Number(v) || 0; });
+    const harusnya = induk.reduce((s, r) => s + (kanon[r.code] || 0), 0);
+    ok(dekat(obt, harusnya, 0.01),
+       'Σ OBTAINED All Time = Σ canonicalObtained company yang sama (dulu meleset 3.500 karena gelombang kembar)',
+       'tabel ' + obt.toFixed(3) + ' vs kanonik ' + harusnya.toFixed(3));
+  }
   ok(induk.length === 34,
      'jumlah baris All Time 34 PT (33 + SNSD)',
      'dapat ' + induk.length);

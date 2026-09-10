@@ -176,6 +176,18 @@ function renderLastUpdate() {
 }
 renderLastUpdate();
 
+/* Penyegar otomatis: dinyalakan lewat setTimeout, BUKAN requestAnimationFrame.
+   rAF tidak pernah berjalan selama tabnya tersembunyi — dan tab tersembunyi
+   justru keadaan yang paling butuh penyegar, karena begitulah tim bekerja:
+   dashboard dibiarkan terbuka, mereka pindah jendela untuk menginput, lalu
+   kembali. Menaruhnya di dalam rAF berarti penyegarnya tidak pernah menyala
+   pada satu-satunya kasus yang benar-benar penting. */
+/* typeof setTimeout diperiksa: berkas ini juga dijalankan di dalam vm oleh
+   berkas uji .cjs, dan konteks sandbox-nya tidak punya timer. */
+if (typeof setTimeout === 'function') {
+  setTimeout(() => { if (typeof iqAutoRefreshMulai === 'function') iqAutoRefreshMulai(); }, 1200);
+}
+
 /* ══════════════════════════════════════════════════
    AVAILABLE QUOTA PAGE — TAB CONTROLLER
 ══════════════════════════════════════════════════ */

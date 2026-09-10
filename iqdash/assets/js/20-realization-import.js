@@ -285,6 +285,11 @@ async function confirmRealizationImport() {
     }
     const data = await res.json();
     showToast(`Imported ${data.inserted} row(s) for ${code}`, 'success');
+    /* Orang yang baru saja menyimpan tidak boleh menunggu giliran berkala.
+       Dashboard ditarik ulang saat itu juga, dan seluruh keadaan tampilan
+       (periode, jenis tanggal, tab, fase, pencarian) tetap seperti semula —
+       yang diganti cuma datanya. */
+    if (typeof iqSegarkanSekarang === 'function') iqSegarkanSekarang();
     resetRealizParsed();
     setRealizTab('list', document.getElementById('realizTabList'));
   } catch (err) {
@@ -327,6 +332,11 @@ async function submitRealizationManual() {
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     showToast('Realization saved', 'success');
+    /* Orang yang baru saja menyimpan tidak boleh menunggu giliran berkala.
+       Dashboard ditarik ulang saat itu juga, dan seluruh keadaan tampilan
+       (periode, jenis tanggal, tab, fase, pencarian) tetap seperti semula —
+       yang diganti cuma datanya. */
+    if (typeof iqSegarkanSekarang === 'function') iqSegarkanSekarang();
     form.reset();
   } catch (err) {
     notifySaveError('realization manual entry', err);
@@ -380,6 +390,11 @@ async function deleteRealization(id) {
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     showToast('Deleted', 'success');
+    /* Orang yang baru saja menyimpan tidak boleh menunggu giliran berkala.
+       Dashboard ditarik ulang saat itu juga, dan seluruh keadaan tampilan
+       (periode, jenis tanggal, tab, fase, pencarian) tetap seperti semula —
+       yang diganti cuma datanya. */
+    if (typeof iqSegarkanSekarang === 'function') iqSegarkanSekarang();
     loadRealizationsList();
   } catch (err) {
     notifySaveError('realization delete', err);

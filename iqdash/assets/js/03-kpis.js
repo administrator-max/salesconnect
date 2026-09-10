@@ -346,14 +346,11 @@ function updateOverviewKPIs() {
   const revBadge = document.getElementById('revCardBadge');
   if (revBadge) revBadge.textContent = `${_AA.total} Active`;
 
-  // ── All Companies page: Revision + Eligible pill counts ────────────────
-  // Revision = active + reapply + revpending (matches setMF('REV') filter)
-  s('pillMRev', revActive.length + revPending.length);
-  // Eligible: RA records with realPct >= 0.6 AND cargoArrived
-  const eligCountAll = (typeof filteredRA === 'function')
-    ? filteredRA().filter(r => r.cargoArrived === true && r.realPct >= 0.6).length
-    : 0;
-  s('pillMEligible', eligCountAll);
+  /* Pil Revision dan Eligible SUDAH ditulis renderMain() dari kolam yang
+     sama dengan tabelnya (07-tables-main.js). Dulu ditulis dari sini juga,
+     memakai golongan _AA yang berbeda dari revisionStatus() — dan yang
+     terakhir menulislah yang menang, sehingga angkanya berselisih dengan
+     isi tabel. Dua penulis untuk satu angka selalu berakhir begitu. */
 
   // ── Nav tab counts (PERTEK & SPI / All Companies) ─────────────────────
   // Period-filtered so the nav badges reflect the active period.

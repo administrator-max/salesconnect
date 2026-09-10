@@ -168,6 +168,44 @@ try {
 
     switch ($res) {
         // ====================================================================
+        // GET /api/version — sidik jari data, beberapa ratus byte.
+        //
+        // Dashboard perlu tahu "apakah ada yang berubah?" tanpa menarik ulang
+        // /api/data (140 KB) dan /api/realizations (220 KB). Menanyakannya tiap
+        // setengah menit lewat kedua endpoint itu berarti ~360 KB sekali
+        // giliran — tidak masuk akal untuk pertanyaan yang jawabannya hampir
+        // selalu "belum".
+        //
+        // Isinya jumlah baris + cap waktu terbaru dari tabel yang memang
+        // berubah saat tim menginput. Dibaca lewat cache baca GoogleSheets yang
+        // SAMA dengan endpoint lain, dan cache itu dibersihkan setiap kali ada
+        // penulisan — jadi sidik jarinya ikut berubah begitu ada yang menyimpan.
+        // ====================================================================
+        case 'version':
+            if ($method === 'GET') {
+                $sig = [];
+                foreach (['companies', 'cycles', 'cycle_products', 'cycle_utilization', 'realizations'] as $tab) {
+                    $rows = [];
+                    try { $rows = $gs->table($SID, $tab)['rows']; } catch (Throwable $e) { $rows = []; }
+                    $maks = '';
+                    foreach ($rows as $r) {
+                        foreach (['updated_at', 'created_at'] as $k) {
+                            $v = (string) ($r[$k] ?? '');
+                            if ($v !== '' && $v > $maks) $maks = $v;
+                        }
+                    }
+                    $sig[$tab] = ['n' => count($rows), 'max' => $maks];
+                }
+                header('Cache-Control: no-store');
+                json_out([
+                    'sig'    => substr(sha1((string) json_encode($sig)), 0, 16),
+                    'detail' => $sig,
+                    'at'     => date('c'),
+                ]);
+            }
+            break;
+
+        // ====================================================================
         // GET /api/data
         // ====================================================================
         case 'data':

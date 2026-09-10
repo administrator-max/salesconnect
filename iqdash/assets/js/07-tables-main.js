@@ -387,6 +387,22 @@ function renderMain() {
   const pillSPI  = document.getElementById('pillMSPI');     if(pillSPI)  pillSPI.textContent  = cSPI;
   const pillPend = document.getElementById('pillMPending'); if(pillPend) pillPend.textContent = cPending;
 
+  /* Pil Revision dan Eligible dihitung DI SINI, dari `all` — kolam yang sama
+     yang baru saja dirender, dengan syarat PERSIS sama seperti cabang mFilter
+     di atas.
+
+     Keduanya dulu ditulis dari 03-kpis.js memakai golongan `_AA`, yang
+     menggolongkan company dengan cara berbeda dari revisionStatus() pembentuk
+     rowType di sini. Hasilnya pil menulis "🔄 Revision 4" sementara mengkliknya
+     hanya memunculkan 1 baris, dan "Eligible 23" terhadap 24 baris. Angka pil
+     yang berbeda dari isi tabelnya adalah cacat yang paling merusak
+     kepercayaan: dua-duanya di layar yang sama, dan pembaca tidak punya cara
+     menebak mana yang benar. */
+  const cRev  = all.filter(d => d.rowType === 'REV' || d.rowType === 'REAPPLY').length;
+  const cElig = all.filter(d => d.realPct != null && d.realPct >= 0.6).length;
+  const pillRev  = document.getElementById('pillMRev');      if(pillRev)  pillRev.textContent  = cRev;
+  const pillElig = document.getElementById('pillMEligible'); if(pillElig) pillElig.textContent = cElig;
+
   /* ── Footer totals bar ───────────────────────────────────────── */
   const totBar = document.getElementById('mainTotalsBar');
   if (totBar) {
