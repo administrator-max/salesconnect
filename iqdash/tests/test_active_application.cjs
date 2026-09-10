@@ -90,7 +90,16 @@ call('SPI = this.SPI; PENDING = this.PENDING; RA = this.RA;');
 console.log('-- IKM wajib muncul  <-- inti laporan --');
 ctx._ikm = SPI[0];
 ok(call('hasOutstandingCycle(this._ikm)') === true, 'hasOutstandingCycle(IKM) = true (Obtained #2 tanpa tanggal)');
-ok(call('outstandingStage(this._ikm)') === null, 'outstandingStage(IKM) = null — inilah celahnya');
+/* Dulu di sini dikunci `outstandingStage(IKM) === null` — celahnya, yang saat
+   itu ditutup satu lapis di atasnya oleh activeApplicationStage(). Sejak
+   10-Sep-2026 outstandingStage() sendiri sudah mengenali siklus "Revision
+   Request" yang dikonfirmasi tapi kuotanya belum terbit, jadi celah itu
+   tertutup di sumbernya. Yang penting tidak berubah dan diuji di baris
+   berikutnya: IKM MUNCUL, dan golongannya Revision — bukan Re-Apply, karena
+   permintaannya tidak bertanda Re-Apply. */
+ok(call('outstandingStage(this._ikm)') === 'active',
+   'outstandingStage(IKM) mengenali Revision Request yang belum terbit',
+   JSON.stringify(call('outstandingStage(this._ikm)')));
 ok(call('activeApplicationStage(this._ikm)') === 'active',
    'activeApplicationStage(IKM) = Revision — IKM MUNCUL',
    `dapat ${JSON.stringify(call('activeApplicationStage(this._ikm)'))}`);
@@ -119,7 +128,11 @@ ok(!AA.new.concat(AA.active, AA.reapply, AA.revpending).some(c => c.code === 'DO
 
 console.log('\n-- permintaan revisi Sales yang belum diputus = permohonan berjalan --');
 ctx._tanpaReq = JSON.parse(JSON.stringify(SPI[0]));
-call('this._tanpaReq.salesRevRequest = {}; this._tanpaReq.cycles = this._tanpaReq.cycles.filter(c => c.type !== "Obtained #2");');
+/* Siklus "Revision Request" ikut dibuang, bukan hanya Obtained #2.
+   Sejak 10-Sep-2026 siklus itu sendiri sudah terbaca sebagai permohonan yang
+   berjalan, jadi meninggalkannya di sini membuat kasusnya tidak lagi berarti
+   "tanpa siklus menggantung" — persis yang hendak diuji blok ini. */
+call('this._tanpaReq.salesRevRequest = {}; this._tanpaReq.cycles = this._tanpaReq.cycles.filter(c => c.type !== "Obtained #2" && !/^Revision Request/.test(c.type));');
 ok(call('activeApplicationStage(this._tanpaReq)') === null,
    'tanpa request menunggu DAN tanpa siklus menggantung -> tidak muncul');
 call('this._tanpaReq.salesRevRequest = { "SHEET PILE": { requested: true, status: "pending" } };');

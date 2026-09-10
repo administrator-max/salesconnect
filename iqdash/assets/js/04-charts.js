@@ -141,6 +141,78 @@ function outstandingStage(d) {
       if (!p || !_cycleTerbitLengkap(p)) kandidat.push({ c, jenis: 'revision', n: +m[1] });
     }
   }
+  /* RE-APPLY YANG SUDAH DIKONFIRMASI TAPI KUOTANYA BELUM TERBIT.
+
+     Siklus "Revision Request — X" sengaja dilewati di perulangan di atas: ia
+     bukan pasangan Submit/Obtained dan tidak bernomor. Tapi melewatkannya sama
+     sekali membuat perusahaan yang baru saja mengajukan Re-Apply tampil
+     "Completed" — padahal justru sedang paling sibuk. Dilaporkan tim
+     10-Sep-2026 untuk BBB, LCP, dan KJK: ketiganya Re-Apply 3.000 MT GL ALLOY
+     yang sudah dikonfirmasi CorpSec, tapi masuk tab Completed, bukan Under
+     Submission seperti SJH.
+
+     KAPAN DIANGGAP SUDAH TERBIT: ada siklus Obtained yang lengkap terbitnya DAN
+     tanggal terbitnya TIDAK LEBIH TUA dari tanggal konfirmasi permintaan.
+     Syarat tanggal itu yang menentukan — tanpa itu, Obtained lama akan menutup
+     permintaan baru: BBB punya Obtained #2 terbit 26/06/2026 sementara
+     permintaannya baru dikonfirmasi 10-Sep-2026, dan LCP punya DUA Revision
+     Request (21-May dan 10-Sep) yang hanya satu di antaranya sudah terpenuhi
+     oleh Obtained #2 terbit 16/07/2026.
+
+     Permintaan yang belum diputus CorpSec TIDAK ditangani di sini — itu sudah
+     ditangani activeApplicationStage(). Yang ini khusus yang SUDAH dikonfirmasi,
+     karena sejak itulah pengajuannya benar-benar berjalan ke kementerian.
+
+     Hanya dipakai kalau tidak ada kandidat Submit/Revision yang menggantung.
+     Kalau ada, biarkan logika lama yang memutuskan: ia tahu tahapnya lebih
+     rinci (mis. PERTEK sudah terbit tapi SPI belum). */
+  if (!kandidat.length && String((d && d.revType) || '').toLowerCase() !== 'complete') {
+    /* revType 'complete' berarti PERTEK/SPI Perubahan-nya SUDAH terbit, dan
+       penerbitan itu tidak selalu berbentuk siklus Obtained baru — DIOR dan SMS
+       mencatatnya di status siklus permintaannya sendiri ("SPI Perubahan Terbit
+       10/07/2026"). Tanpa pagar ini keduanya ikut terlempar ke Under Submission
+       padahal sudah selesai; DIOR malah pernah diminta khusus supaya terbaca
+       Completed. Perbandingan tanggal saja tidak cukup untuk memisahkan itu. */
+    const _ms = v => {
+      const d = (typeof pDate === 'function') ? pDate(String(v == null ? '' : v).trim()) : null;
+      return (d && !isNaN(d.getTime())) ? d.getTime() : null;
+    };
+    const _pertama = (...v) => { for (const x of v) { const t = _ms(x); if (t != null) return t; } return null; };
+    const terbit = obtained
+      .filter(o => _cycleTerbitLengkap(o))
+      .map(o => _pertama(o.spiDate, o.releaseDate, o.pertekDate))
+      .filter(t => t != null);
+    /* Delta NEGATIF pada siklus permintaan berarti kuotanya sudah benar-benar
+       DIPINDAHKAN, bukan sekadar diminta — bentuk DIOR: BORDES ALLOY -100
+       berdampingan dengan GL ALLOY +100. Permintaan yang sudah dieksekusi
+       begitu tidak lagi berjalan, walaupun tanggal Obtained penggantinya
+       kebetulan beberapa hari lebih tua dari tanggal konfirmasinya.
+       Permintaan Re-Apply yang sesungguhnya (BBB, KJK, LCP) hanya membawa
+       angka positif: itu jumlah yang DIMINTA, belum yang diberikan. */
+    const _adaDeltaNegatif = c =>
+      Object.values((c && c.products) || {}).some(m => (Number(m) || 0) < 0);
+    const adaReqBerjalan = cy.some(c => {
+      if (!/^revision request/i.test(String(c.type || ''))) return false;
+      if (_adaDeltaNegatif(c)) return false;        // sudah dieksekusi
+      const konf = _pertama(c.releaseDate, c.submitDate);
+      if (konf == null) return false;              // tanpa tanggal, jangan menebak
+      return !terbit.some(t => t >= konf);
+    });
+    if (adaReqBerjalan) {
+      /* Re-Apply (kuota tambahan) atau Revision (ubah produk/tonase)? Diambil
+         dari revisionType pada permintaan Sales yang sudah dikonfirmasi — di
+         data hidup, BBB/KJK/LCP/SJH memang bertanda "Re-Apply" sedangkan IKM
+         dan MIN kosong, dan keduanya memang perubahan, bukan penambahan
+         ("Submit MOI Perubahan"). Keduanya sama-sama masuk Under Submission;
+         yang dibedakan golongannya di strip Active Application, supaya
+         perubahan tidak salah terbaca sebagai penambahan kuota. */
+      const reapply = Object.values((d && d.salesRevRequest) || {}).some(v =>
+        v && v.requested && /^confirmed$/i.test(String(v.status || '')) &&
+        /re-?apply/i.test(String(v.revisionType || '')));
+      return reapply ? 'reapply' : 'active';
+    }
+  }
+
   if (!kandidat.length) return null;
   /* Yang TERBARU yang menentukan tahap: itulah yang sedang berjalan. */
   kandidat.sort((a, b) => a.n - b.n);
