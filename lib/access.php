@@ -43,13 +43,14 @@ return [
 
     // ── Hak akses per dashboard ──────────────────────────────────────────
     // Kunci = nama folder modul. Nilai = daftar kunci orang di atas.
-    // Sesuai arahan Direktur (26 Agustus 2026). Liwa dan Hendra ditambahkan ke
-    // SEMUA dashboard menyusul pada hari yang sama — keduanya muncul di setiap
-    // baris di bawah.
+    // Sesuai arahan Direktur (26 Agustus 2026). Liwa, Hendra, dan Angely
+    // memegang SEMUA dashboard — ketiganya muncul di setiap baris di bawah.
     'access' => [
         // Client Interaction Log & Task Flow — tim sales inti
-        'cil'      => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
-        'taskflow' => ['david', 'luzy', 'anne', 'jeri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
+        // (Angely menyusul ke dua modul ini, 10 September 2026, sehingga
+        // aksesnya jadi penuh enam modul.)
+        'cil'      => ['david', 'luzy', 'anne', 'jeri', 'angely', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
+        'taskflow' => ['david', 'luzy', 'anne', 'jeri', 'angely', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
 
         // Cost Core — tim sales inti + Irma, Angely, Putri
         'costcore'   => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
