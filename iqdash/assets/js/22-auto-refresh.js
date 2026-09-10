@@ -87,6 +87,10 @@ async function _arTarikUlang() {
      secara berpagar DAN menyegarkan drill yang terbuka. Memanggil daftar
      render sendiri di sini berarti salinan kedua yang pasti tertinggal. */
   if (typeof applyPeriodFilter === 'function') applyPeriodFilter();
+  /* Daftar company ikut dibangun ulang. Tanpa ini, company yang baru diinput
+     tim tidak akan pernah muncul di dropdown "Select Company" sampai halaman
+     dimuat ulang — bentuk lain dari keluhan yang sama, "listnya kosong". */
+  if (typeof isiDaftarCompany === 'function') isiDaftarCompany();
   if (typeof renderLastUpdate === 'function')  renderLastUpdate();
   _arSegarkan = Date.now();
   _arTandaiSegar();

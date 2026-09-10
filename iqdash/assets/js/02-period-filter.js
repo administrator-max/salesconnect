@@ -1803,8 +1803,12 @@ function applyPeriodFilter() {
    tidak bisa melenceng lagi. */
 function refreshAllSurfaces() {
   if (typeof applyPeriodFilter === 'function') applyPeriodFilter();
+  /* isiDaftarCompany ikut di sini supaya company yang baru ditambahkan muncul
+     di dropdown "Select Company" tanpa perlu memuat ulang halaman. Sebelumnya
+     daftar itu hanya dibangun sekali saat boot, jadi pergantian tahun kuota
+     dan setiap penyimpanan meninggalkannya basi. */
   ['buildRevDetailTable', 'buildRoleHistory', 'updateSPICounts',
-   'updateStorageStatus', 'refreshDropdownDraftBadges'].forEach(fn => {
+   'updateStorageStatus', 'isiDaftarCompany', 'refreshDropdownDraftBadges'].forEach(fn => {
     const f = (typeof globalThis !== 'undefined') ? globalThis[fn] : null;
     if (typeof f === 'function') { try { f(); } catch (e) { console.warn('refreshAllSurfaces:' + fn, e); } }
   });

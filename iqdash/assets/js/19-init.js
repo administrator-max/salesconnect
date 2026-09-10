@@ -5,7 +5,141 @@
    Last-update clock
 ═══════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DAFTAR COMPANY untuk dropdown "Step 2 — Select Company".
+
+   Dilaporkan tim 10-Sep-2026: "setiap tim mau input selalu ada bug, saat pilih
+   company listnya selalu kosong dulu, tolong dong jangan buat tim saya
+   menunggu."
+
+   Ada tiga sebab yang menumpuk, dan ketiganya dibereskan bersama:
+
+   1. Daftarnya dibangun SEKALI di DOMContentLoaded, sesudah menunggu tiga
+      permintaan jaringan — termasuk realisasi ~228 KB yang tidak ada
+      hubungannya dengan daftar company. Sekarang pengisiannya hanya menunggu
+      /api/data.
+
+   2. Tidak ada yang mengisinya lagi sesudah itu. Data yang ditarik ulang oleh
+      penyegar otomatis atau oleh pergantian tahun kuota tidak pernah sampai ke
+      dropdown, jadi company yang baru diinput tim tidak muncul sampai halaman
+      dimuat ulang. Fungsi ini dibuat idempoten supaya aman dipanggil ulang
+      dari mana saja.
+
+   3. Selama menunggu, dropdown-nya kosong tanpa keterangan apa pun — tidak
+      terbaca sebagai "sedang memuat", terbaca sebagai rusak. Sekarang ada
+      simpanan lokal daftar company dari kunjungan sebelumnya yang dipasang
+      SEKETIKA, sebelum satu pun permintaan jaringan berangkat, lalu ditimpa
+      begitu data sungguhan tiba. Untuk tim yang membuka dashboard ini
+      berkali-kali sehari, daftarnya praktis selalu sudah terisi.
+
+   Pilihan yang sedang aktif dipertahankan saat daftar dibangun ulang. Tanpa
+   itu, penyegar otomatis akan mengosongkan pilihan orang di tengah pengisian
+   formulir — persis keluhan yang sedang diperbaiki, dalam bentuk lain.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const DAFTAR_CO_KUNCI = 'iq_daftar_company_v1';
+
+function _daftarCoSimpan(entri) {
+  try { localStorage.setItem(DAFTAR_CO_KUNCI, JSON.stringify(entri)); } catch (e) {}
+}
+
+function _daftarCoBaca() {
+  try {
+    const v = JSON.parse(localStorage.getItem(DAFTAR_CO_KUNCI) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+
+/* Pasang daftar entri ke elemen select, dengan mempertahankan pilihan. */
+function _daftarCoPasang(sel, entri, sementara) {
+  const dipilih = sel.value;
+  sel.innerHTML = '';
+  const kosong = document.createElement('option');
+  kosong.value = '';
+  kosong.textContent = entri.length
+    ? `— Select company to edit —`
+    : `⏳ memuat daftar company…`;
+  sel.appendChild(kosong);
+  entri.forEach(x => {
+    const o = document.createElement('option');
+    o.value = x.code;
+    o.textContent = x.name ? `${x.code} — ${x.name}` : x.code;
+    if (x.isNew) o.dataset.isNew = '1';
+    sel.appendChild(o);
+  });
+  sel.dataset.sementara = sementara ? '1' : '';
+  if (dipilih && entri.some(x => x.code === dipilih)) sel.value = dipilih;
+  /* Lencana draft ikut dipasang ulang: innerHTML tadi membuang penandanya. */
+  if (typeof refreshDropdownDraftBadges === 'function') refreshDropdownDraftBadges();
+  return entri.length;
+}
+
+/* Isi seketika dari simpanan kunjungan sebelumnya. Dipanggil sebelum jaringan
+   berangkat, jadi tidak boleh menyentuh SPI/PENDING yang masih kosong. */
+function isiDaftarCompanyDariSimpanan() {
+  const sel = document.getElementById('editCo');
+  if (!sel) return 0;
+  const entri = _daftarCoBaca();
+  if (!entri.length) { _daftarCoPasang(sel, [], true); return 0; }
+  return _daftarCoPasang(sel, entri, true);
+}
+
+/* Bangun daftar sebenarnya dari data yang sudah dimuat.
+
+   Satu daftar rata, diurutkan A-Z, berlabel "KODE — Nama Lengkap" dari
+   company_directory. Dulu yang ditampilkan daftar produk, dan itu
+   membingungkan karena banyak company punya produk yang sama.
+
+   Isinya:
+     1. semua company SPI/PENDING yang sudah ada, untuk disunting;
+     2. company di company_directory yang belum punya baris submission sama
+        sekali, supaya CorpSec bisa membuat New Submission (mis. PT IKM yang
+        baru pertama kali mengajukan MOI). dataset.isNew menandainya, dan
+        saveEdit memakai tanda itu untuk POST /api/company alih-alih PATCH. */
+function isiDaftarCompany() {
+  const sel = document.getElementById('editCo');
+  if (!sel) return 0;
+  if (typeof SPI === 'undefined' || typeof PENDING === 'undefined') return 0;
+
+  const resolveName = code => {
+    if (typeof lookupCompanyNameByCode === 'function') {
+      const n = lookupCompanyNameByCode(code);
+      if (n) return n;
+    }
+    return '';
+  };
+
+  const adaKode = new Set([...SPI, ...PENDING].map(d => d.code));
+  const entri = [];
+  [...SPI, ...PENDING].forEach(d => {
+    entri.push({
+      code: d.code,
+      name: d.fullName || resolveName(d.code) || (d.products || []).join(', '),
+      isNew: false,
+    });
+  });
+  (typeof COMPANY_DIRECTORY !== 'undefined' ? (COMPANY_DIRECTORY || []) : []).forEach(d => {
+    if (!d.abbreviation || adaKode.has(d.abbreviation)) return;
+    entri.push({ code: d.abbreviation, name: d.fullName || '', isNew: true });
+  });
+  entri.sort((a, b) => a.code.localeCompare(b.code));
+
+  /* Data sungguhan kosong tapi simpanan masih ada: biarkan yang lama
+     terpasang. Mengosongkan daftar yang sudah terisi selalu lebih buruk
+     daripada menampilkan daftar yang mungkin ketinggalan sedikit. */
+  if (!entri.length && sel.options.length > 1) return sel.options.length - 1;
+
+  _daftarCoSimpan(entri);
+  return _daftarCoPasang(sel, entri, false);
+}
+
+window.isiDaftarCompany = isiDaftarCompany;
+window.isiDaftarCompanyDariSimpanan = isiDaftarCompanyDariSimpanan;
+
 document.addEventListener('DOMContentLoaded', async () => {
+  /* Sebelum apa pun berangkat ke jaringan: pasang daftar company dari
+     kunjungan sebelumnya, supaya tombol Input Data langsung berguna. */
+  isiDaftarCompanyDariSimpanan();
+
   // ── Disable Chart.js animations globally ──────────────────
   // Boot creates ~10 charts back-to-back; each default-animated chart
   // costs ~200-400ms of main-thread time. Killing animations cuts
@@ -30,12 +164,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   // newer DB changes from other users with stale local copies.
   // The realization summary loads in parallel — used by the drawer to
   // decide whether to render the "Detail Realization" button + badge.
-  await Promise.all([
-    loadData(),
+  /* Daftar company TIDAK ikut menunggu payload realisasi.
+
+     Dilaporkan tim 10-Sep-2026: "saat pilih company listnya selalu kosong
+     dulu". Sebabnya daftar itu dibangun setelah KETIGA permintaan di bawah
+     selesai, padahal isinya hanya butuh yang pertama. Yang kedua dan ketiga
+     jauh lebih besar — realisasi sendiri ~228 KB berbanding ~140 KB untuk
+     /api/data — jadi orang menatap dropdown kosong selama sisa unduhan yang
+     tidak ada hubungannya dengan daftar company.
+
+     Sekarang ketiganya tetap berangkat BERSAMAAN, hanya urutan menunggunya
+     yang dipisah: begitu /api/data tiba, daftarnya langsung diisi, lalu baru
+     menunggu sisanya untuk merender kartu dan tabel. */
+  const _pData = loadData();
+  const _pSisa = Promise.all([
     (typeof loadRealizationSummary === 'function' ? loadRealizationSummary() : Promise.resolve()),
     // PIB lines — the Total Realized KPI reads these (see 03-kpis.js KPI 3).
     (typeof loadRealizations === 'function' ? loadRealizations() : Promise.resolve()),
   ]);
+  await _pData;
+  isiDaftarCompany();
+  await _pSisa;
 
   // ── Migrate any pending local edits from a previous session ────────
   // If the user had a save fail (e.g. server was down), buffered edits
@@ -65,51 +214,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   updateStorageStatus();
 
-  // Populate edit dropdown — single flat list, sorted alphabetically A→Z.
-  // Label format: "CODE — Full Company Name" (resolved from
-  // company_directory). Listing products instead of names was confusing
-  // because multiple companies share the same product list.
-  // Includes:
-  //   1. All existing SPI/PENDING companies (for editing)
-  //   2. Companies from company_directory that don't yet have any
-  //      submission row — so CorpSec can add a brand-new New Submission
-  //      (e.g. PT IKM filing its first MOI). dataset.isNew flags these
-  //      so saveEdit POSTs /api/company instead of PATCHing.
-  const sel = document.getElementById('editCo');
-  const existingCodes = new Set([...SPI, ...PENDING].map(d => d.code));
-  const resolveName = code => {
-    if (typeof lookupCompanyNameByCode === 'function') {
-      const n = lookupCompanyNameByCode(code);
-      if (n) return n;
-    }
-    return '';
-  };
-
-  // Build a unified list of {code, name, isNew} entries
-  const dropdownEntries = [];
-  [...SPI, ...PENDING].forEach(d => {
-    dropdownEntries.push({
-      code: d.code,
-      name: d.fullName || resolveName(d.code) || (d.products || []).join(', '),
-      isNew: false,
-    });
-  });
-  (COMPANY_DIRECTORY || []).forEach(d => {
-    if (!d.abbreviation || existingCodes.has(d.abbreviation)) return;
-    dropdownEntries.push({
-      code: d.abbreviation,
-      name: d.fullName || '',
-      isNew: true,
-    });
-  });
-  dropdownEntries.sort((a, b) => a.code.localeCompare(b.code));
-  dropdownEntries.forEach(e => {
-    const o = document.createElement('option');
-    o.value = e.code;
-    o.textContent = `${e.code} — ${e.name}`;
-    if (e.isNew) o.dataset.isNew = '1';
-    sel.appendChild(o);
-  });
+  /* Daftar company diisi di sini supaya sudah siap sebelum orang membukanya.
+     Isinya sendiri dibangun di isiDaftarCompany() — lihat catatan di sana
+     untuk alasan kenapa ia dipanggil di beberapa tempat. */
+  isiDaftarCompany();
 
   // ── Two-phase render ──────────────────────────────────────
   // Phase 1 (synchronous): only what the user sees first — the Overview
