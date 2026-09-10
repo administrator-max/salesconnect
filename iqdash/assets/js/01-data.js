@@ -114,14 +114,32 @@ const selectableProducts = (extra) => {
 const canonProdInText = s => {
   let out = (s == null ? '' : String(s));
   if (!out) return out;
-  Object.keys(PRODUCT_ALIASES || {})
-    .sort((a, b) => b.length - a.length)          // cocokkan yang terpanjang dulu
-    .forEach(k => {
-      const target = PRODUCT_ALIASES[k];
-      if (!target || target === k) return;
-      out = out.replace(new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), target);
-    });
-  return out;
+  const peta  = PRODUCT_ALIASES || {};
+  const kunci = Object.keys(peta).filter(k => peta[k] && peta[k] !== k);
+  if (!kunci.length) return out;
+
+  /* Nama KANONIK ikut dicocokkan, bukan cuma ejaan lamanya.
+
+     Peta alias memuat singkatan "GL" -> "GL ALLOY" dan "GI" -> "GI ALLOY".
+     Versi lama menjalankan satu penggantian per kunci secara berurutan, jadi
+     "GL" tetap mencocoki "GL" DI DALAM "GL ALLOY" yang sudah kanonik dan
+     hasilnya "GL ALLOY ALLOY" — terlihat di Cycle History, drill KPI,
+     drawer, dan hasil ekspor. Mengurutkan kunci dari yang terpanjang tidak
+     menolong: "GL ALLOY" bukan kunci, jadi tidak pernah ikut dibandingkan.
+
+     Sekarang satu lintasan saja, dengan kunci DAN nama kanonik dalam satu
+     daftar yang diurutkan dari yang terpanjang. Nama yang sudah kanonik
+     tercocok lebih dulu dan dibiarkan apa adanya, sehingga fungsi ini aman
+     dipanggil berkali-kali pada teks yang sama. */
+  const target = [...new Set(kunci.map(k => peta[k]))];
+  const semua  = [...new Set([...kunci, ...target])].sort((a, b) => b.length - a.length);
+  const esc    = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re     = new RegExp('\\b(?:' + semua.map(esc).join('|') + ')\\b', 'gi');
+  return out.replace(re, m => {
+    const hit = semua.find(k => k.toLowerCase() === m.toLowerCase());
+    if (!hit) return m;
+    return (peta[hit] && peta[hit] !== hit) ? peta[hit] : m;   // sudah kanonik
+  });
 };
 
 /* COMPANY_DIRECTORY — master list of companies from company.xlsx (DB-backed).
