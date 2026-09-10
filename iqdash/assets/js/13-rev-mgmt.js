@@ -891,7 +891,61 @@ function buildRevMgmtSection(co) {
   // ── 3. Cycle timeline ──────────────────────────────────────────────────
   html += `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--txt3);margin-bottom:6px">Cycle History</div>`;
   html += `<div class="rr-cycle-timeline">`;
-  ac.forEach((c, _chIdx) => {
+  /* SATU Revision Request per produk di garis waktu.
+
+     rrRebuildFromConfirmed() memang mengganti, bukan menumpuk: siklus
+     "Revision Request — X" yang lama dibuang setiap kali ada konfirmasi baru
+     untuk produk X. Tapi sebelum pembandingnya dikanonikkan, "GL BORON" dan
+     "GL ALLOY" tidak dikenali sebagai produk yang sama, jadi permintaan lama
+     lolos dan menumpuk. KJK dan LCP masih menyimpan sisa itu: dua siklus yang
+     setelah penyeragaman nama terbaca persis sama, "Revision Request —
+     GL ALLOY". Persis yang dikeluhkan pemilik data 10-Sep-2026 — "tidak
+     tumpuk2".
+
+     Yang lama tidak dihapus dari data, hanya tidak diberi barisnya sendiri:
+     jejaknya ikut menempel di baris yang menang. Menghapus baris siklus dari
+     spreadsheet adalah tindakan tersendiri yang perlu diminta, bukan efek
+     samping perbaikan tampilan.
+
+     Indeks ASLI dibawa terus. Tombol "Tanggal" menyunting co.cycles[idx], jadi
+     memakai nomor urut daftar yang sudah disaring akan menyunting siklus yang
+     salah. */
+  const acTampil = (() => {
+    const daftar  = ac.map((c, idx) => ({ c, idx, jejak: '' }));
+    const kunciRR = c => {
+      const t = String((c && c.type) || '');
+      return /^Revision Request — /.test(t)
+        ? prodLabel(t.replace(/^Revision Request — /, '').trim()) : null;
+    };
+    const waktu = c => {
+      const d = (typeof pDate === 'function')
+        ? (pDate((c && c.releaseDate) || '') || pDate((c && c.submitDate) || '')) : null;
+      return d ? d.getTime() : 0;
+    };
+    const perProduk = new Map();
+    daftar.forEach(x => {
+      const k = kunciRR(x.c);
+      if (!k) return;
+      if (!perProduk.has(k)) perProduk.set(k, []);
+      perProduk.get(k).push(x);
+    });
+    const buang = new Set();
+    perProduk.forEach(grup => {
+      if (grup.length < 2) return;
+      grup.sort((a, b) => (waktu(a.c) - waktu(b.c)) || (a.idx - b.idx));
+      const menang = grup[grup.length - 1];
+      menang.jejak = grup.slice(0, -1).map(x => {
+        buang.add(x.idx);
+        const tgl = (typeof fmtDateStd === 'function')
+          ? (fmtDateStd(x.c.submitDate) || x.c.submitDate) : x.c.submitDate;
+        const mt = (x.c.mt != null && !isNaN(Number(x.c.mt)))
+          ? Number(x.c.mt).toLocaleString(MT_LOCALE) + ' MT' : 'TBA';
+        return (tgl || '?') + ' · ' + mt;
+      }).join('; ');
+    });
+    return daftar.filter(x => !buang.has(x.idx));
+  })();
+  acTampil.forEach(({ c, idx: _chIdx, jejak: _chJejak }) => {
     const isActive   = (c === activeCycle);
     const isObtained = /^obtained/i.test(c.type);
     const isTBA      = c.releaseDate === 'TBA' || !c.releaseDate;
@@ -968,6 +1022,7 @@ function buildRevMgmtSection(co) {
           ${c.releaseType||'Release'}: <strong>${c.releaseDate==='TBA'?'TBA':(fmtDateStd(c.releaseDate)||'TBA')}</strong>${pertekDateDisp}${spiDateDisp}
         </div>
         ${c.status ? `<div class="rr-cycle-status">${c.status}</div>` : ''}
+        ${_chJejak ? `<div class="rr-cycle-meta" style="margin-top:2px;color:var(--txt3);font-style:italic">↩ permintaan sebelumnya: ${_chJejak}</div>` : ''}
         ${_chSedang ? _chEditRow(co.code, _chIdx, c) : ''}
       </div>
     </div>`;
