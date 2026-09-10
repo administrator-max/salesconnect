@@ -684,7 +684,66 @@ function buildRevMgmtSection(co) {
 
   // ── 2b. Sales Revision Request panel (CorpSec read + confirm) ───────────
   const salesRevReq = co.salesRevRequest || {};
-  const reqProds = Object.entries(salesRevReq).filter(([,v]) => v && v.requested);
+  /* SATU BARIS PER PRODUK, bukan per ejaan.
+   *
+   * rev_note berkunci NAMA PRODUK, dan satu produk bisa punya dua ejaan yang
+   * hidup berdampingan: permintaan lama tersimpan dengan ejaan ledger
+   * ("GL BORON"), yang baru dengan ejaan kanonik ("GL ALLOY"). Panel ini dulu
+   * merender satu baris per kunci mentah, jadi satu produk tampil DUA KALI —
+   * BBB: "GL ALLOY ✗ Dibatalkan 3.000 MT" bertumpuk dengan "GL ALLOY ✓
+   * Dikonfirmasi 3.000 MT". Dilaporkan pemilik data 10-Sep-2026.
+   *
+   * Diukur ke 41 company: empat yang bertumpuk — BBB, KJK, LCP, SJH — dan
+   * semuanya pola yang sama (GL BORON + GL ALLOY).
+   *
+   * MANA YANG DITAMPILKAN. Bukan sekadar "yang terbaru": LCP justru yang LAMA
+   * sudah dikonfirmasi (21-May-26) sementara yang BARU masih menunggu putusan.
+   * Menyembunyikan yang menunggu berarti menyembunyikan satu-satunya baris yang
+   * masih menuntut tindakan CorpSec. Urutannya:
+   *   1. yang BELUM diputus menang — itu yang perlu dikerjakan;
+   *   2. selain itu, tanggal konfirmasi terbaru;
+   *   3. bila tanggalnya seri, ejaan kanonik menang — di seluruh data, entri
+   *      baru memang selalu memakai ejaan kanonik (SJH: keduanya 01-Sep-26).
+   *
+   * Yang tergeser TIDAK dibuang diam-diam: barisnya membawa catatan kecil
+   * bahwa ada permintaan sebelumnya beserta putusannya. Kuncinya pun tetap
+   * kunci ASLI entri yang menang, supaya tombol Konfirmasi/Batal menulis balik
+   * ke tempat yang benar. */
+  const reqProds = (() => {
+    const semua = Object.entries(salesRevReq).filter(([, v]) => v && v.requested);
+    const belumDiputus = v => !/^(confirmed|rejected)$/i.test(String((v && v.status) || ''));
+    const tgl = v => { const d = (typeof pDate === 'function') ? pDate((v && v.confirmedDate) || '') : null;
+                       return d ? d.getTime() : 0; };
+    const kanonik = k => canonicalProduct(String(k).trim()) === String(k).trim();
+    const menang = (a, b) => {                       // true bila a tetap menang atas b
+      if (belumDiputus(a[1]) !== belumDiputus(b[1])) return belumDiputus(a[1]);
+      if (tgl(a[1]) !== tgl(b[1]))                   return tgl(a[1]) > tgl(b[1]);
+      if (kanonik(a[0]) !== kanonik(b[0]))           return kanonik(a[0]);
+      return false;
+    };
+    const perProduk = new Map();
+    semua.forEach(pas => {
+      const g = canonicalProduct(String(pas[0]).trim());
+      const ada = perProduk.get(g);
+      if (!ada) { perProduk.set(g, { pilih: pas, tergeser: [] }); return; }
+      if (menang(ada.pilih, pas)) ada.tergeser.push(pas);
+      else { ada.tergeser.push(ada.pilih); ada.pilih = pas; }
+    });
+    return [...perProduk.values()].map(x => {
+      const k = x.pilih[0];
+      let   v = x.pilih[1];
+      if (x.tergeser.length) {
+        const riwayat = x.tergeser.map(([, o]) => {
+          const st = /^rejected$/i.test(String(o.status || '')) ? 'ditolak'
+                   : /^confirmed$/i.test(String(o.status || '')) ? 'dikonfirmasi' : 'menunggu';
+          return st + (o.confirmedDate ? ' ' + o.confirmedDate : '')
+               + (o.requestedMT != null ? ' · ' + Number(o.requestedMT).toLocaleString(MT_LOCALE) + ' MT' : '');
+        }).join('; ');
+        v = Object.assign({}, v, { _riwayatSebelumnya: riwayat });
+      }
+      return [k, v];
+    });
+  })();
 
   if (reqProds.length > 0) {
     const canConfirm = currentRole && (ROLE_PERMISSIONS[currentRole]||[]).includes('corpsecRevConfirm');
@@ -752,6 +811,9 @@ function buildRevMgmtSection(co) {
           </div>
           ${newP ? `<div style="font-size:10px;color:var(--txt3);margin-top:2px">${newP}</div>` : ''}
           ${note ? `<div style="font-size:9.5px;color:var(--txt3);margin-top:2px;font-style:italic">💬 ${note}</div>` : ''}
+          ${req._riwayatSebelumnya
+            ? `<div style="font-size:9px;color:var(--txt3);margin-top:3px;opacity:.8" title="Permintaan sebelumnya untuk produk yang sama, sudah digantikan oleh baris ini">↩ sebelumnya: ${req._riwayatSebelumnya}</div>`
+            : ''}
         </td>
         <td style="padding:8px 10px;text-align:right;vertical-align:top">
           ${targets.length > 1
