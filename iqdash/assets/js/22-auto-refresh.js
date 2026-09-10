@@ -90,6 +90,10 @@ async function _arTarikUlang() {
   if (typeof renderLastUpdate === 'function')  renderLastUpdate();
   _arSegarkan = Date.now();
   _arTandaiSegar();
+  /* Data baru = kesempatan baru untuk tidak konsisten. Diperiksa TIAP KALI,
+     bukan sekali saat halaman dibuka — bentuk data yang belum tertangani
+     justru datang lewat input baru. */
+  if (typeof iqPeriksaMandiri === 'function') { try { iqPeriksaMandiri(); } catch (e) {} }
 }
 
 /** Tanya sidik jari; tarik ulang hanya bila berubah. */

@@ -63,6 +63,10 @@ window.ensureXLSX = function () {
          "Last update" di sebelahnya, yang menyatakan kapan DATANYA terakhir
          diubah orang. Dua pertanyaan berbeda, dan tim perlu keduanya. -->
     <span class="tb-date" id="arSegar" title="Kapan dashboard ini terakhir menarik data baru" style="opacity:.55;font-size:9px"></span>
+    <!-- Hasil pemeriksaan mandiri. Diam saat semuanya cocok; menyala oranye
+         begitu ada angka yang tidak konsisten, supaya yang menemukan adalah
+         dashboard-nya, bukan tim beberapa hari kemudian. -->
+    <span class="tb-date" id="scLencana" onclick="iqTampilkanTemuan()" style="font-size:9px"></span>
     <button class="tb-btn" onclick="openImport()" title="Input & update company data manually">📝 Input Data</button>
     <button class="tb-btn" onclick="openMasterImport()" title="Upload master quota Excel, preview the diff, then apply">📥 Import Master</button>
     <button class="tb-btn" onclick="exportExecutivePDF()" title="Export Management Summary PDF (A4)" style="background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4);color:#fca5a5;letter-spacing:.3px">📄 PDF Summary</button>
@@ -1755,10 +1759,11 @@ window.ensureXLSX = function () {
 <script defer src="assets/js/16-storage.js?v=9"></script>
 <script defer src="assets/js/17-ou-chart.js?v=6"></script>
 <script defer src="assets/js/18-sales-priority.js?v=2"></script>
-<script defer src="assets/js/19-init.js?v=23"></script>
+<script defer src="assets/js/19-init.js?v=24"></script>
 <script defer src="assets/js/19b-util-breakdown.js?v=2"></script>
 <script defer src="assets/js/20-realization-import.js?v=4"></script>
 <script defer src="assets/js/21-master-import.js?v=3"></script>
-<script defer src="assets/js/22-auto-refresh.js?v=2"></script>
+<script defer src="assets/js/22-auto-refresh.js?v=3"></script>
+<script defer src="assets/js/23-self-check.js?v=1"></script>
 </body>
 </html>

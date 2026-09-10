@@ -186,6 +186,10 @@ renderLastUpdate();
    berkas uji .cjs, dan konteks sandbox-nya tidak punya timer. */
 if (typeof setTimeout === 'function') {
   setTimeout(() => { if (typeof iqAutoRefreshMulai === 'function') iqAutoRefreshMulai(); }, 1200);
+  /* Pemeriksa mandiri jalan sesudah seluruh permukaan sempat terender sekali.
+     Jedanya lebih panjang dari penyegar supaya ia memeriksa layar yang sudah
+     jadi, bukan yang setengah jalan. */
+  setTimeout(() => { if (typeof iqPeriksaMandiri === 'function') iqPeriksaMandiri(); }, 2600);
 }
 
 /* ══════════════════════════════════════════════════
