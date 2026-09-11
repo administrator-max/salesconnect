@@ -46,6 +46,14 @@ return [
     // Sesuai arahan Direktur (26 Agustus 2026). Liwa, Hendra, dan Angely
     // memegang SEMUA dashboard — ketiganya muncul di setiap baris di bawah.
     'access' => [
+        // CRM Projects (eks crmproject.gunungprisma.com, Selaras Prima Artha) —
+        // tim Selaras Prima (irma/angely/jessica) + Aldi, Ridwan, Trian, Liwa
+        // ditambahkan menyusul untuk kebutuhan testing/oversight (11 September 2026).
+        // Ditaruh PALING ATAS di sini secara sengaja — urutan kartu di landing
+        // mengikuti urutan key di array ini, dan CRM Projects diminta tampil
+        // pertama (11 September 2026).
+        'crmproject' => ['irma', 'angely', 'jessica', 'aldi', 'ridwan', 'trian', 'liwa'],
+
         // Client Interaction Log & Task Flow — tim sales inti
         // (Angely menyusul ke dua modul ini, 10 September 2026, sehingga
         // aksesnya jadi penuh enam modul.)
@@ -65,11 +73,6 @@ return [
 
         // SCOT — tim sales inti + Irma, Angely, Jeany, Maya (TANPA Putri)
         'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
-
-        // CRM Projects (eks crmproject.gunungprisma.com, Selaras Prima Artha) —
-        // tim Selaras Prima (irma/angely/jessica) + Aldi, Ridwan, Trian, Liwa
-        // ditambahkan menyusul untuk kebutuhan testing/oversight (11 September 2026).
-        'crmproject' => ['irma', 'angely', 'jessica', 'aldi', 'ridwan', 'trian', 'liwa'],
     ],
 
     // ── Label & deskripsi kartu di halaman depan ─────────────────────────

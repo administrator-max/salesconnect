@@ -40,8 +40,8 @@ t('Hendra: semua dashboard kecuali crmproject', sc_person_by_email('hendra.satri
                              array_values(array_diff(array_keys($a['access']), ['crmproject'])));
 t('Hendra bukan admin', !empty(sc_person_by_email('hendra.satria@gunungprisma.com')['admin']), false);
 // Jessica: salespulse + crmproject (ditambahkan menyusul, lihat lib/access.php).
-t('Jessica: salespulse + crmproject', sc_person_by_email('jessica.nathania@gunungprisma.com')['tools'],
-                                 ['salespulse', 'crmproject']);
+t('Jessica: crmproject + salespulse', sc_person_by_email('jessica.nathania@gunungprisma.com')['tools'],
+                                 ['crmproject', 'salespulse']);
 t('Jessica bukan admin', !empty(sc_person_by_email('jessica.nathania@gunungprisma.com')['admin']), false);
 t('Angely: SEMUA dashboard (termasuk crmproject)', sc_person_by_email('angely.setiawan@gunungprisma.com')['tools'],
                              array_keys($a['access']));
