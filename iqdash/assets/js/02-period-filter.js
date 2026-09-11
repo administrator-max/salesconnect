@@ -702,6 +702,40 @@ function scopedSubmittedByProd(co) {
       if (n > 0) { const key = _canonProd(p); out[key] = (out[key] || 0) + n; }
     });
   });
+  /* Re-apply yang sudah dikonfirmasi tapi belum jadi siklus Submit ikut di
+     sini juga, supaya Σ kolom Submit per produk tetap sama dengan kartu Total
+     Submitted. Dua sumber angka untuk satu hal selalu berakhir berbeda — itu
+     pelajaran yang sudah dibayar mahal di dashboard ini.
+     Syarat anti-double-count-nya ada di pendingReapplyCycles(). */
+  if (typeof pendingReapplyCycles === 'function') {
+    pendingReapplyCycles(co).forEach(c => {
+      if (PERIOD.active) {
+        const t = pDate(c.releaseDate || c.submitDate || '');
+        if (!t || !inPd(t)) return;
+      }
+      /* Rinciannya DISELARASKAN dengan c.mt, tidak dibaca mentah.
+
+         MIN menyimpan Revision Request bertotal 247 MT sementara rinciannya
+         berjumlah 600 (BORDES ALLOY 247 + GI ALLOY 353). Membaca mentah
+         membuat Σ per-produk 353 MT lebih besar daripada kartu Total
+         Submitted — dua angka untuk satu hal, lagi.
+
+         c.mt yang menang, sesuai aturan yang sudah berlaku di seluruh
+         dashboard ini: total siklus adalah master, rincian produk
+         menyesuaikan. Pembagiannya proporsional; kalau rinciannya kosong,
+         siklus itu tidak menyumbang apa-apa ke rincian per produk dan
+         hanya terhitung di totalnya. */
+      const _isi = Object.entries(c.products || {})
+        .map(([p, v]) => [p, Number(v) || 0]).filter(([, v]) => v > 0);
+      const _jml = _isi.reduce((s, [, v]) => s + v, 0);
+      const _mt  = Number(c.mt) || 0;
+      const _skala = (_jml > 0 && _mt > 0) ? (_mt / _jml) : 1;
+      _isi.forEach(([p, v]) => {
+        const key = _canonProd(p);
+        out[key] = (out[key] || 0) + v * _skala;
+      });
+    });
+  }
   return out;
 }
 
@@ -921,7 +955,27 @@ function allCompaniesPool() {
 
 /* Σ Submit #N cycles only — Revision Requests track re-allocation, not new
    quota. Deduped per (company, cycle type); anchored on submitDate. */
+/* Σ Submit #N, DIDELEGASIKAN ke canonicalSubmitted[Filtered] — tidak pernah
+   ditulis ulang di sini. Persis alasan yang sudah tertulis untuk
+   reportObtainedTotal() di bawah: salinan aturan yang dipelihara sendiri pasti
+   menyimpang dari aslinya.
+
+   Terbukti 11-Sep-2026. Begitu re-apply yang sudah dikonfirmasi ikut masuk
+   canonicalSubmitted(), kartu Overview tetap membaca 274.545 sementara
+   jumlah per-company sudah 290.942 — karena fungsi ini menyusuri siklus
+   sendiri dan tidak tahu apa-apa tentang aturan baru itu. */
 function reportSubmittedTotal() {
+  let mt = 0;
+  const cos = new Set();
+  allCompaniesPool().forEach(co => {
+    const v = PERIOD.active ? canonicalSubmittedFiltered(co) : canonicalSubmitted(co);
+    if (v > 0) { mt += v; cos.add(co.code); }
+  });
+  return { mt, companies: cos.size };
+}
+
+/* Versi lama disimpan sebagai rujukan bentuk lamanya, tidak dipanggil.
+function _reportSubmittedTotalLama() {
   let mt = 0;
   const cos = new Set();
   allCompaniesPool().forEach(co => {
@@ -943,6 +997,7 @@ function reportSubmittedTotal() {
   });
   return { mt, companies: cos.size };
 }
+*/
 
 /* Σ Obtained #N where PERTEK/SPI terbit, anchored on the PERTEK of the paired
    Submit row. Delegated to canonicalObtained[Filtered] — never re-implemented;

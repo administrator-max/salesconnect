@@ -173,31 +173,13 @@ function outstandingStage(d) {
        10/07/2026"). Tanpa pagar ini keduanya ikut terlempar ke Under Submission
        padahal sudah selesai; DIOR malah pernah diminta khusus supaya terbaca
        Completed. Perbandingan tanggal saja tidak cukup untuk memisahkan itu. */
-    const _ms = v => {
-      const d = (typeof pDate === 'function') ? pDate(String(v == null ? '' : v).trim()) : null;
-      return (d && !isNaN(d.getTime())) ? d.getTime() : null;
-    };
-    const _pertama = (...v) => { for (const x of v) { const t = _ms(x); if (t != null) return t; } return null; };
-    const terbit = obtained
-      .filter(o => _cycleTerbitLengkap(o))
-      .map(o => _pertama(o.spiDate, o.releaseDate, o.pertekDate))
-      .filter(t => t != null);
-    /* Delta NEGATIF pada siklus permintaan berarti kuotanya sudah benar-benar
-       DIPINDAHKAN, bukan sekadar diminta — bentuk DIOR: BORDES ALLOY -100
-       berdampingan dengan GL ALLOY +100. Permintaan yang sudah dieksekusi
-       begitu tidak lagi berjalan, walaupun tanggal Obtained penggantinya
-       kebetulan beberapa hari lebih tua dari tanggal konfirmasinya.
-       Permintaan Re-Apply yang sesungguhnya (BBB, KJK, LCP) hanya membawa
-       angka positif: itu jumlah yang DIMINTA, belum yang diberikan. */
-    const _adaDeltaNegatif = c =>
-      Object.values((c && c.products) || {}).some(m => (Number(m) || 0) < 0);
-    const adaReqBerjalan = cy.some(c => {
-      if (!/^revision request/i.test(String(c.type || ''))) return false;
-      if (_adaDeltaNegatif(c)) return false;        // sudah dieksekusi
-      const konf = _pertama(c.releaseDate, c.submitDate);
-      if (konf == null) return false;              // tanpa tanggal, jangan menebak
-      return !terbit.some(t => t >= konf);
-    });
+    /* SATU definisi, dipakai dua tempat. pendingReapplyCycles() di 01-data.js
+       jugalah yang menentukan berapa MT re-apply masuk Total Submitted, jadi
+       company yang tampil Under Submission adalah persis company yang membawa
+       angka re-apply di kartu itu. Aturan yang disalin selalu berakhir berbeda
+       dari aslinya. */
+    const adaReqBerjalan = (typeof pendingReapplyCycles === 'function')
+      && pendingReapplyCycles(d).length > 0;
     if (adaReqBerjalan) {
       /* Re-Apply (kuota tambahan) atau Revision (ubah produk/tonase)? Diambil
          dari revisionType pada permintaan Sales yang sudah dikonfirmasi — di

@@ -726,8 +726,26 @@ function spiTerbitRows() {
         code: co.code, group: co.group || '', section: co.section || '',
         cycle: siklus,
         product: prod,
-        submitMT:   opsi.historis ? (h ? h.mt : null) : (ambil(sub, prod)  || 0),
-        obtainedMT: opsi.historis ? (h ? h.mt : 0)    : (ambil(obt, prod)  || 0),
+        /* BARIS HISTORIS — produk yang kuotanya sudah dipindahkan revisi.
+
+           Diminta pemilik data 11-Sep-2026, contoh DIOR: "Baris Wear Plate
+           6.000 MT tetap tampil sebagai historical, tetapi dibuat grey/inactive.
+           Obtained pada baris Wear Plate menjadi '-'. Obtained 100 MT
+           dipindahkan ke baris GL Alloy sebagai produk aktif."
+
+           SUBMIT memakai angka pengajuan aslinya (6.000), bukan h.mt yang cuma
+           besarnya kuota yang sempat diperoleh (100). Itu memang yang pernah
+           diajukan untuk produk itu, dan itulah gunanya baris historis.
+
+           OBTAINED sengaja null, bukan nol: nol tetap sebuah angka, sedangkan
+           yang benar adalah "tidak lagi berlaku di sini" — tonasenya sudah
+           pindah ke baris produk penggantinya. Menampilkannya di kedua baris
+           membuat satu kuota terbaca dua kali; persis kasus DIOR 28-Agu-2026,
+           Wear Plate 100 + GL Alloy 100 = 200 MT padahal DIOR punya 100.
+           Perender mencetak null sebagai "—". */
+        submitMT:   opsi.historis ? (ambil(sub, prod) || (h ? h.mt : null))
+                                  : (ambil(sub, prod) || 0),
+        obtainedMT: opsi.historis ? null : (ambil(obt, prod) || 0),
         utilMT:     opsi.historis ? 0                 : (ambil(util, prod) || 0),
         processKey: proses.key, processLabel: proses.label,
         remarks: co.statusUpdate || '',

@@ -923,6 +923,97 @@ function canonicalObtainedFiltered(co) {
    submission, not a new one. Including it would double-count quota.
    Only Submit #N cycles count. Same dedup + _fromRevReq skip as canonicalObtained.
    ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   RE-APPLY YANG SUDAH DIKONFIRMASI TAPI SIKLUS SUBMIT-NYA BELUM DICATAT.
+
+   Diminta pemilik data 11-Sep-2026, lengkap dengan angka yang diharapkan:
+   SJH 11.700, LCP 11.725, KJK 12.000. Ketiganya = jumlah siklus Submit
+   ditambah 3.000 MT re-apply yang baru dikonfirmasi CorpSec dan belum punya
+   siklus Submit sendiri.
+
+   "Jangan double count antar cycle" — itu syarat (d) di bawah. Begitu tim
+   mencatat siklus Submit yang sesungguhnya, permintaannya berhenti dihitung
+   dan siklus itulah yang dipakai, dengan tonase yang sebenarnya. Jadi angkanya
+   berpindah, tidak bertumpuk. Terbukti di LCP yang punya DUA permintaan:
+   yang 21-May-26 sudah menjadi Submit #2 (submitDate 21/05/2026) sehingga
+   TIDAK dihitung lagi, sementara yang 10-Sep-26 belum, sehingga dihitung.
+
+   Empat syarat, semuanya harus terpenuhi:
+     (a) siklusnya memang "Revision Request — X";
+     (b) tidak membawa delta NEGATIF — delta negatif berarti kuotanya sudah
+         dipindahkan, itu revisi yang sudah dieksekusi, bukan pengajuan baru;
+     (c) punya tanggal konfirmasi — tanpa tanggal tidak bisa dibandingkan,
+         dan menebak lebih buruk daripada tidak menghitung;
+     (d) TIDAK ada siklus Submit yang tanggalnya sama atau lebih baru dari
+         tanggal konfirmasi itu — kalau ada, permintaannya sudah menjelma
+         jadi siklus Submit dan menghitung keduanya adalah double count;
+     (e) TIDAK ada siklus Obtained yang lengkap terbitnya dan bertanggal sama
+         atau lebih baru — kalau ada, kuotanya sudah diterima dan permintaan
+         itu selesai.
+
+   Tanpa syarat (e), 20 company ikut terhitung dan Total Submitted melonjak
+   52.257 MT: permintaan lama yang kuotanya sudah lama turun ikut dijumlahkan.
+   Diukur 11-Sep-2026 sebelum syarat ini dipasang.
+
+   Fungsi ini adalah SATU-SATUNYA definisi "re-apply yang masih berjalan".
+   outstandingStage() di 04-charts.js memakainya juga, jadi company yang
+   membawa angka re-apply di Total Submitted adalah persis company yang tampil
+   di tab Under Submission. Dua aturan untuk satu hal selalu berakhir berbeda.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function pendingReapplyCycles(co) {
+  const cy = (co && co.cycles) || [];
+  /* revType 'complete' berarti PERTEK/SPI Perubahan-nya SUDAH terbit, dan
+     penerbitan itu tidak selalu berbentuk siklus Obtained baru — SMS
+     mencatatnya di status siklus permintaannya sendiri ("SPI Perubahan Terbit
+     10/07/2026"), begitu juga DIOR. Tanpa pagar ini SMS menyumbang 150 MT ke
+     Total Submitted padahal urusannya sudah selesai, dan jumlahnya jadi tidak
+     lagi sejalan dengan daftar company di tab Under Submission. */
+  if (String((co && co.revType) || '').toLowerCase() === 'complete') return [];
+  const ms = v => {
+    const d = (typeof pDate === 'function') ? pDate(String(v == null ? '' : v).trim()) : null;
+    return (d && !isNaN(d.getTime())) ? d.getTime() : null;
+  };
+  const pertama = (...v) => { for (const x of v) { const t = ms(x); if (t != null) return t; } return null; };
+  const tglSubmit = cy
+    .filter(c => /^submit\s*#\d/i.test(String(c.type || '')) && !c._fromRevReq)
+    .map(c => pertama(c.submitDate, c.pertekDate, c.releaseDate))
+    .filter(t => t != null);
+  const lengkap = c => (typeof _cycleTerbitLengkap === 'function')
+    ? _cycleTerbitLengkap(c) : !!(c && c.spiDate);
+  const tglObt = cy
+    .filter(c => /^obtained/i.test(String(c.type || '')) && lengkap(c))
+    .map(c => pertama(c.spiDate, c.releaseDate, c.pertekDate))
+    .filter(t => t != null);
+  return cy.filter(c => {
+    if (!/^revision request/i.test(String(c.type || ''))) return false;
+    if (Object.values(c.products || {}).some(m => (Number(m) || 0) < 0)) return false;
+    const konf = pertama(c.releaseDate, c.submitDate);
+    if (konf == null) return false;
+    if (tglSubmit.some(t => t >= konf)) return false;   // (d) sudah jadi siklus Submit
+    if (tglObt.some(t => t >= konf))    return false;   // (e) kuotanya sudah terbit
+    return true;
+  });
+}
+
+/** Total MT re-apply yang sudah dikonfirmasi tapi belum jadi siklus Submit. */
+function pendingReapplyMT(co) {
+  return pendingReapplyCycles(co).reduce((s, c) => s + (Number(c.mt) || 0), 0);
+}
+
+/** Rinciannya per produk kanonik, untuk kolom Submit per-produk. */
+function pendingReapplyByProd(co) {
+  const out = {};
+  pendingReapplyCycles(co).forEach(c => {
+    Object.entries(c.products || {}).forEach(([p, m]) => {
+      const n = Number(m) || 0;
+      if (n <= 0) return;
+      const k = canonicalProduct(String(p).trim());
+      if (k) out[k] = (out[k] || 0) + n;
+    });
+  });
+  return out;
+}
+
 function canonicalSubmitted(co) {
   if (!co) return 0;
   const allCycles = co.cycles || [];
@@ -938,6 +1029,9 @@ function canonicalSubmitted(co) {
     if (c._fromRevReq) return;
     total += mt;
   });
+  /* Re-apply yang sudah dikonfirmasi ikut dihitung — lihat
+     pendingReapplyCycles() untuk syarat anti-double-count-nya. */
+  total += pendingReapplyMT(co);
   return total;
 }
 
@@ -961,6 +1055,13 @@ function canonicalSubmittedFiltered(co) {
     if (c._fromRevReq) return;
     if (!inPd(pDate(c.submitDate))) return;          // gate by Submit MOI date
     total += mt;
+  });
+  /* Re-apply yang belum jadi siklus Submit digerbang tanggal KONFIRMASI-nya —
+     itulah satu-satunya tanggal yang dimilikinya. Tanpa gerbang ini, menyaring
+     periode apa pun akan selalu menyeret angka re-apply ikut masuk. */
+  pendingReapplyCycles(co).forEach(c => {
+    const t = pDate(c.releaseDate || c.submitDate || '');
+    if (t && inPd(t)) total += (Number(c.mt) || 0);
   });
   return total;
 }
