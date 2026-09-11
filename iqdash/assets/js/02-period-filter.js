@@ -676,6 +676,24 @@ function scopedAvailByProd(co) {
    All Time -> getSubmittedByProd() apa adanya. */
 function scopedSubmittedByProd(co) {
   if (!co) return {};
+  /* PRODUK YANG KUOTANYA SUDAH DIPINDAHKAN TIDAK IKUT DIHITUNG.
+
+     Diminta pemilik data 11-Sep-2026 lewat tabel PERTEK & SPI: produk lama
+     hasil revisi "tetap ditampilkan sebagai historical, tetapi tidak lagi
+     dihitung sebagai current/available quota". Barisnya memang sudah kelabu
+     dan Obtained-nya sudah "—", tapi kolom SUBMIT-nya masih ikut dijumlahkan
+     ke Total Submitted.
+
+     Enam company terkena, masing-masing 6.000 MT: BDG, DIOR, GAS, GIS, MJU,
+     SMS — totalnya 36.000 MT yang tidak pernah ada di acuan. Itu selisih
+     terbesar antara kartu Overview (286.545) dan acuan (252.845).
+
+     Daftar produknya diambil dari productGrantHistory(), sumber yang SAMA yang
+     dipakai tabel PERTEK & SPI untuk menandai baris historis. Dengan begitu
+     "apa yang kelabu di tabel" dan "apa yang tidak dihitung di kartu" mustahil
+     berbeda. */
+  const _dipindah = (typeof revisedAwayProducts === 'function')
+    ? revisedAwayProducts(co) : new Set();
   /* Kunci WAJIB dikanonikkan di KEDUA cabang. getSubmittedByProd() memakai
      ejaan siklus mentah ("GL BORON") sementara jalur obtained sudah kanonik
      ("GL ALLOY"). Pemanggil yang menggabungkan keduanya lalu melihat SATU
@@ -699,7 +717,10 @@ function scopedSubmittedByProd(co) {
     if (PERIOD.active && !inPd(pDate(c.submitDate))) return;
     Object.entries(cycleProductsReconciled(c)).forEach(([p, v]) => {
       const n = Number(v) || 0;
-      if (n > 0) { const key = _canonProd(p); out[key] = (out[key] || 0) + n; }
+      if (n <= 0) return;
+      const key = _canonProd(p);
+      if (_dipindah.has(key)) return;          // kuotanya sudah pindah produk
+      out[key] = (out[key] || 0) + n;
     });
   });
   /* Re-apply yang sudah dikonfirmasi tapi belum jadi siklus Submit ikut di

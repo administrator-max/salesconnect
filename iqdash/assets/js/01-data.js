@@ -1055,6 +1055,15 @@ function canonicalSubmitted(co) {
     if (c._fromRevReq) return;
     total += mt;
   });
+  /* Produk yang kuotanya sudah dipindahkan revisi TIDAK ikut dihitung.
+     Diturunkan dari scopedSubmittedByProd(), yang memegang aturannya — kalau
+     dihitung sendiri di sini, dua angka untuk satu hal lagi, dan kartu Overview
+     akan berbeda dari Σ kolom Submit per produk. */
+  if (typeof scopedSubmittedByProd === 'function' && typeof revisedAwayProducts === 'function'
+      && revisedAwayProducts(co).size) {
+    return Object.values(scopedSubmittedByProd(co) || {})
+      .reduce((s, v) => s + (Number(v) || 0), 0);     // sudah termasuk re-apply
+  }
   /* Re-apply yang sudah dikonfirmasi ikut dihitung — lihat
      pendingReapplyCycles() untuk syarat anti-double-count-nya. */
   total += pendingReapplyMT(co);

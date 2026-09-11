@@ -540,6 +540,40 @@ function activeValidityDate(co) {
  * berulang di dashboard ini, dan satu-satunya obatnya adalah memakai gerbang
  * yang sama, bukan gerbang yang mirip.
  */
+/* Produk yang kuotanya SUDAH DIPINDAHKAN revisi — yang tampil kelabu di tabel
+   PERTEK & SPI dan tidak boleh ikut hitungan kuota aktif.
+
+   Definisinya PERSIS sama dengan yang dipakai spiTerbitRows() untuk memutuskan
+   baris mana yang historis: ada di riwayat pemberian, TAPI tidak lagi dipegang
+   menurut obtained/utilisasi. Dibuat jadi fungsi tersendiri supaya "apa yang
+   kelabu di tabel" dan "apa yang tidak dihitung di kartu" mustahil berbeda.
+
+   Bukan sekadar "ada di productGrantHistory". Fungsi itu mencatat SELURUH
+   pemberian yang pernah terjadi, termasuk produk yang masih dipegang sekarang;
+   memakainya mentah-mentah menghapus hampir semua pengajuan dan Total
+   Submitted terbaca 12.000 dari 286.545. Terjadi 11-Sep-2026 pada percobaan
+   pertama, dan ketahuan karena angkanya diukur, bukan diasumsikan. */
+function revisedAwayProducts(co) {
+  const out = new Set();
+  if (!co) return out;
+  const riwayat = productGrantHistory(co) || {};
+  if (!Object.keys(riwayat).length) return out;
+
+  const obt  = (typeof getObtainedByProdAgg === 'function') ? (getObtainedByProdAgg(co) || {}) : {};
+  const util = (typeof allTimeUtilByProd    === 'function') ? (allTimeUtilByProd(co)    || {}) : (co.utilizationByProd || {});
+  const aktif = new Set();
+  [obt, util].forEach(peta => Object.entries(peta || {}).forEach(([p, v]) => {
+    if ((Number(v) || 0) > 0) { const k = kanonProduk(p); if (k) aktif.add(k); }
+  }));
+  /* Company yang belum punya baris stats sama sekali tidak boleh kehilangan
+     apa pun — tanpa penanda "masih dipegang", semua produknya akan terbaca
+     sudah pindah. */
+  if (!aktif.size) return out;
+
+  Object.keys(riwayat).forEach(p => { const k = kanonProduk(p); if (k && !aktif.has(k)) out.add(k); });
+  return out;
+}
+
 function productGrantHistory(co) {
   const all = (co && co.cycles) || [];
   const out = {};   // produk kanonik -> { mt, spiCycle, spiDate, pertekCycle, pertekDate, ts }

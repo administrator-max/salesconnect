@@ -217,5 +217,46 @@ console.log('\nI · REVISI tidak menambah Submitted, hanya RE-APPLY');
     'yang bertanda Re-Apply tetap menambah seperti biasa', String(submitted(reApply)));
 }
 
+console.log('\nJ · Produk yang kuotanya sudah PINDAH tidak menambah Submitted');
+{
+  /* DIOR: Submit #1 6.000 MT BORDES ALLOY, lalu kuotanya pindah ke GL ALLOY.
+     Acuan PERTEK & SPI 11-Sep-2026 tidak mencantumkan BORDES ALLOY sama sekali,
+     dan Submitted GL ALLOY-nya bertanda "-". Jadi sumbangan DIOR ke Total
+     Submitted adalah NOL. Enam company berbentuk begini, masing-masing 6.000
+     MT; totalnya 36.000 MT, dan itulah selisih terbesar antara kartu Overview
+     (286.545) dan acuan (252.845). */
+  const dior = { code: 'DIOR', revType: 'complete',
+    utilizationByProd: { 'GL ALLOY': 0 }, availableByProd: { 'GL ALLOY': 100 },
+    cycles: [
+      cyc('Submit #1', 6000, { submitDate: '05/11/2025', releaseDate: '20/07/2026',
+        pertekDate: '20/07/2026', products: { 'BORDES ALLOY': 6000 } }),
+      cyc('Obtained #1', 100, { products: { 'BORDES ALLOY': 100 } }),
+      cyc('Revision Request — BORDES ALLOY', 100, { submitDate: '03-Sep-26', releaseDate: '03-Sep-26',
+        products: { 'BORDES ALLOY': -100, 'GL ALLOY': 100 } }),
+      cyc('Obtained #2', 0, { releaseDate: '31/08/2026', spiDate: '31/08/2026', products: {} }),
+    ] };
+  const pindah = panggil('revisedAwayProducts', dior);
+  ok(pindah && pindah.has && pindah.has('BORDES ALLOY'),
+    'BORDES ALLOY dikenali sebagai produk yang kuotanya sudah pindah',
+    JSON.stringify(pindah && [...pindah]));
+  ok(!(pindah && pindah.has('GL ALLOY')), 'GL ALLOY yang aktif TIDAK ikut ditandai');
+  ok(submitted(dior) === 0, 'Submitted DIOR = 0, bukan 6.000', String(submitted(dior)));
+
+  /* Pagar terhadap percobaan pertama yang GAGAL: memakai productGrantHistory
+     mentah-mentah ikut menandai produk yang MASIH dipegang, dan Total Submitted
+     seluruh dashboard jatuh dari 286.545 ke 12.000. */
+  const biasa = { code: 'HDP', revType: 'none',
+    utilizationByProd: { 'GL ALLOY': 1000 }, availableByProd: { 'GL ALLOY': 0 },
+    cycles: [
+      cyc('Submit #1', 11200, { submitDate: '01/01/2026', releaseDate: '01/02/2026',
+        pertekDate: '01/02/2026', products: { 'GL ALLOY': 11200 } }),
+      cyc('Obtained #1', 1000, { releaseDate: '05/02/2026', spiDate: '05/02/2026',
+        products: { 'GL ALLOY': 1000 } }),
+    ] };
+  ok(panggil('revisedAwayProducts', biasa).size === 0,
+    'company tanpa revisi tidak menandai apa pun');
+  ok(submitted(biasa) === 11200, 'Submitted-nya utuh 11.200', String(submitted(biasa)));
+}
+
 console.log(`\n${pass} pass · ${fail} fail`);
 process.exit(fail ? 1 : 0);
