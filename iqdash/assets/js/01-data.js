@@ -962,13 +962,15 @@ function canonicalObtainedFiltered(co) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function pendingReapplyCycles(co) {
   const cy = (co && co.cycles) || [];
-  /* revType 'complete' berarti PERTEK/SPI Perubahan-nya SUDAH terbit, dan
-     penerbitan itu tidak selalu berbentuk siklus Obtained baru — SMS
-     mencatatnya di status siklus permintaannya sendiri ("SPI Perubahan Terbit
-     10/07/2026"), begitu juga DIOR. Tanpa pagar ini SMS menyumbang 150 MT ke
-     Total Submitted padahal urusannya sudah selesai, dan jumlahnya jadi tidak
-     lagi sejalan dengan daftar company di tab Under Submission. */
-  if (String((co && co.revType) || '').toLowerCase() === 'complete') return [];
+  /* Pagar revType "complete" SENGAJA TIDAK di sini.
+     Tugasnya memisahkan perubahan yang sudah terbit (SMS, DIOR) dari yang
+     masih berjalan, dan itu pertanyaan tab Under Submission — outstandingStage()
+     yang memegangnya. Di jalur Submitted pagar itu justru merugikan: BBB dan
+     LCP berstatus complete karena revisi LAMANYA sudah selesai, sementara
+     re-apply BARU mereka masih berjalan, dan 3.000 MT masing-masing ikut
+     hilang dari Total Submitted. Untuk jalur Submitted, SMS dan DIOR sudah
+     tersaring pendingReapplyCyclesForSubmitted() yang menuntut tanda
+     Re-Apply — keduanya bertanda Revision. */
   const ms = v => {
     const d = (typeof pDate === 'function') ? pDate(String(v == null ? '' : v).trim()) : null;
     return (d && !isNaN(d.getTime())) ? d.getTime() : null;
