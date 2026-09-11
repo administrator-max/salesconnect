@@ -678,6 +678,11 @@ function spiTerbitRows() {
     const obt  = (typeof getObtainedByProdAgg === 'function') ? (getObtainedByProdAgg(co) || {}) : {};
     const util = (typeof allTimeUtilByProd    === 'function') ? (allTimeUtilByProd(co)    || {}) : (co.utilizationByProd || {});
     const sub  = (typeof scopedSubmittedByProd === 'function') ? (scopedSubmittedByProd(co) || {}) : {};
+    /* Untuk baris HISTORIS saja: peta yang MASIH memuat produk yang kuotanya
+       sudah pindah, supaya kolom Submit-nya tetap memperlihatkan tonase asli.
+       Hitungan kuota aktif tetap memakai peta sub di atas. */
+    const subTampil = (typeof scopedSubmittedByProd === 'function')
+      ? (scopedSubmittedByProd(co, true) || {}) : {};
     const riwayat = productGrantHistory(co);
 
     const ambil = (peta, prod) => {
@@ -777,7 +782,7 @@ function spiTerbitRows() {
            membuat satu kuota terbaca dua kali; persis kasus DIOR 28-Agu-2026,
            Wear Plate 100 + GL Alloy 100 = 200 MT padahal DIOR punya 100.
            Perender mencetak null sebagai "—". */
-        submitMT:   opsi.historis ? (ambil(sub, prod) || (h ? h.mt : null))
+        submitMT:   opsi.historis ? (ambil(subTampil, prod) || (h ? h.mt : null))
                                   : (ambil(sub, prod) || 0),
         obtainedMT: opsi.historis ? null : (ambil(obt, prod) || 0),
         utilMT:     opsi.historis ? 0                 : (ambil(util, prod) || 0),

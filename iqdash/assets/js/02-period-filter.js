@@ -674,7 +674,7 @@ function scopedAvailByProd(co) {
    di atas kolam yang sudah difilter periode — sehingga tile "Total Submit"-nya
    membaca 220.020 MT terhadap kartu 66.745 (temuan audit 2026-08-12).
    All Time -> getSubmittedByProd() apa adanya. */
-function scopedSubmittedByProd(co) {
+function scopedSubmittedByProd(co, sertakanDipindah) {
   if (!co) return {};
   /* PRODUK YANG KUOTANYA SUDAH DIPINDAHKAN TIDAK IKUT DIHITUNG.
 
@@ -692,7 +692,12 @@ function scopedSubmittedByProd(co) {
      dipakai tabel PERTEK & SPI untuk menandai baris historis. Dengan begitu
      "apa yang kelabu di tabel" dan "apa yang tidak dihitung di kartu" mustahil
      berbeda. */
-  const _dipindah = (typeof revisedAwayProducts === 'function')
+  /* sertakanDipindah dipakai HANYA untuk TAMPILAN baris historis di tabel
+     PERTEK & SPI. Tim minta baris produk lama tetap memperlihatkan tonase yang
+     dulu diajukan (DIOR: "Baris Wear Plate 6.000 MT tetap tampil sebagai
+     historical"), sementara angka itu TIDAK boleh ikut Total Submitted.
+     Satu fungsi dengan satu saklar, bukan dua fungsi yang lama-lama berbeda. */
+  const _dipindah = (!sertakanDipindah && typeof revisedAwayProducts === 'function')
     ? revisedAwayProducts(co) : new Set();
   /* Kunci WAJIB dikanonikkan di KEDUA cabang. getSubmittedByProd() memakai
      ejaan siklus mentah ("GL BORON") sementara jalur obtained sudah kanonik

@@ -160,8 +160,16 @@ console.log('\nF · Baris historis: Obtained "—", Submit tetap angka aslinya')
   const blok = i < 0 ? '' : src.slice(i, j);
   ok(/obtainedMT:\s*opsi\.historis\s*\?\s*null/.test(blok),
     'baris historis memulangkan obtainedMT null, bukan angka', blok.slice(0, 160));
-  ok(/submitMT:\s*opsi\.historis\s*\?\s*\(ambil\(sub, prod\)/.test(blok),
-    'baris historis memakai angka pengajuan aslinya', blok.slice(0, 160));
+  /* subTampil, bukan sub. Keduanya dari scopedSubmittedByProd(), bedanya
+     subTampil MASIH memuat produk yang kuotanya sudah pindah — persis supaya
+     kolom Submit baris historis tetap menampilkan tonase asli (DIOR 6.000 MT)
+     sementara angka itu tidak ikut Total Submitted. Sempat salah 11-Sep-2026:
+     memakai `sub` membuat baris DIOR terbaca 100 MT, bukan 6.000. */
+  ok(/submitMT:\s*opsi\.historis\s*\?\s*\(ambil\(subTampil, prod\)/.test(blok),
+    'baris historis memakai peta yang masih memuat produk dipindah', blok.slice(0, 200));
+  const src1a = fs.readFileSync(path.join(JS, '02-period-filter.js'), 'utf8');
+  ok(/function scopedSubmittedByProd\(co, sertakanDipindah\)/.test(src1a),
+    'saklarnya ada di scopedSubmittedByProd, bukan fungsi kedua');
 
   /* Perendernya mencetak null sebagai tanda pisah. */
   const r = fs.readFileSync(path.join(JS, '05a-spi-terbit.js'), 'utf8');
