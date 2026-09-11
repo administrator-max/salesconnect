@@ -27,7 +27,7 @@ return [
         'luzy'   => ['name' => 'Luzy',    'email' => 'luzya.rahmadilla@gunungprisma.com'],
         'anne'   => ['name' => 'Anne',    'email' => 'june.anneble@gunungprisma.com'],
         'jeri'   => ['name' => 'Ko Jeri', 'email' => 'jeri@gunungprisma.com'],
-        'irma'   => ['name' => 'Irma',    'email' => 'irma.chairani@selarasprisma.com'],
+        'irma'   => ['name' => 'Irma',    'email' => 'irma.chairani@selarasprima.com'],
         'angely' => ['name' => 'Angely',  'email' => 'angely.setiawan@gunungprisma.com'],
         'putri'  => ['name' => 'Putri',   'email' => 'putri.aulia@gunungprisma.com'],
         'jeany'  => ['name' => 'Jeany',   'email' => 'operations2@gunungprisma.com'],
@@ -65,6 +65,10 @@ return [
 
         // SCOT — tim sales inti + Irma, Angely, Jeany, Maya (TANPA Putri)
         'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
+
+        // CRM Projects (eks crmproject.gunungprisma.com, Selaras Prima Artha) —
+        // HANYA 3 orang, tanpa admin/aldi/ridwan (beda dari modul lain di atas).
+        'crmproject' => ['irma', 'angely', 'jessica'],
     ],
 
     // ── Label & deskripsi kartu di halaman depan ─────────────────────────
@@ -81,5 +85,7 @@ return [
                          'desc'  => 'Dashboard sales eksekutif: budget vs actual, margin, konsolidasi PS.'],
         'iqdash'     => ['icon' => '📊', 'title' => 'Import Quota Monitor', 'href' => 'iqdash/',
                          'desc'  => 'Steel import quota (PERTEK/SPI) lifecycle &amp; realization tracking.'],
+        'crmproject' => ['icon' => '🤝', 'title' => 'CRM Projects', 'href' => 'crmproject/',
+                         'desc'  => 'Market blueprint, pipeline &amp; customer CRM Selaras Prima Artha.'],
     ],
 ];

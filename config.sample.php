@@ -13,6 +13,7 @@ return [
         'scot'       => 'YOUR_SCOT_SPREADSHEET_ID',
         'salespulse' => 'YOUR_SALESPULSE_SPREADSHEET_ID',
         'iqdash'     => '1t4MbpWLaQIe_NfMjb38gMtNTm27WPXLwpUq0THGMYd0',
+        'crmproject' => 'YOUR_CRMPROJECT_SPREADSHEET_ID',
     ],
 
     // Path ke JSON key service account (di secure/, atau di atas public_html).

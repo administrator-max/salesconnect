@@ -21,6 +21,7 @@ t('akses costcore',   count($a['access']['costcore']), 12);
 t('akses salespulse', count($a['access']['salespulse']), 13);
 t('akses iqdash',     count($a['access']['iqdash']), 14);
 t('akses scot',       count($a['access']['scot']), 13);
+t('akses crmproject', count($a['access']['crmproject']), 3);
 t('Putri TIDAK di scot', in_array('putri', $a['access']['scot'], true), false);
 t('Jeany: iqdash + scot', sc_person_by_email('operations2@gunungprisma.com')['tools'],
                           ['iqdash', 'scot']);
@@ -28,23 +29,37 @@ t('Maya hanya di scot',  sc_person_by_email('maya.ristiana@gunungprisma.com')['t
 t('Putri: 3 dashboard',  sc_person_by_email('putri.aulia@gunungprisma.com')['tools'],
                          ['costcore', 'salespulse', 'iqdash']);
 t('David: 6 dashboard',  count(sc_person_by_email('davidadi.nugroho@gunungprisma.com')['tools']), 6);
-t('Liwa: SEMUA dashboard', sc_person_by_email('liwa.s@gunungprisma.com')['tools'],
-                           array_keys($a['access']));
+// Liwa/Hendra punya SEMUA dashboard KECUALI CRM Projects — modul itu sengaja
+// dibatasi ke 3 orang saja (irma/angely/jessica), jadi bukan lagi "semua"
+// yang harfiah sejak crmproject ditambahkan.
+t('Liwa: semua dashboard kecuali crmproject', sc_person_by_email('liwa.s@gunungprisma.com')['tools'],
+                           array_values(array_diff(array_keys($a['access']), ['crmproject'])));
 t('Liwa bukan admin', !empty(sc_person_by_email('liwa.s@gunungprisma.com')['admin']), false);
 t('Herdiani hanya di iqdash', sc_person_by_email('herdiani@gunungprisma.com')['tools'], ['iqdash']);
 t('Herdiani bukan admin', !empty(sc_person_by_email('herdiani@gunungprisma.com')['admin']), false);
-t('Hendra: SEMUA dashboard', sc_person_by_email('hendra.satria@gunungprisma.com')['tools'],
-                             array_keys($a['access']));
+t('Hendra: semua dashboard kecuali crmproject', sc_person_by_email('hendra.satria@gunungprisma.com')['tools'],
+                             array_values(array_diff(array_keys($a['access']), ['crmproject'])));
 t('Hendra bukan admin', !empty(sc_person_by_email('hendra.satria@gunungprisma.com')['admin']), false);
-t('Jessica hanya di salespulse', sc_person_by_email('jessica.nathania@gunungprisma.com')['tools'],
-                                 ['salespulse']);
+// Jessica: salespulse + crmproject (ditambahkan menyusul, lihat lib/access.php).
+t('Jessica: salespulse + crmproject', sc_person_by_email('jessica.nathania@gunungprisma.com')['tools'],
+                                 ['salespulse', 'crmproject']);
 t('Jessica bukan admin', !empty(sc_person_by_email('jessica.nathania@gunungprisma.com')['admin']), false);
-t('Angely: SEMUA dashboard', sc_person_by_email('angely.setiawan@gunungprisma.com')['tools'],
+t('Angely: SEMUA dashboard (termasuk crmproject)', sc_person_by_email('angely.setiawan@gunungprisma.com')['tools'],
                              array_keys($a['access']));
 t('Angely bukan admin', !empty(sc_person_by_email('angely.setiawan@gunungprisma.com')['admin']), false);
 // Ejaan yang sempat salah ketik ("jessca") tidak boleh ikut terdaftar — email
 // yang meleset satu huruf berarti orangnya tidak bisa masuk sama sekali.
 t('ejaan lama tidak terdaftar', sc_person_by_email('jessca.nathania@gunungprisma.com'), null);
+
+// ── CRM Projects (modul ke-7) — hanya irma/angely/jessica ────────────────
+t('Irma boleh crmproject', in_array('crmproject', sc_person_by_email('irma.chairani@selarasprima.com')['tools'] ?? [], true), true);
+t('Irma bukan admin', !empty(sc_person_by_email('irma.chairani@selarasprima.com')['admin']), false);
+// Typo lama ("selarasprisma", huruf s tambahan) — kalau ini masih terdaftar,
+// perbaikan ejaan di lib/access.php belum benar-benar masuk.
+t('ejaan lama Irma (typo) tidak terdaftar', sc_person_by_email('irma.chairani@selarasprisma.com'), null);
+t('Angely boleh crmproject', in_array('crmproject', sc_person_by_email('angely.setiawan@gunungprisma.com')['tools'] ?? [], true), true);
+t('Jessica boleh crmproject', in_array('crmproject', sc_person_by_email('jessica.nathania@gunungprisma.com')['tools'] ?? [], true), true);
+t('David TIDAK boleh crmproject', in_array('crmproject', sc_person_by_email('davidadi.nugroho@gunungprisma.com')['tools'] ?? [], true), false);
 t('email besar-kecil',   sc_person_by_email('  JERI@GunungPrisma.com ')['name'], 'Ko Jeri');
 t('email asing ditolak', sc_person_by_email('orang.luar@example.com'), null);
 t('Aldi admin',   !empty(sc_person_by_email('aldi.pratantio@gunungcapital.com')['admin']), true);
