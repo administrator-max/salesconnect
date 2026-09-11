@@ -67,8 +67,9 @@ return [
         'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],
 
         // CRM Projects (eks crmproject.gunungprisma.com, Selaras Prima Artha) —
-        // HANYA 3 orang, tanpa admin/aldi/ridwan (beda dari modul lain di atas).
-        'crmproject' => ['irma', 'angely', 'jessica'],
+        // tim Selaras Prima (irma/angely/jessica) + Aldi, Ridwan, Trian, Liwa
+        // ditambahkan menyusul untuk kebutuhan testing/oversight (11 September 2026).
+        'crmproject' => ['irma', 'angely', 'jessica', 'aldi', 'ridwan', 'trian', 'liwa'],
     ],
 
     // ── Label & deskripsi kartu di halaman depan ─────────────────────────

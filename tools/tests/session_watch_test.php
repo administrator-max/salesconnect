@@ -42,8 +42,8 @@ function check_session_watch_page(string $ROOT, string $p) {
     t("$p — penangkap sebelum </head>", ($watch !== false && $head !== false && $watch < $head), true);
 }
 
-// Sesi palsu: Ridwan punya akses ke enam modul "biasa" (bukan CRM Projects,
-// lihat di bawah), jadi tidak ada yang dialihkan ke halaman "tidak punya akses".
+// Sesi palsu: Ridwan punya akses ke semua modul (termasuk CRM Projects sejak
+// 11 September 2026), jadi tidak ada yang dialihkan ke halaman "tidak punya akses".
 sc_start_session_for(sc_person_by_email('ridwan.abdillah@gunungcapital.com'), 'otp');
 
 $pages = [
@@ -54,20 +54,12 @@ $pages = [
     'salespulse/index.php',
     'salespulse/dashboard.php',
     'iqdash/index.php',
+    'crmproject/index.php',
 ];
 
 foreach ($pages as $p) {
     check_session_watch_page($ROOT, $p);
 }
-
-// CRM Projects sengaja HANYA untuk 3 orang (irma/angely/jessica) — Ridwan
-// TIDAK ada di access['crmproject'] (lihat lib/access.php), jadi harus diuji
-// di bawah sesi salah satu dari mereka, bukan sesi Ridwan di atas (kalau
-// dipaksa pakai sesi Ridwan, sc_require_tool() akan melempar ke halaman
-// "tidak punya akses" yang tidak membawa penangkap ini sama sekali).
-sc_start_session_for(sc_person_by_email('irma.chairani@selarasprima.com'), 'otp');
-check_session_watch_page($ROOT, 'crmproject/index.php');
-$pages[] = 'crmproject/index.php';
 
 echo ($fail === 0 ? "OK" : "ADA GAGAL") . " — $pass lulus, $fail gagal ("
    . count($pages) . " halaman)\n";
