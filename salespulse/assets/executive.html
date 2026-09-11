@@ -189,8 +189,10 @@
     .kpi-big {
       font-family:inherit; font-size:26px; font-weight:700;
       line-height:1; margin-bottom:10px; letter-spacing:-0.4px;
-      position:relative; cursor:default; display:inline-block;
+      position:relative; cursor:pointer; display:inline-block;
+      border-bottom:2px dotted transparent; transition:opacity 0.15s, border-color 0.15s;
     }
+    .kpi-big:hover { opacity:0.78; border-bottom-color:currentColor; }
     #kpi-float-tip {
       display:none; position:fixed;
       background:var(--text); color:#FFFFFF;
@@ -344,6 +346,66 @@
       line-height:1.4;
     }
 
+    /* ── KPI drill-down modal ── */
+    .kpi-drill-overlay {
+      display:none; position:fixed; inset:0; z-index:10000;
+      background:rgba(35,31,32,0.45);
+      align-items:center; justify-content:center; padding:20px;
+    }
+    .kpi-drill-overlay.open { display:flex; }
+    .kpi-drill-modal {
+      background:var(--s1); border-radius:12px; width:100%; max-width:520px;
+      max-height:82vh; display:flex; flex-direction:column; overflow:hidden;
+      box-shadow:0 12px 40px rgba(35,31,32,0.30);
+      animation:drillIn 0.15s ease-out;
+    }
+    @keyframes drillIn { from { transform:translateY(8px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+    .kpi-drill-head {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 20px; color:#FFFFFF;
+    }
+    .kpi-drill-head.blue   { background:var(--brand-blue); }
+    .kpi-drill-head.green  { background:var(--brand-green-dark); }
+    .kpi-drill-head.orange { background:var(--brand-dark); }
+    .kpi-drill-title { font-size:16px; font-weight:700; letter-spacing:-0.2px; }
+    .kpi-drill-sub   { font-size:11px; opacity:0.8; margin-top:2px; }
+    .kpi-drill-close {
+      background:rgba(255,255,255,0.15); border:none; color:#FFFFFF;
+      width:28px; height:28px; border-radius:7px; font-size:16px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; line-height:1;
+      transition:background 0.15s;
+    }
+    .kpi-drill-close:hover { background:rgba(255,255,255,0.28); }
+    .kpi-drill-total {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:12px 20px; background:var(--s3); border-bottom:1px solid var(--border);
+      font-size:12px; color:var(--muted);
+    }
+    .kpi-drill-total strong { color:var(--text); font-size:13px; font-variant-numeric:tabular-nums; }
+    .kpi-drill-body { overflow-y:auto; padding:6px 8px; }
+    .drill-row {
+      display:flex; align-items:center; gap:10px;
+      padding:9px 12px; border-radius:8px;
+    }
+    .drill-row:hover { background:var(--s2); }
+    .drill-rank {
+      width:20px; height:20px; border-radius:5px; background:var(--s3);
+      color:var(--muted2); font-size:10px; font-weight:700;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    }
+    .drill-name { flex:1; font-size:12.5px; font-weight:700; color:var(--text); min-width:0;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .drill-vals { text-align:right; flex-shrink:0; }
+    .drill-actual { font-size:13px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+    .drill-budget { font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .drill-pct {
+      width:64px; text-align:right; flex-shrink:0;
+      font-size:11.5px; font-weight:700; color:var(--brand-green-dark);
+      font-variant-numeric:tabular-nums;
+    }
+    .drill-pct.off { color:var(--brand-blue); }
+    .drill-empty { padding:24px; text-align:center; color:var(--muted); font-size:12.5px; }
+
     /* ── Responsive ── */
     @media (max-width:1100px) {
       .kpi-cards { grid-template-columns:1fr 1fr; }
@@ -426,7 +488,7 @@
         <div class="kpi-cols">
           <div class="kpi-col">
             <div class="kpi-col-label">MTD</div>
-            <div class="kpi-big blue" id="rev-mtd">0.0</div>
+            <div class="kpi-big blue" id="rev-mtd" onclick="openKpiDrill('revenue','mtd')">0.0</div>
             <div class="vs-budget-row">
               <span class="vs-badge blue">VS BUDGET</span>
               <span class="vs-budget-text">Bud: <span id="rev-bud-mtd">0.0</span> <span class="vs-neg" id="rev-gap-mtd">0.0</span></span>
@@ -437,7 +499,7 @@
           </div>
           <div class="kpi-col alt">
             <div class="kpi-col-label">YTD</div>
-            <div class="kpi-big blue" id="rev-ytd">0.0</div>
+            <div class="kpi-big blue" id="rev-ytd" onclick="openKpiDrill('revenue','ytd')">0.0</div>
             <div class="vs-budget-row">
               <span class="vs-badge blue">VS BUDGET</span>
               <span class="vs-budget-text">Bud YTD: <span id="rev-bud-ytd">0.0</span> <span class="vs-neg" id="rev-gap-ytd">0.0</span></span>
@@ -468,7 +530,7 @@
         <div class="kpi-cols">
           <div class="kpi-col">
             <div class="kpi-col-label">MTD</div>
-            <div class="kpi-big green" id="mar-mtd">0.0</div>
+            <div class="kpi-big green" id="mar-mtd" onclick="openKpiDrill('margin','mtd')">0.0</div>
             <div class="vs-budget-row">
               <span class="vs-badge green">VS BUDGET</span>
               <span class="vs-budget-text">Bud: <span id="mar-bud-mtd">0.0</span> <span class="vs-neg" id="mar-gap-mtd">0.0</span></span>
@@ -479,7 +541,7 @@
           </div>
           <div class="kpi-col alt">
             <div class="kpi-col-label">YTD</div>
-            <div class="kpi-big green" id="mar-ytd">0.0</div>
+            <div class="kpi-big green" id="mar-ytd" onclick="openKpiDrill('margin','ytd')">0.0</div>
             <div class="vs-budget-row">
               <span class="vs-badge green">VS BUDGET</span>
               <span class="vs-budget-text">Bud YTD: <span id="mar-bud-ytd">0.0</span> <span class="vs-neg" id="mar-gap-ytd">0.0</span></span>
@@ -510,7 +572,7 @@
         <div class="kpi-cols">
           <div class="kpi-col">
             <div class="kpi-col-label">MTD</div>
-            <div class="kpi-big orange" id="vol-mtd">0</div>
+            <div class="kpi-big orange" id="vol-mtd" onclick="openKpiDrill('volume','mtd')">0</div>
             <div class="vs-budget-row">
               <span class="vs-badge orange">VS BUDGET</span>
               <span class="vs-budget-text">Bud: <span id="vol-bud-mtd">0</span> <span class="vs-neg" id="vol-gap-mtd">0</span></span>
@@ -521,7 +583,7 @@
           </div>
           <div class="kpi-col alt">
             <div class="kpi-col-label">YTD</div>
-            <div class="kpi-big orange" id="vol-ytd">0</div>
+            <div class="kpi-big orange" id="vol-ytd" onclick="openKpiDrill('volume','ytd')">0</div>
             <div class="vs-budget-row">
               <span class="vs-badge orange">VS BUDGET</span>
               <span class="vs-budget-text">Bud YTD: <span id="vol-bud-ytd">0</span> <span class="vs-neg" id="vol-gap-ytd">0</span></span>
@@ -643,6 +705,12 @@ let DATA     = null;
 let curYear  = new Date().getFullYear();
 let curMonth = -1; // -1 = YTD
 let curQuarter = null; // null = not a quarter view; 1..4 = Q1..Q4 (Jan-Mar, Apr-Jun, Jul-Sep, Oct-Dec)
+
+// Month indices behind the LEFT ("MTD") and RIGHT ("YTD") KPI columns, refreshed
+// each render() — the KPI drill-down modal reuses these so its numbers stay in
+// lockstep with whatever range/quarter is currently picked.
+let _mtdIdx = [0], _ytdIdx = [0];
+let _mtdDrillLabel = '', _ytdDrillLabel = '';
 
 // Month indices covered by a quarter: Q1 -> [0,1,2], Q2 -> [3,4,5], ...
 function quarterMonths(q) { return [(q - 1) * 3, (q - 1) * 3 + 1, (q - 1) * 3 + 2]; }
@@ -1044,6 +1112,11 @@ function render() {
     ? MONTHS_SHORT[curFrom] + ' ' + curYear
     : getPeriodLabel() + '  (' + MONTHS_SHORT[curFrom] + '–' + MONTHS_SHORT[curTo] + ')';
   document.querySelectorAll('[id*="-mtd-date"]').forEach(el => { el.textContent = mtdDateLabel; });
+
+  // Snapshot the month ranges + labels for the KPI drill-down modal (openKpiDrill).
+  _mtdIdx = mtdIndices; _ytdIdx = ytdIndices;
+  _mtdDrillLabel = getLeftColLabel() + ' ' + mtdDateLabel;
+  _ytdDrillLabel = 'YTD ' + curYear + ' (Jan–' + MONTHS_SHORT[curTo] + ')';
   document.querySelectorAll('[id*="-ytd-date"]').forEach(el => { el.textContent = curYear; });
   // Left column header: "MTD" for a month, "Q2" for a quarter
   document.querySelectorAll('.kpi-col-label, .rank-period').forEach(el => {
@@ -1117,6 +1190,67 @@ function render() {
   document.getElementById('top-cust-mtd-list').innerHTML = rankListHTML(topCustomersByMargin(mtdCusts).slice(0, 3), 'blue');
   document.getElementById('top-cust-ytd-list').innerHTML = rankListHTML(topCustomersByMargin(ytdCusts).slice(0, 3), 'blue');
 }
+
+// ── KPI drill-down modal: click a card's big number → product breakdown ────────
+// Reuses getProdRanking() — the exact same canonical rows that already feed the
+// "Top/Bottom 3 Products" carousel — so the breakdown never drifts from what's
+// shown elsewhere on this page.
+const DRILL_CONF = {
+  revenue: { label:'Revenue', unit:'IDR · external sales', color:'blue',   field:'revenue', budgetField:'budgetRevenue', fmt: v => fmtIDR(v) },
+  margin:  { label:'Margin',  unit:'IDR · gross',           color:'green', field:'margin',  budgetField:'budgetMargin',  fmt: v => fmtIDR(v) },
+  volume:  { label:'Volume',  unit:'MT',                    color:'orange',field:'actualMT',budgetField:'budgetMT',      fmt: v => fmtN(v) + ' MT' },
+};
+
+function drillRowHTML(r, rank, conf) {
+  const actual = r[conf.field] || 0;
+  const budget = r[conf.budgetField] || 0;
+  let pct;
+  if (budget > 0)      pct = (actual / budget) * 100;
+  else if (actual > 0) pct = Infinity;
+  else                 pct = null;
+  return `
+    <div class="drill-row">
+      <div class="drill-rank">${rank}</div>
+      <div class="drill-name" title="${escapeAttr(r.name)}">${escapeHtml(r.name)}</div>
+      <div class="drill-vals">
+        <div class="drill-actual">${conf.fmt(actual)}</div>
+        <div class="drill-budget">Bud: ${budget > 0 ? conf.fmt(budget) : '—'}</div>
+      </div>
+      <div class="drill-pct${pct === Infinity ? ' off' : ''}">${_fmtPct(pct)}</div>
+    </div>`;
+}
+
+function openKpiDrill(metric, period) {
+  if (!DATA) return;
+  const conf = DRILL_CONF[metric];
+  if (!conf) return;
+  const indices = period === 'mtd' ? _mtdIdx : _ytdIdx;
+  const periodLabel = period === 'mtd' ? _mtdDrillLabel : _ytdDrillLabel;
+
+  const rows = getProdRanking(indices, DATA)
+    .filter(r => (r[conf.field] || 0) !== 0 || (r[conf.budgetField] || 0) !== 0)
+    .sort((a, b) => (b[conf.field] || 0) - (a[conf.field] || 0));
+
+  const totalActual = rows.reduce((s, r) => s + (r[conf.field] || 0), 0);
+
+  const head = document.getElementById('kpi-drill-head');
+  head.className = 'kpi-drill-head ' + conf.color;
+  document.getElementById('kpi-drill-title').textContent = conf.label + ' — by product';
+  document.getElementById('kpi-drill-sub').textContent = periodLabel + ' · ' + conf.unit;
+  document.getElementById('kpi-drill-total').innerHTML =
+    `<span>${rows.length} produk berkontribusi</span><strong>${conf.fmt(totalActual)}</strong>`;
+  document.getElementById('kpi-drill-body').innerHTML = rows.length
+    ? rows.map((r, i) => drillRowHTML(r, i + 1, conf)).join('')
+    : '<div class="drill-empty">Belum ada data produk untuk periode ini</div>';
+
+  document.getElementById('kpi-drill-overlay').classList.add('open');
+}
+
+function closeKpiDrill() {
+  document.getElementById('kpi-drill-overlay').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeKpiDrill(); });
 
 // ── Fetch data + Refresh / Auto-refresh ─────────────────────────────────────────
 let autoTimer = null;
@@ -1259,5 +1393,20 @@ fetchData();
 })();
 </script>
 <div id="kpi-float-tip"></div>
+
+<!-- KPI drill-down modal: product breakdown behind a card's MTD/YTD number -->
+<div class="kpi-drill-overlay" id="kpi-drill-overlay" onclick="if(event.target===this) closeKpiDrill()">
+  <div class="kpi-drill-modal">
+    <div class="kpi-drill-head" id="kpi-drill-head">
+      <div>
+        <div class="kpi-drill-title" id="kpi-drill-title">—</div>
+        <div class="kpi-drill-sub" id="kpi-drill-sub">—</div>
+      </div>
+      <button class="kpi-drill-close" onclick="closeKpiDrill()" aria-label="Tutup">&times;</button>
+    </div>
+    <div class="kpi-drill-total" id="kpi-drill-total"></div>
+    <div class="kpi-drill-body" id="kpi-drill-body"></div>
+  </div>
+</div>
 </body>
 </html>
