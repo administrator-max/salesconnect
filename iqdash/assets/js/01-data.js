@@ -995,9 +995,35 @@ function pendingReapplyCycles(co) {
   });
 }
 
+/* Hanya RE-APPLY yang menambah Submitted; REVISI tidak.
+
+   Re-apply = pengajuan kuota TAMBAHAN, jadi ia menambah total yang pernah
+   diajukan. Revisi = PENGGANTIAN produk atau tonase atas kuota yang sudah ada,
+   jadi ia tidak menambah apa-apa — aturan "revisi = penggantian" yang sudah
+   berlaku di seluruh dashboard ini.
+
+   Ketahuan dari tabel PERTEK & SPI yang dikirim pemilik data 11-Sep-2026:
+   BBB, KJK, LCP, dan SJH memang ditambahi 3.000 MT re-apply masing-masing,
+   sedangkan IKM TIDAK — acuannya 12.250 MT, sementara dashboard membaca
+   16.400 karena permintaan 4.150 MT-nya ikut ditambahkan. Pembedanya ada di
+   data: keempat yang pertama bertanda revisionType "Re-Apply", IKM kosong dan
+   status update-nya berbunyi "Submit MOI Perubahan" — perubahan, bukan
+   penambahan.
+
+   Dipisahkan dari pendingReapplyCycles() dengan sengaja. Yang itu menjawab
+   "apakah masih ada permohonan berjalan" dan dipakai tab Under Submission;
+   IKM memang masih berjalan dan harus tetap tampil di sana. Yang ini menjawab
+   "berapa MT yang menambah Submitted", dan jawabannya untuk revisi adalah nol. */
+function pendingReapplyCyclesForSubmitted(co) {
+  const reapply = Object.values((co && co.salesRevRequest) || {}).some(v =>
+    v && v.requested && /^confirmed$/i.test(String(v.status || '')) &&
+    /re-?apply/i.test(String(v.revisionType || '')));
+  return reapply ? pendingReapplyCycles(co) : [];
+}
+
 /** Total MT re-apply yang sudah dikonfirmasi tapi belum jadi siklus Submit. */
 function pendingReapplyMT(co) {
-  return pendingReapplyCycles(co).reduce((s, c) => s + (Number(c.mt) || 0), 0);
+  return pendingReapplyCyclesForSubmitted(co).reduce((s, c) => s + (Number(c.mt) || 0), 0);
 }
 
 /** Rinciannya per produk kanonik, untuk kolom Submit per-produk. */
@@ -1059,7 +1085,7 @@ function canonicalSubmittedFiltered(co) {
   /* Re-apply yang belum jadi siklus Submit digerbang tanggal KONFIRMASI-nya —
      itulah satu-satunya tanggal yang dimilikinya. Tanpa gerbang ini, menyaring
      periode apa pun akan selalu menyeret angka re-apply ikut masuk. */
-  pendingReapplyCycles(co).forEach(c => {
+  pendingReapplyCyclesForSubmitted(co).forEach(c => {
     const t = pDate(c.releaseDate || c.submitDate || '');
     if (t && inPd(t)) total += (Number(c.mt) || 0);
   });

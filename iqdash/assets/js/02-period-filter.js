@@ -708,7 +708,7 @@ function scopedSubmittedByProd(co) {
      pelajaran yang sudah dibayar mahal di dashboard ini.
      Syarat anti-double-count-nya ada di pendingReapplyCycles(). */
   if (typeof pendingReapplyCycles === 'function') {
-    pendingReapplyCycles(co).forEach(c => {
+    pendingReapplyCyclesForSubmitted(co).forEach(c => {
       if (PERIOD.active) {
         const t = pDate(c.releaseDate || c.submitDate || '');
         if (!t || !inPd(t)) return;

@@ -57,13 +57,16 @@ const reapply   = co => panggil('pendingReapplyMT', co);
 const tahap     = co => panggil('outstandingStage', co);
 
 const cyc = (type, mt, o) => Object.assign({ type, mt, products: {} }, o || {});
+/* Permintaan Sales bertanda Re-Apply. WAJIB ada: sejak 11-Sep-2026 hanya
+   re-apply yang menambah Submitted, revisi tidak — lihat kasus I. */
+const SRR_REAPPLY = { 'GL ALLOY': { requested: true, status: 'confirmed', revisionType: 'Re-Apply' } };
 const REQ = (mt, tgl, prod) => cyc('Revision Request — ' + prod, mt,
   { submitDate: tgl, releaseDate: tgl, products: { [prod]: mt } });
 
 console.log('\nA · Re-apply dikonfirmasi, belum ada siklus Submit -> ikut dihitung');
 {
   /* SJH: Submit #1 6.000 + Submit #2 2.700 + re-apply 3.000 = 11.700 */
-  const sjh = { code: 'SJH', revType: 'active', cycles: [
+  const sjh = { code: 'SJH', revType: 'active', salesRevRequest: SRR_REAPPLY, cycles: [
     cyc('Submit #1', 6000, { submitDate: '17/11/2025', releaseDate: '12/12/2025', pertekDate: '12/12/2025' }),
     cyc('Obtained #1', 300, { releaseDate: '06/01/2026', spiDate: '06/01/2026' }),
     REQ(3000, '01-Sep-26', 'GL ALLOY'),
@@ -78,7 +81,7 @@ console.log('\nB · Jangan double count — permintaan yang sudah jadi siklus Su
 {
   /* LCP punya DUA permintaan. Yang 21-May-26 sudah menjadi Submit #2
      (submitDate 21/05/2026), jadi tidak boleh dihitung lagi. */
-  const lcp = { code: 'LCP', revType: 'active', cycles: [
+  const lcp = { code: 'LCP', revType: 'active', salesRevRequest: SRR_REAPPLY, cycles: [
     cyc('Submit #1', 6000, { submitDate: '23/10/2025', releaseDate: '18/11/2025', pertekDate: '18/11/2025' }),
     cyc('Obtained #1', 275, { releaseDate: '16/12/2025', spiDate: '16/12/2025' }),
     cyc('Submit #2', 2725, { submitDate: '21/05/2026', releaseDate: '18/06/2026', pertekDate: '18/06/2026' }),
@@ -94,7 +97,7 @@ console.log('\nB · Jangan double count — permintaan yang sudah jadi siklus Su
      sini tidak ada Obtained baru yang bisa menutup permintaannya, jadi
      satu-satunya yang mencegah 3.000 MT terhitung dua kali adalah keberadaan
      siklus Submit yang lebih baru. Tanpa syarat (d) angkanya jadi 17.725. */
-  const lanjut = { code: 'LCP', revType: 'active', cycles: [
+  const lanjut = { code: 'LCP', revType: 'active', salesRevRequest: SRR_REAPPLY, cycles: [
     cyc('Submit #1', 6000, { submitDate: '23/10/2025', releaseDate: '18/11/2025', pertekDate: '18/11/2025' }),
     cyc('Obtained #1', 275, { releaseDate: '16/12/2025', spiDate: '16/12/2025' }),
     cyc('Submit #2', 2725, { submitDate: '21/05/2026', releaseDate: '18/06/2026', pertekDate: '18/06/2026' }),
@@ -110,14 +113,14 @@ console.log('\nB · Jangan double count — permintaan yang sudah jadi siklus Su
 
 console.log('\nC · Kuota yang sudah terbit menutup permintaan');
 {
-  const sudah = { code: 'X', revType: 'active', cycles: [
+  const sudah = { code: 'X', revType: 'active', salesRevRequest: SRR_REAPPLY, cycles: [
     cyc('Submit #1', 6000, { submitDate: '01/01/2026', releaseDate: '01/02/2026', pertekDate: '01/02/2026' }),
     REQ(3000, '01-Mar-26', 'GL ALLOY'),
     cyc('Obtained #1', 3000, { releaseDate: '01/05/2026', spiDate: '01/05/2026' }),
   ]};
   ok(submitted(sudah) === 6000, 'Obtained terbit SESUDAH konfirmasi -> tidak ditambahkan',
     String(submitted(sudah)));
-  const belum = { code: 'Y', revType: 'active', cycles: [
+  const belum = { code: 'Y', revType: 'active', salesRevRequest: SRR_REAPPLY, cycles: [
     cyc('Submit #1', 6000, { submitDate: '01/01/2026', releaseDate: '01/02/2026', pertekDate: '01/02/2026' }),
     cyc('Obtained #1', 400, { releaseDate: '01/05/2026', spiDate: '01/05/2026' }),
     REQ(3000, '01-Sep-26', 'GL ALLOY'),
@@ -139,7 +142,7 @@ console.log('\nD · revType "complete" tidak menyumbang (SMS, DIOR)');
 
 console.log('\nE · Delta negatif = revisi yang sudah dieksekusi');
 {
-  const dior = { code: 'DIOR', revType: 'active', cycles: [
+  const dior = { code: 'DIOR', revType: 'active', salesRevRequest: SRR_REAPPLY, cycles: [
     cyc('Submit #1', 6000, { submitDate: '05/11/2025', releaseDate: '20/07/2026', pertekDate: '20/07/2026' }),
     cyc('Obtained #1', 100, { products: { 'BORDES ALLOY': 100 } }),
     cyc('Revision Request — BORDES ALLOY', 100, { submitDate: '03-Sep-26', releaseDate: '03-Sep-26',
@@ -170,7 +173,7 @@ console.log('\nF · Baris historis: Obtained "—", Submit tetap angka aslinya')
 
 console.log('\nG · Satu definisi — Submitted dan Under Submission sejalan');
 {
-  const co = { code: 'Z', revType: 'active', cycles: [
+  const co = { code: 'Z', revType: 'active', salesRevRequest: SRR_REAPPLY, cycles: [
     cyc('Submit #1', 6000, { submitDate: '01/01/2026', releaseDate: '01/02/2026', pertekDate: '01/02/2026' }),
     cyc('Obtained #1', 400, { releaseDate: '01/05/2026', spiDate: '01/05/2026' }),
     REQ(3000, '01-Sep-26', 'GL ALLOY'),
@@ -181,6 +184,37 @@ console.log('\nG · Satu definisi — Submitted dan Under Submission sejalan');
   const src4 = fs.readFileSync(path.join(JS, '04-charts.js'), 'utf8');
   ok(/pendingReapplyCycles\(d\)\.length > 0/.test(src4),
     'outstandingStage memakai pendingReapplyCycles(), bukan salinan aturannya');
+}
+
+console.log('\nI · REVISI tidak menambah Submitted, hanya RE-APPLY');
+{
+  /* Kasus IKM. Acuan PERTEK & SPI 11-Sep-2026 menyebut GI ALLOY 12.250 MT,
+     yaitu siklus Submit saja. Permintaan 4.150 MT-nya TIDAK ditambahkan karena
+     itu perubahan, bukan penambahan: revisionType-nya kosong dan status
+     update-nya berbunyi "Submit MOI Perubahan". Dashboard sempat membaca
+     16.400 sebelum aturan ini dipasang. */
+  const dasar = () => ({ code: 'IKM', revType: 'active', cycles: [
+    cyc('Submit #1', 12250, { submitDate: '30/04/2026', releaseDate: '30/06/2026', pertekDate: '30/06/2026' }),
+    cyc('Obtained #1', 4150, { releaseDate: '08/07/2026', spiDate: '08/07/2026' }),
+    REQ(4150, '13-Aug-26', 'GI ALLOY'),
+  ] });
+
+  const revisi = dasar();
+  revisi.salesRevRequest = { 'GI ALLOY': { requested: true, status: 'confirmed' } };
+  ok(submitted(revisi) === 12250,
+    'permintaan tanpa tanda Re-Apply tidak menambah Submitted', String(submitted(revisi)));
+  ok(reapply(revisi) === 0, 'sumbangannya nol', String(reapply(revisi)));
+
+  /* Tapi IKM TETAP harus tampil Under Submission — permohonannya memang masih
+     berjalan. Dua pertanyaan berbeda, dua fungsi berbeda; kalau keduanya
+     disatukan, salah satunya pasti salah. */
+  ok(tahap(revisi) !== null, 'company-nya tetap terbaca sedang berjalan',
+    JSON.stringify(tahap(revisi)));
+
+  const reApply = dasar();
+  reApply.salesRevRequest = { 'GI ALLOY': { requested: true, status: 'confirmed', revisionType: 'Re-Apply' } };
+  ok(submitted(reApply) === 16400,
+    'yang bertanda Re-Apply tetap menambah seperti biasa', String(submitted(reApply)));
 }
 
 console.log(`\n${pass} pass · ${fail} fail`);
