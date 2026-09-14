@@ -80,20 +80,31 @@ function renderMain() {
     const arb = d.arrivedByProd      || {};
     const obtByProd = getObtainedByProd(d);
 
-    // Submit per product from cycle data
-    const submitByProd = {};
-    (d.cycles||[]).forEach(c => {
-      if (!/^submit\s*#1/i.test(c.type)) return;
-      Object.entries(c.products||{}).forEach(([p,v]) => {
-        if (typeof v==='number' && v>0) submitByProd[p] = (submitByProd[p]||0) + v;
-      });
-    });
+    /* Submit per produk — SUMBER YANG SAMA dengan baris totalnya.
+
+       Versi lama menyusuri siklus sendiri dan hanya membaca Submit #1
+       (`/^submit\s*#1/i`), sehingga Submit #2 dan seterusnya tidak ikut. Baris
+       total memakai canonicalSubmitted() yang menghitung SEMUA siklus, jadi
+       satu baris company bisa menyebut 9.600 MT sementara dua baris produk di
+       bawahnya berjumlah 7.000. Terlihat pada AMP / SUJU dan GKL, ketahuan
+       dari tangkapan layar All Companies 14-Sep-2026.
+
+       scopedSubmittedByProd() juga yang memegang aturan produk-yang-sudah-
+       pindah dan re-apply yang belum jadi siklus Submit, jadi ikut benar
+       dengan sendirinya. Satu angka, satu sumber. */
+    const submitByProd = (typeof scopedSubmittedByProd === 'function')
+      ? (scopedSubmittedByProd(d) || {}) : {};
 
     // All product keys (union of obtained, util, avail)
+    /* Produk yang hanya punya Submit (belum ada obtained/util/avail) ikut
+       didaftar, kalau tidak MT-nya ada di baris total tapi tidak punya baris
+       produknya sendiri — dan jumlah sub-baris kembali tidak sama dengan
+       totalnya, persis masalah yang baru dibereskan di atas. */
     const allProds = [...new Set([
       ...Object.keys(obtByProd),
       ...Object.keys(ubp),
       ...Object.keys(abp),
+      ...Object.keys(submitByProd),
     ])];
 
     const subRows = [];

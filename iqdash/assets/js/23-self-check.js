@@ -112,6 +112,41 @@ const _SC_PERIKSA = [
     return beda.slice(0, 6).join(' · ');
   }],
 
+  ['Submitted per produk = Submitted per company', () => {
+    /* Pasangan dari pemeriksaan Obtained di atas, dan sama perlunya.
+       Ditemukan 14-Sep-2026 dari tangkapan layar All Companies: AMP / SUJU
+       menyebut 9.600 MT di baris company sementara dua baris produk di
+       bawahnya berjumlah 7.000, karena sub-barisnya hanya membaca Submit #1.
+       GKL kena juga, dan tidak satu pun pemeriksaan menangkapnya. */
+    const beda = [];
+    [].concat(SPI || [], PENDING || []).forEach(co => {
+      const per = (typeof scopedSubmittedByProd === 'function') ? (scopedSubmittedByProd(co) || {}) : {};
+      const sum = Object.values(per).reduce((s, v) => s + (Number(v) || 0), 0);
+      const can = Number(canonicalSubmitted(co)) || 0;
+      if (Math.abs(sum - can) > 0.5) beda.push(co.code + ' ' + Math.round(sum) + ' vs ' + Math.round(can));
+    });
+    return beda.slice(0, 6).join(' · ');
+  }],
+
+  ['Rincian utilisasi = utilisasi yang dilaporkan', () => {
+    /* Panel Utilization Breakdown pernah MENDAFTAR lima lot IKM berjumlah
+       3.200 MT sementara totalnya menyebut 2.900 — satu lot bertanggal
+       "11  September 2026" (dua spasi) tidak terbaca lalu tidak dihitung.
+       Rincian yang bertengkar dengan totalnya sendiri harus terlihat. */
+    if (typeof utilBreakdownRows !== 'function') return '';
+    const beda = [];
+    [].concat(SPI || [], PENDING || []).forEach(co => {
+      Object.keys(co.utilizationByProd || {}).forEach(p => {
+        const r = utilBreakdownRows(co.code, p) || {};
+        const sum = (r.rows || []).reduce((s, x) => s + (Number(x.utilMT) || 0), 0);
+        if (Math.abs(sum - (Number(r.util) || 0)) > 0.01) {
+          beda.push(co.code + '/' + p + ' ' + Math.round(sum) + ' vs ' + Math.round(r.util));
+        }
+      });
+    });
+    return beda.slice(0, 6).join(' · ');
+  }],
+
   ['Tidak ada company kembar', () => {
     const n = {};
     [].concat(SPI || [], PENDING || []).forEach(c => { n[c.code] = (n[c.code] || 0) + 1; });
