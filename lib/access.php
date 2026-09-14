@@ -68,8 +68,9 @@ return [
         'salespulse' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra', 'jessica'],
 
         // IQ Dash — sama seperti dua di atas, DITAMBAH Herdiani & Jeany
-        // (keduanya ditambahkan menyusul, 26 Agustus 2026).
-        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra', 'herdiani', 'jeany'],
+        // (keduanya ditambahkan menyusul, 26 Agustus 2026) dan Jessica
+        // (14 September 2026).
+        'iqdash'     => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'putri', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra', 'herdiani', 'jeany', 'jessica'],
 
         // SCOT — tim sales inti + Irma, Angely, Jeany, Maya (TANPA Putri)
         'scot' => ['david', 'luzy', 'anne', 'jeri', 'irma', 'angely', 'jeany', 'maya', 'aldi', 'ridwan', 'trian', 'liwa', 'hendra'],

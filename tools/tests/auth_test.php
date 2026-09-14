@@ -19,7 +19,7 @@ t('akses cil',        count($a['access']['cil']), 10);
 t('akses taskflow',   count($a['access']['taskflow']), 10);
 t('akses costcore',   count($a['access']['costcore']), 12);
 t('akses salespulse', count($a['access']['salespulse']), 13);
-t('akses iqdash',     count($a['access']['iqdash']), 14);
+t('akses iqdash',     count($a['access']['iqdash']), 15);
 t('akses scot',       count($a['access']['scot']), 13);
 t('akses crmproject', count($a['access']['crmproject']), 7);
 t('Putri TIDAK di scot', in_array('putri', $a['access']['scot'], true), false);
@@ -39,9 +39,10 @@ t('Herdiani bukan admin', !empty(sc_person_by_email('herdiani@gunungprisma.com')
 t('Hendra: semua dashboard kecuali crmproject', sc_person_by_email('hendra.satria@gunungprisma.com')['tools'],
                              array_values(array_diff(array_keys($a['access']), ['crmproject'])));
 t('Hendra bukan admin', !empty(sc_person_by_email('hendra.satria@gunungprisma.com')['admin']), false);
-// Jessica: salespulse + crmproject (ditambahkan menyusul, lihat lib/access.php).
-t('Jessica: crmproject + salespulse', sc_person_by_email('jessica.nathania@gunungprisma.com')['tools'],
-                                 ['crmproject', 'salespulse']);
+// Jessica: crmproject + salespulse + iqdash (ketiganya ditambahkan menyusul,
+// lihat lib/access.php). Urutannya mengikuti urutan key di 'access'.
+t('Jessica: crmproject + salespulse + iqdash', sc_person_by_email('jessica.nathania@gunungprisma.com')['tools'],
+                                 ['crmproject', 'salespulse', 'iqdash']);
 t('Jessica bukan admin', !empty(sc_person_by_email('jessica.nathania@gunungprisma.com')['admin']), false);
 t('Angely: SEMUA dashboard (termasuk crmproject)', sc_person_by_email('angely.setiawan@gunungprisma.com')['tools'],
                              array_keys($a['access']));
