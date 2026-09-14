@@ -56,6 +56,10 @@ call(`QUOTA_YEAR = 2026; applyQuotaYearSlice();`);
 
 const avq = JSON.parse(call(`JSON.stringify(availableQuotaRows())`));
 const pecah = (code, prod) => JSON.parse(call(`JSON.stringify(utilBreakdownRows(${JSON.stringify(code)}, ${JSON.stringify(prod)}))`));
+/* Company apa adanya dari payload, untuk mengunci HUBUNGAN alih-alih angka
+   mati — lihat catatan di blok B. */
+const cari = code => JSON.parse(call(
+  `JSON.stringify([...SPI, ...PENDING].find(c => c.code === ${JSON.stringify(code)}) || null)`));
 
 console.log('\nA · Σ rincian = Utilized pada baris yang diklik — untuk SETIAP baris');
 {
@@ -76,10 +80,22 @@ console.log('\nB · Lot Sales dibaca apa adanya');
 {
   const ikm = pecah('IKM', 'GI ALLOY');
   const lot = ikm.rows.filter(r => r.sumber === 'sales');
-  ok(lot.length === 3, `IKM GI ALLOY: 3 lot dari Input Manual`, `dapat ${lot.length}`);
-  ok(Math.abs(lot.reduce((s, r) => s + r.utilMT, 0) - 2600) < 0.001,
-    'Σ lot IKM = 2.600 MT — 2.000 + 300 + 300 seperti yang diinput Sales',
-    String(lot.reduce((s, r) => s + r.utilMT, 0)));
+  /* Dikunci sebagai HUBUNGAN, bukan angka mati.
+
+     Versi lama memaku "3 lot, 2.600 MT" dari cache saat itu, lalu pecah sendiri
+     14-Sep-2026 ketika tim menambah dua lot September — kegagalan uji yang
+     tidak menandakan apa pun rusak. Fixture ini data master sungguhan yang
+     diisi tim tiap hari, jadi yang layak dikunci sifatnya: setiap lot Sales
+     tampil, dan jumlah yang tampil sama dengan jumlah yang diinput. */
+  const lotAsli = Object.entries(cari('IKM').shipments || {})
+    .filter(([p]) => /^GI/i.test(p)).flatMap(([, a]) => a || [])
+    .filter(l => (Number(l.utilMT) || 0) > 0);
+  ok(lot.length === lotAsli.length,
+    `IKM GI ALLOY: setiap lot Input Manual tampil (${lotAsli.length})`, `dapat ${lot.length}`);
+  const sigmaTampil = lot.reduce((s, r) => s + r.utilMT, 0);
+  const sigmaAsli   = lotAsli.reduce((s, l) => s + (Number(l.utilMT) || 0), 0);
+  ok(Math.abs(sigmaTampil - sigmaAsli) < 0.001,
+    'Σ lot yang tampil = Σ lot yang diinput Sales', `${sigmaTampil} vs ${sigmaAsli}`);
   ok(lot.every(r => r.utilDate) && lot.every(r => r.etaJKT),
     'tiap lot membawa Utilization Date dan ETA JKT-nya sendiri',
     lot.map(r => `${r.utilMT}@${r.utilDate || '-'}/${r.etaJKT || '-'}`).join(', '));
@@ -125,7 +141,11 @@ console.log('\nE · Modal mencetak keenam kolom yang diminta');
   call(`openUtilBreakdown('IKM', 'GI ALLOY');`);
   const html = nodes['utilBreakdownBody'].innerHTML;
   const baris = html.split('</tr>').filter(r => r.includes('<td'));
-  ok(baris.length === 3, `3 baris tercetak untuk IKM GI ALLOY`, String(baris.length));
+  /* Sebanyak yang dipulangkan pembangun barisnya, bukan angka mati — alasannya
+     sama dengan blok B. */
+  const diharap = pecah('IKM', 'GI ALLOY').rows.length;
+  ok(baris.length === diharap,
+    `${diharap} baris tercetak untuk IKM GI ALLOY, sebanyak rinciannya`, String(baris.length));
   ok(baris.every(r => (r.match(/<td[\s>]/g) || []).length === 7),
     'tiap baris 7 sel — Company, Product, Obtained, Utilization, Util Date, ETA, Sumber',
     [...new Set(baris.map(r => (r.match(/<td[\s>]/g) || []).length))].join(', '));

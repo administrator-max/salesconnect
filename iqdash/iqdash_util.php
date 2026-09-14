@@ -185,7 +185,19 @@ function iq_is_date_like($v): bool {
  */
 function iq_util_day_key($v): ?string {
     if ($v === null) return null;
-    $s = trim((string) $v);
+    /* Spasi berulang dirapikan dulu. Pola tanggal di bawah memakai pemisah
+       TUNGGAL ([-\s]), jadi "11  September 2026" — dua spasi, salah ketik biasa
+       — tidak terbaca sama sekali. Dan lot tanpa tanggal SENGAJA tidak dihitung
+       (lihat iq_sync_util_with_cycles), sehingga 300 MT utilisasi IKM hilang
+       tanpa sepatah kata: panel Utilization Breakdown tetap MENDAFTAR kelima
+       lotnya berjumlah 3.200 MT sementara totalnya menyebut 2.900 MT — rincian
+       bertengkar dengan totalnya sendiri.
+
+       Ditemukan 14-Sep-2026 saat memeriksa selisih IKM terhadap acuan tim.
+       Merapikan di sini menutup seluruh kelas kesalahan itu sekaligus; yang
+       berubah hanya string yang sebelumnya memulangkan null. pDate() di
+       02-period-filter.js diberi perlakuan yang sama. */
+    $s = preg_replace('/\s+/', ' ', trim((string) $v));
     if ($s === '' || preg_match('/^(tba|null|undefined)$/i', $s)) return null;
 
     if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m)) {

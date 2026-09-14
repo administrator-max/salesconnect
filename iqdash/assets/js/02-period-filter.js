@@ -71,15 +71,45 @@ function parseCycleDate(str) {
 /** Parse date from 'DD/MM/YYYY' or 'YYYY-MM-DD' format. Returns Date or null. */
 function pDate(str) {
   if (!str || str === 'TBA' || str === 'null' || str === 'undefined') return null;
+  /* SPASI GANDA DIRAPIKAN DULU.
+
+     Dilaporkan lewat pemeriksaan 14-Sep-2026: satu lot utilisasi IKM bertanggal
+     "11  September 2026" — dua spasi, salah ketik biasa. Pola di bawah memakai
+     pemisah TUNGGAL ([-\s]), jadi tanggal itu tidak terbaca, dan lot yang tidak
+     bertanggal SENGAJA tidak dihitung (lihat iq_sync_util_with_cycles). Hasilnya
+     300 MT hilang tanpa sepatah kata: panel Utilization Breakdown tetap
+     MENDAFTAR kelima lotnya berjumlah 3.200 MT, sementara totalnya menyebut
+     2.900 MT. Rincian dan totalnya sendiri bertengkar.
+
+     Merapikan di sini menutup seluruh kelas kesalahan itu sekaligus: satu
+     tanggal salah ketik spasi di mana pun akan tetap terbaca. Tidak ada risiko
+     menggeser hasil yang sudah benar — yang berubah hanya string yang
+     sebelumnya memulangkan null. */
+  str = String(str).trim().replace(/\s+/g, ' ');
+  if (!str || str === 'TBA') return null;
+
+  /* Tanggal MUSTAHIL ditolak, tidak digulingkan ke bulan berikutnya.
+
+     new Date(2026, 8, 32) memulangkan 1 Oktober tanpa keluhan, jadi salah ketik
+     "32 September 2026" akan mendarat di periode yang salah dan tidak ada yang
+     tahu. Sisi PHP sudah menolaknya lewat checkdate(); sisi peramban belum, dan
+     dua penilai berbeda atas tanggal yang sama adalah masalah tersendiri.
+     Ditemukan oleh ujinya sendiri, 14-Sep-2026. */
+  const _sah = (y, mo, d) => {
+    if (!(mo >= 1 && mo <= 12) || !(d >= 1 && d <= 31)) return null;
+    const t = new Date(y, mo - 1, d);
+    return (t.getFullYear() === y && t.getMonth() === mo - 1 && t.getDate() === d) ? t : null;
+  };
+
   // ISO format
   const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) return new Date(+iso[1], +iso[2]-1, +iso[3]);
+  if (iso) return _sah(+iso[1], +iso[2], +iso[3]);
   // DD/MM/YYYY or D/M/YYYY
   const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (dmy) {
     let y = +dmy[3];
     if (y < 100) y += 2000;
-    return new Date(y, +dmy[2]-1, +dmy[1]);
+    return _sah(y, +dmy[2], +dmy[1]);
   }
   // DD-Mon-YY / DD Month YYYY (EN + ID) — e.g. "30-Jun-26", "12 Mei 2026", "29 Apr 2026".
   // The Sheet stores many Revision-Request (and some other) dates in this text form;
@@ -90,7 +120,7 @@ function pDate(str) {
     if (mon && map[mon[2].toLowerCase()]) {
       let y = +mon[3];
       if (y < 100) y += 2000;
-      return new Date(y, map[mon[2].toLowerCase()] - 1, +mon[1]);
+      return _sah(y, map[mon[2].toLowerCase()], +mon[1]);
     }
   }
   return null;
