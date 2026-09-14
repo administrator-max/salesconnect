@@ -259,11 +259,19 @@ function rrRebuildFromConfirmed(co, prod, req) {
     _isRevReq:   true,
   });
 
-  /* getObtainedByProd() tidak pernah ada — yang ada getObtainedByProdAgg().
-     Jadi pemanggilan ini selalu gagal diam-diam dan sisi "Before" jatuh ke
-     co.obtained: TOTAL seluruh company, bukan obtained produk yang ini. Untuk
-     company satu produk angkanya kebetulan sama; untuk yang banyak produk,
-     salah. co.obtained tetap dipakai sebagai jaring terakhir. */
+  /* Memanggil getObtainedByProdAgg() langsung, bukan getObtainedByProd().
+
+     KOREKSI atas catatan saya sendiri di sini. Versi sebelumnya menulis
+     "getObtainedByProd() tidak pernah ada". Itu SALAH: fungsinya ada di
+     10-edit-form.js dan hanya meneruskan ke getObtainedByProdAgg().
+     Kesimpulan itu lahir dari sandbox uji, yang memang tidak memuat
+     10-edit-form.js, lalu saya perlakukan seolah berlaku di aplikasi. Di
+     aplikasi keduanya memulangkan hal yang sama, jadi baris ini TIDAK
+     menggeser angka apa pun — yang hilang cuma satu lapis perantara.
+
+     co.obtained dipakai sebagai jaring terakhir, dan itu total seluruh
+     company, bukan obtained produk ini; hanya kebetulan benar untuk company
+     satu produk. */
   const obtMap = (typeof getObtainedByProdAgg === 'function') ? (getObtainedByProdAgg(co) || {}) : {};
   const beforeMT = obtMap[prodK] != null ? obtMap[prodK]
                  : (obtMap[prod] != null ? obtMap[prod] : (co.obtained || 0));
