@@ -235,6 +235,52 @@ function outstandingStage(d) {
 function activeApplicationStage(co) {
   if (!co) return null;
 
+  /* ── RE-APPLY DIPUTUSKAN LEBIH DULU, dan dari tandanya sendiri ──────────
+     Diminta pemilik data 15-Sep-2026 lengkap dengan daftar yang benar:
+     EMS, LCP, BBB, SJH, KJK, PPGL, AADC, GAS.
+
+     Sebelumnya golongan diambil dari outstandingStage(), yang menjawab
+     pertanyaan LAIN — "tahap mana yang menggantung" — lalu dua company
+     mendarat di Revision padahal jelas Re-Apply:
+
+       BBB  siklus Submit/Obtained-nya sudah berpasangan semua, jadi tidak ada
+            yang menggantung, dan pagar revType 'complete' menutup jalur
+            re-apply. Tersisa hasOutstandingCycle() yang memulangkan 'active'
+            generik. Padahal revType 'complete' itu soal revisi LAMANYA;
+            re-apply BARU-nya tetap berjalan.
+       EMS  permintaan Re-Apply-nya BELUM diputus CorpSec, jadi belum punya
+            siklus Revision Request sama sekali. Cabang "belum diputus" di
+            bawah dulu memulangkan 'active' tanpa melihat revisionType.
+
+     Yang menentukan golongan adalah revisionType pada permintaan Sales —
+     field yang memang disediakan untuk itu — bukan bentuk siklusnya. Dua
+     keadaan sama-sama Re-Apply:
+       · permintaan bertanda Re-Apply yang BELUM diputus (EMS), dan
+       · yang sudah dikonfirmasi tapi kuotanya belum terbit (tujuh lainnya),
+         diputuskan pendingReapplyCyclesForSubmitted() supaya definisinya SATU
+         dengan yang dipakai Total Submitted.
+     Permintaan yang DITOLAK tidak dihitung. */
+  const _reapplyMenunggu = Object.values(co.salesRevRequest || {}).some(v =>
+    v && v.requested && /re-?apply/i.test(String(v.revisionType || ''))
+      && !/^(confirmed|rejected)$/i.test(String(v.status || '')));
+  const _reapplyBerjalan = (typeof pendingReapplyCyclesForSubmitted === 'function')
+    && pendingReapplyCyclesForSubmitted(co).length > 0;
+  if (_reapplyMenunggu || _reapplyBerjalan) {
+    const obtR = (typeof canonicalObtained === 'function') ? canonicalObtained(co) : 0;
+    return (obtR > 0) ? 'reapply' : 'new';
+  }
+
+  /* Revisi yang SUDAH TERBIT bukan permohonan berjalan.
+
+     DIOR: SPI Perubahan-nya terbit 31/08/2026 dan revType-nya 'complete', tapi
+     Obtained #1 lamanya tidak bertanggal — jadi hasOutstandingCycle() terus
+     memulangkan true dan DIOR menetap di Revision selamanya. Diminta
+     dikeluarkan, 15-Sep-2026.
+
+     Pagar ini SENGAJA di bawah blok re-apply: BBB dan EMS juga berstatus
+     'complete', dan re-apply baru mereka harus tetap terbaca. */
+  if (String(co.revType || '').toLowerCase() === 'complete') return null;
+
   let tahap = (typeof outstandingStage === 'function') ? outstandingStage(co) : null;
 
   if (!tahap) {
