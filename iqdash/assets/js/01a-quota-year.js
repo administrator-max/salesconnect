@@ -795,7 +795,6 @@ function spiTerbitRows() {
 
       rows.push({
         code: co.code, group: co.group || '', section: co.section || '',
-        cycle: siklus,
         product: prod,
         /* BARIS HISTORIS — produk yang kuotanya sudah dipindahkan revisi.
 
@@ -820,8 +819,21 @@ function spiTerbitRows() {
         utilMT:     opsi.historis ? 0                 : (ambil(util, prod) || 0),
         processKey: proses.key, processLabel: proses.label,
         remarks: co.statusUpdate || '',
-        pertekNo, pertekDate, spiNo, spiDate,
-        validityDate: vDate,
+        /* Baris produk yang BARU DIAJUKAN tidak meminjam dokumen company.
+
+           GAS GL ALLOY 3.000 MT masih pengajuan; PERTEK dan SPI milik GAS ada,
+           tapi untuk GI ALLOY. Mencetak nomor dan tanggalnya di baris GL ALLOY
+           membuat pembaca menyimpulkan izinnya sudah terbit untuk produk itu —
+           kesalahan yang sama bentuknya dengan baris historis yang dulu
+           meminjam nomor terbaru. Kolomnya dikosongkan; tonase pengajuan dan
+           lencana "belum terbit" sudah cukup menjelaskan keadaannya.
+           Ketahuan dari tampilan tabel 15-Sep-2026. */
+        cycle:        belumDiperoleh ? '' : siklus,
+        pertekNo:     belumDiperoleh ? '' : pertekNo,
+        pertekDate:   belumDiperoleh ? '' : pertekDate,
+        spiNo:        belumDiperoleh ? '' : spiNo,
+        spiDate:      belumDiperoleh ? '' : spiDate,
+        validityDate: belumDiperoleh ? '' : vDate,
         status, reason,
         historis: !!opsi.historis,
       });
