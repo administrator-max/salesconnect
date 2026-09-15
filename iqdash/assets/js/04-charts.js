@@ -166,6 +166,21 @@ function outstandingStage(d) {
      Hanya dipakai kalau tidak ada kandidat Submit/Revision yang menggantung.
      Kalau ada, biarkan logika lama yang memutuskan: ia tahu tahapnya lebih
      rinci (mis. PERTEK sudah terbit tapi SPI belum). */
+  if (!kandidat.length) {
+    /* RE-APPLY YANG MASIH BERJALAN MENANG atas pagar revType 'complete'.
+
+       revType 'complete' berarti revisi LAMANYA sudah terbit. Itu tidak
+       membatalkan re-apply BARU. BBB dan EMS berstatus 'complete' dan tetap
+       punya re-apply berjalan, tapi pagar di bawah memulangkan null sehingga
+       keduanya terbaca "Completed" di tab PERTEK & SPI — padahal di strip
+       Overview sudah benar "Re-Apply". Diminta Putri 15-Sep-2026: status BBB
+       bukan Complete dan bukan Under Revision, melainkan Re-Apply.
+
+       Memakai adaReapplyBerjalan(), definisi yang SAMA dengan yang dipakai
+       strip Overview, supaya kedua permukaan tidak bisa lagi berbeda. */
+    if (typeof adaReapplyBerjalan === 'function' && adaReapplyBerjalan(d)) return 'reapply';
+  }
+
   if (!kandidat.length && String((d && d.revType) || '').toLowerCase() !== 'complete') {
     /* revType 'complete' berarti PERTEK/SPI Perubahan-nya SUDAH terbit, dan
        penerbitan itu tidak selalu berbentuk siklus Obtained baru — DIOR dan SMS
@@ -260,12 +275,7 @@ function activeApplicationStage(co) {
          diputuskan pendingReapplyCyclesForSubmitted() supaya definisinya SATU
          dengan yang dipakai Total Submitted.
      Permintaan yang DITOLAK tidak dihitung. */
-  const _reapplyMenunggu = Object.values(co.salesRevRequest || {}).some(v =>
-    v && v.requested && /re-?apply/i.test(String(v.revisionType || ''))
-      && !/^(confirmed|rejected)$/i.test(String(v.status || '')));
-  const _reapplyBerjalan = (typeof pendingReapplyCyclesForSubmitted === 'function')
-    && pendingReapplyCyclesForSubmitted(co).length > 0;
-  if (_reapplyMenunggu || _reapplyBerjalan) {
+  if (typeof adaReapplyBerjalan === 'function' && adaReapplyBerjalan(co)) {
     const obtR = (typeof canonicalObtained === 'function') ? canonicalObtained(co) : 0;
     return (obtR > 0) ? 'reapply' : 'new';
   }

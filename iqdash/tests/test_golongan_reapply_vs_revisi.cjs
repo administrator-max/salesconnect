@@ -174,9 +174,21 @@ console.log('\nH · Golongan TIDAK menyentuh angka');
     ] };
   ok(submitted(bbb) === 11300,
     'Submitted BBB tetap 11.300 — 6.000 + 2.300 + 3.000', String(submitted(bbb)));
-  const src = fs.readFileSync(path.join(JS, '04-charts.js'), 'utf8');
-  ok(/pendingReapplyCyclesForSubmitted\(co\)\.length > 0/.test(src),
-    'golongan memakai definisi yang SAMA dengan Total Submitted');
+  /* Satu definisi, dipakai dua permukaan. adaReapplyBerjalan() di 01-data.js
+     dipanggil oleh outstandingStage() (tab PERTEK & SPI) DAN
+     activeApplicationStage() (strip Overview), dan ia sendiri bersandar pada
+     pendingReapplyCyclesForSubmitted() yang dipakai Total Submitted. Aturan
+     yang ditulis dua kali itulah yang membuat BBB terbaca Re-Apply di strip
+     tapi Completed di tab, 15-Sep-2026. */
+  const src  = fs.readFileSync(path.join(JS, '04-charts.js'), 'utf8');
+  const src1 = fs.readFileSync(path.join(JS, '01-data.js'), 'utf8');
+  ok(/function adaReapplyBerjalan\(co\)/.test(src1),
+    'definisinya tunggal, di adaReapplyBerjalan()');
+  ok(/pendingReapplyCyclesForSubmitted\(co\)\.length > 0/.test(src1),
+    'dan bersandar pada definisi yang dipakai Total Submitted');
+  ok((src.match(/adaReapplyBerjalan\(/g) || []).length >= 2,
+    'dipakai outstandingStage() dan activeApplicationStage(), bukan disalin',
+    String((src.match(/adaReapplyBerjalan\(/g) || []).length));
 }
 
 console.log(`\n${pass} pass · ${fail} fail`);

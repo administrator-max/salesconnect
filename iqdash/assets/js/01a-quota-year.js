@@ -715,6 +715,23 @@ function spiTerbitRows() {
       Object.keys(sub).map(kanonProduk).filter(Boolean).forEach(p => aktif.add(p));
       (co.products || []).map(kanonProduk).filter(Boolean).forEach(p => aktif.add(p));
     }
+    /* Produk yang SUDAH punya pengajuan tapi BELUM punya perolehan ikut
+       didaftar, walaupun company-nya sudah memegang produk lain.
+
+       GAS memegang GI ALLOY (obtained 200) dan sedang re-apply 3.000 MT untuk
+       GL ALLOY. Karena `aktif` hanya dibangun dari obtained/utilisasi, GL
+       ALLOY tidak punya baris — dan 3.000 MT itu ada di kartu Total Submitted
+       tapi tidak muncul di tabel. Kolom Submit tabel berjumlah 258.845
+       terhadap kartu 261.845. Ketahuan saat memverifikasi permintaan Putri
+       15-Sep-2026 bahwa angka PERTEK & SPI harus sama dengan Overview.
+
+       `sub` sudah menyaring produk yang kuotanya dipindahkan revisi, jadi
+       menambahkan kuncinya tidak menghidupkan kembali produk lama. */
+    Object.keys(sub).forEach(p => {
+      if ((Number(sub[p]) || 0) <= 0) return;
+      const k = kanonProduk(p);
+      if (k) aktif.add(k);
+    });
 
     const buatBaris = (prod, opsi) => {
       const h = opsi.historis ? (riwayat[prod] || null) : null;
@@ -745,9 +762,24 @@ function spiTerbitRows() {
 
          Produk yang sudah dipindahkan memang tidak berlaku lagi. Apakah SPI
          lamanya sempat tercatat atau tidak sama sekali tidak mengubah itu. */
+      /* Produk yang BARU DIAJUKAN — ada Submit, belum ada perolehan sama
+         sekali — tidak boleh berlabel Active dan tidak boleh membawa masa
+         berlaku. Dokumen SPI milik company memang ada, tapi bukan untuk produk
+         INI; meminjam tanggalnya berarti mengaku punya izin yang belum terbit.
+
+         GAS: memegang GI ALLOY, dan sedang re-apply 3.000 MT GL ALLOY.
+         Barisnya perlu ada supaya kolom Submit tabel menjumlah sama dengan
+         kartu Overview, tapi statusnya "belum terbit", bukan Active.
+         Ketahuan dari uji Validity yang menolak 15-Sep-2026. */
+      const belumDiperoleh = !opsi.historis
+        && (ambil(obt, prod) || 0) <= 0 && (ambil(util, prod) || 0) <= 0;
+
       if (opsi.historis) {
         status = 'inactive';
         reason = 'Produk ini sudah dipindahkan oleh PERTEK & SPI Perubahan yang lebih baru';
+      } else if (belumDiperoleh) {
+        status = 'none';
+        reason = 'Baru diajukan — PERTEK/SPI untuk produk ini belum terbit';
       } else if (!spiDate) {
         status = 'none';
         reason = pertekDate

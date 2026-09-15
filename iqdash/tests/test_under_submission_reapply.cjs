@@ -110,10 +110,24 @@ console.log('\nB · Tanggal menentukan — Obtained lama tidak menutup permintaa
 
 console.log('\nC · revType "complete" tetap Completed (DIOR, SMS)');
 {
-  const d = bbb({ revType: 'complete' });
+  /* Bentuk SMS/DIOR yang sebenarnya: revisi (BUKAN re-apply) yang penerbitannya
+     dicatat di status siklus, bukan sebagai Obtained baru.
+
+     Versi lama memakai bentuk bbb() di sini, dan bbb() membawa permintaan
+     bertanda Re-Apply — jadi yang diuji sebetulnya "revType complete
+     mengalahkan re-apply", dan itu KEBALIKAN dari yang diminta Putri
+     15-Sep-2026. Fixture-nya yang salah, bukan aturannya. */
+  const d = bbb({ revType: 'complete', srr: { 'GL ALLOY': { requested: true, status: 'confirmed' } } });
   ok(tahap(d) === null && proses(d) === 'completed',
-    'perubahan yang penerbitannya dicatat di status, bukan siklus baru',
+    'REVISI yang sudah terbit tetap Completed',
     JSON.stringify([tahap(d), proses(d)]));
+
+  /* Dan pasangannya, aturan baru: revType 'complete' TIDAK boleh menutupi
+     re-apply yang masih berjalan. Ini kasus BBB dan EMS. */
+  const e = bbb({ revType: 'complete' });          // bbb() membawa tanda Re-Apply
+  ok(tahap(e) === 'reapply' && proses(e) === 'under',
+    're-apply berjalan menang atas revType complete (BBB, EMS)',
+    JSON.stringify([tahap(e), proses(e)]));
 }
 
 console.log('\nD · Delta negatif = kuota sudah dipindahkan, bukan permohonan');

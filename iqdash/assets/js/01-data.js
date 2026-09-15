@@ -1023,6 +1023,28 @@ function pendingReapplyCyclesForSubmitted(co) {
   return reapply ? pendingReapplyCycles(co) : [];
 }
 
+/* Apakah company ini punya RE-APPLY yang masih berjalan?
+
+   SATU definisi, dipakai outstandingStage() (menentukan tab PERTEK & SPI) dan
+   activeApplicationStage() (menentukan golongan di strip Overview). Sebelumnya
+   aturannya ditulis dua kali dengan syarat yang berbeda sedikit, dan itu
+   membuat BBB serta EMS terbaca "Re-Apply" di strip Overview tapi masih
+   "Completed" di tab PERTEK & SPI — dua jawaban untuk satu pertanyaan.
+   Dilaporkan lewat permintaan Putri, 15-Sep-2026.
+
+   Dua keadaan sama-sama berjalan:
+     · permintaan bertanda Re-Apply yang BELUM diputus CorpSec (EMS), dan
+     · yang sudah dikonfirmasi tapi kuotanya belum terbit (tujuh lainnya).
+   Yang DITOLAK tidak dihitung. */
+function adaReapplyBerjalan(co) {
+  const menunggu = Object.values((co && co.salesRevRequest) || {}).some(v =>
+    v && v.requested && /re-?apply/i.test(String(v.revisionType || ''))
+      && !/^(confirmed|rejected)$/i.test(String(v.status || '')));
+  if (menunggu) return true;
+  return (typeof pendingReapplyCyclesForSubmitted === 'function')
+    && pendingReapplyCyclesForSubmitted(co).length > 0;
+}
+
 /** Total MT re-apply yang sudah dikonfirmasi tapi belum jadi siklus Submit. */
 function pendingReapplyMT(co) {
   return pendingReapplyCyclesForSubmitted(co).reduce((s, c) => s + (Number(c.mt) || 0), 0);
