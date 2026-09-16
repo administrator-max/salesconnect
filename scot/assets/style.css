@@ -129,3 +129,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .flt-range span{font-size:11px;color:var(--muted);white-space:nowrap}
 .flt-apply{padding:6px 14px;border-radius:6px;border:none;background:var(--pri);color:white;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;margin-top:8px;width:100%}
 .flt-apply:hover{background:#1d4ed8}
+/* Inline shipment editor (✏️ Edit on a card) */
+.ed-b{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--white);color:var(--muted);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
+.ed-b:hover{border-color:var(--pri);color:var(--pri);background:var(--blu-bg)}
+.mdl.wide{max-width:960px;max-height:88vh}
+.ed-bar{position:sticky;bottom:-20px;display:flex;gap:8px;justify-content:flex-end;background:var(--white);border-top:1px solid var(--border);margin-top:14px;padding:12px 0 20px}
+@media(max-width:720px){#ed-fields{grid-template-columns:1fr !important}}

@@ -266,6 +266,181 @@ async function commitNewShipment(rec) {
 
 document.getElementById('btn-can-new').addEventListener('click', () => document.getElementById('frm-new').classList.add('hid'));
 
+// ==========================================
+// 4b. INLINE EDITOR — edit any shipment from its card
+// ------------------------------------------
+// The "Update On Going Shipment" panel deliberately hides Done shipments (its
+// dropdown is a work-in-progress list), so a completed shipment had no way in
+// from the UI even though the API has always accepted PUT. This modal is that
+// way in, for In Progress and Completed alike: click ✏️ Edit on a card.
+// Two steps on purpose — form, then a diff review — so a mistyped field in a
+// finished record has to be confirmed before it overwrites the database.
+// ==========================================
+let scotEdit = null; // { id, orig, meta } while the edit modal is open
+
+// Record value → the string an <input> wants.
+function editFieldValue(d, f) {
+  const v = d[f.k];
+  if (v == null) return '';
+  if (f.t === 'date') return String(v).substring(0, 10);
+  return String(v);
+}
+
+// Read the editor exactly the way saveOgUpdate reads its own form, so the
+// payload the API receives is identical whichever screen produced it.
+function readEditForm() {
+  const out = {};
+  document.querySelectorAll('#ed-fields [data-fk]').forEach(el => {
+    const k = el.dataset.fk, v = el.value;
+    if (!v || v === '-') out[k] = null;
+    else if (el.type === 'number') out[k] = parseFloat(v) || null;
+    else out[k] = v;
+  });
+  return out;
+}
+
+// Payload (nulls/numbers) → strings, to re-render the form after "Kembali".
+function editFormStrings(payload) {
+  const v = {};
+  FLDS.forEach(f => { v[f.k] = payload[f.k] == null ? '' : String(payload[f.k]); });
+  return v;
+}
+
+// What the user actually changed, compared against the form's own starting
+// state — never against the raw record, so formatting alone never counts.
+function editDiff(orig) {
+  const now = readEditForm();
+  const rows = [];
+  FLDS.forEach(f => {
+    const a = orig[f.k] == null ? '' : String(orig[f.k]);
+    const b = now[f.k] == null ? '' : String(now[f.k]);
+    if (a !== b) rows.push({ f, from: a, to: b });
+  });
+  return rows;
+}
+
+function editModalEl() { return document.querySelector('#mo .mdl'); }
+
+function closeEditor() {
+  scotEdit = null;
+  const m = editModalEl();
+  if (m) m.classList.remove('wide');
+  document.getElementById('mo').classList.add('hid');
+}
+
+// Hook for the modal's ✕ and backdrop (wired in main.js). Returns true to keep
+// the modal open — losing a screen of typing to a stray backdrop click is the
+// one mistake this editor cannot undo.
+function scotEditorBlocksClose() {
+  const m = editModalEl();
+  if (!scotEdit) { if (m) m.classList.remove('wide'); return false; }
+  if (document.getElementById('ed-fields') && editDiff(scotEdit.orig).length &&
+      !confirm('Ada perubahan yang belum disimpan. Tutup dan buang perubahan?')) return true;
+  scotEdit = null;
+  if (m) m.classList.remove('wide');
+  return false;
+}
+
+function renderEditForm(values, meta) {
+  const grid = FLDS.map(f => mkField(f, values[f.k] || '')).join('');
+  document.getElementById('mt').textContent = '✏️ Edit Shipment';
+  document.getElementById('mb').innerHTML = `
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
+      <strong style="color:var(--text)">${meta.name}</strong>
+      &middot; No ${meta.no} &middot; ${meta.cargo} &middot; status ${meta.status}
+    </p>
+    <div id="ed-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${grid}</div>
+    <div class="ed-bar">
+      <button class="cbtn" id="ed-cancel">Batal</button>
+      <button class="abtn" id="ed-save">💾 Simpan Perubahan</button>
+    </div>`;
+  document.getElementById('ed-cancel').addEventListener('click', closeEditor);
+  document.getElementById('ed-save').addEventListener('click', reviewEditChanges);
+}
+
+function openEditShipment(id) {
+  const d = (D || []).find(x => String(x.id) === String(id));
+  if (!d) { tst('Shipment tidak ditemukan', 'er'); return; }
+
+  const values = {};
+  FLDS.forEach(f => { values[f.k] = editFieldValue(d, f); });
+  const meta = {
+    name: d.project_name || '(tanpa nama)',
+    no: d.no == null ? '-' : d.no,
+    cargo: d.cargo_type || '-',
+    status: d.status || '-',
+  };
+
+  const m = editModalEl();
+  if (m) m.classList.add('wide');
+  document.getElementById('mo').classList.remove('hid');
+  renderEditForm(values, meta);
+  // Snapshot AFTER rendering: the baseline is what the form itself holds.
+  scotEdit = { id: d.id, orig: readEditForm(), meta };
+}
+
+function reviewEditChanges() {
+  if (!scotEdit) return;
+  const rows = editDiff(scotEdit.orig);
+  if (!rows.length) { tst('Belum ada perubahan', 'er'); return; }
+  const payload = readEditForm(); // captured before the form leaves the DOM
+
+  const trs = rows.map(r => `<tr>
+    <td style="color:var(--muted);white-space:nowrap;padding-right:12px">${r.f.l}</td>
+    <td style="color:var(--muted);text-decoration:line-through">${r.from || '(kosong)'}</td>
+    <td style="padding:0 8px;color:var(--muted)">→</td>
+    <td><strong>${r.to || '(kosong)'}</strong></td>
+  </tr>`).join('');
+
+  document.getElementById('mt').textContent = '✏️ Review perubahan';
+  document.getElementById('mb').innerHTML = `
+    <p style="font-size:12px;margin-bottom:10px">
+      <strong>${scotEdit.meta.name}</strong> — ${rows.length} kolom berubah.
+      Periksa dulu; kolom lain tidak tersentuh.</p>
+    <table class="upl-tb" style="width:100%">${trs}</table>
+    <div class="ed-bar">
+      <button class="cbtn" id="ed-back">← Kembali</button>
+      <button class="abtn" id="ed-commit">✅ Setujui &amp; Simpan</button>
+    </div>`;
+  document.getElementById('ed-back').addEventListener('click',
+    () => renderEditForm(editFormStrings(payload), scotEdit.meta));
+  document.getElementById('ed-commit').addEventListener('click', () => commitEditShipment(payload));
+}
+
+async function commitEditShipment(payload) {
+  if (!scotEdit) return;
+  const id = scotEdit.id;
+  const btn = document.getElementById('ed-commit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan…'; }
+
+  // `year` drives the Completed year filter and is set once at creation. Only
+  // backfill it when the row has none — recomputing it here would silently move
+  // an old shipment into another year the moment someone fixes its ETA.
+  const body = { ...payload };
+  const cur = (D || []).find(x => String(x.id) === String(id));
+  if (cur && (cur.year == null || cur.year === '')) {
+    const rf = body.eta || body.etd || body.start_delivery;
+    if (rf) body.year = parseInt(String(rf).substring(0, 4), 10);
+  }
+
+  try {
+    const res = await fetch(`api/shipments/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(await readApiError(res, 'Update failed'));
+    const row = await res.json();
+    closeEditor();
+    tst('Perubahan tersimpan di database', 'ok');
+    patchLocal(row);
+  } catch (e) {
+    tst('Gagal menyimpan: ' + e.message, 'er');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Setujui & Simpan'; }
+  }
+}
+
+
 document.getElementById('tab-exp').addEventListener('click', () => {
   const hdrs = ['No','Cargo Type','Consignee','Project Name','Product','Quantity (MT)','BL Number','Shipping Line','Vessel Name','Voyage Number','POL','POD','Shipment Route','ETD','ETA','Shipment Type','Est Sailing (Day)','Act Sailing (Day)','PIB Billing','BPN','SPJM','Behandle','SPPB','Clearance (Day)','Start Unloading','Finish Unloading','Unloading (Day)','Cargo Status','Start Delivery','Enter Warehouse','Delivery (Day)','Vendor Trucking','Warehouse Location','Status','Remarks'];
   const keys = ['no','cargo_type','consignee','project_name','product','quantity_mt','bl_number','shipping_line','vessel_name','voyage_number','pol','pod','shipment_route','etd','eta','shipment_type','est_sailing_days','actual_sailing_days','pib_billing','bpn','spjm','behandle','sppb','clearance_days','start_unloading','finish_unloading','unloading_days','cargo_status','start_delivery','enter_warehouse','delivery_days','vendor_trucking','warehouse_location','status','remarks'];

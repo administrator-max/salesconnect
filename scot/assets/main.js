@@ -31,8 +31,18 @@ document.querySelectorAll(".nb").forEach(t => {
   });
 });
 
-document.getElementById("mc").addEventListener("click", () => document.getElementById("mo").classList.add("hid"));
-document.getElementById("mo").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hid"); });
+// Closing the modal goes through the editor first: while a shipment is open for
+// editing it asks before throwing away unsaved fields (scotEditorBlocksClose in
+// forms.js returns true to keep the modal up). Every other modal closes as before.
+function closeModal() {
+  if (typeof scotEditorBlocksClose === "function" && scotEditorBlocksClose()) return;
+  document.getElementById("mo").classList.add("hid");
+}
+document.getElementById("mc").addEventListener("click", closeModal);
+document.getElementById("mo").addEventListener("click", e => { if (e.target === e.currentTarget) closeModal(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !document.getElementById("mo").classList.contains("hid")) closeModal();
+});
 
 document.getElementById("q-og").addEventListener("input", e => { qO = e.target.value; rOg(); });
 document.getElementById("q-dn").addEventListener("input", e => { qD = e.target.value; rDn(); });

@@ -40,7 +40,7 @@ function rAlerts() {
     const trs = rows.map(({ d, al }) => {
       const detail = al.map(a =>
         `${alertTypeBadge(a.t)}<span style="font-size:10px;color:var(--muted)">${a.d}</span>`).join(" ");
-      return `<tr>
+      return `<tr data-eid="${d._id}" style="cursor:pointer" title="Klik untuk mengedit data ini">
         <td><strong>${d.project_name || "-"}</strong></td>
         <td>${d.cargo_type || "-"}</td>
         <td>${d.product || "-"}</td>
@@ -57,10 +57,17 @@ function rAlerts() {
         ${trs}
       </table>
       <p style="font-size:11px;color:var(--muted);margin-top:10px">
+        ✏️ Klik salah satu baris untuk mengedit datanya.<br>
         Rules: sailing &gt; est + 2d · customs &gt; 3d · unloading &gt; 3d · ETA passed while still On Going.</p>
     </div>`;
   }
 
   host.innerHTML =
     `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px">${kpis}</div>${body}`;
+
+  host.querySelectorAll("[data-eid]").forEach(tr => {
+    tr.addEventListener("click", () => {
+      if (typeof openEditShipment === "function") openEditShipment(+tr.dataset.eid);
+    });
+  });
 }

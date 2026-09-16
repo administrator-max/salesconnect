@@ -110,6 +110,7 @@ function rCd(d, op) {
           </div>
         </div>
         <div class="cd-s ${sc(d)}">${d._p.l}</div>
+        <button class="ed-b" data-edit="${d._id}" title="Edit data shipment ini">✏️ Edit</button>
         <div class="cd-a">${op ? "▲" : "▼"}</div>
       </div>
       ${rPrg(d)}
@@ -119,6 +120,14 @@ function rCd(d, op) {
 }
 
 function bindCards(sel, stateKey) {
+  // The edit button lives inside the card, whose own click toggles the detail
+  // panel — so it has to stop the event before the card sees it.
+  document.querySelectorAll(sel + " [data-edit]").forEach(b => {
+    b.addEventListener("click", e => {
+      e.stopPropagation();
+      if (typeof openEditShipment === "function") openEditShipment(+b.dataset.edit);
+    });
+  });
   document.querySelectorAll(sel + " .cd").forEach(c => {
     c.addEventListener("click", () => {
       const id = +c.dataset.cid;
@@ -134,7 +143,7 @@ function sMdl(title, list) {
     const hd = d._d.length > 0;
     const info = hd ? d._d.map(x => `${x.t}: ${x.d}`).join(" &middot; ") : "All on time";
     return `
-      <div class="mdl-i">
+      <div class="mdl-i" data-eid="${d._id}" style="cursor:pointer" title="Klik untuk mengedit data ini">
         <div style="font-size:16px">${d.cargo_type === "Import" ? "🌏" : "🏠"}</div>
         <div class="mdl-in">
           <div class="mdl-nm">${d.project_name}</div>
@@ -146,7 +155,12 @@ function sMdl(title, list) {
         </div>
       </div>
     `;
-  }).join("");
+  }).join("") + '<p style="font-size:10px;color:var(--muted);margin-top:8px">✏️ Klik salah satu baris untuk mengedit datanya.</p>';
+  document.querySelectorAll("#mb [data-eid]").forEach(el => {
+    el.addEventListener("click", () => {
+      if (typeof openEditShipment === "function") openEditShipment(+el.dataset.eid);
+    });
+  });
   document.getElementById("mo").classList.remove("hid");
 }
 
