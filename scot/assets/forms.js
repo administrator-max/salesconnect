@@ -349,6 +349,13 @@ function renderEditForm(values, meta) {
       <strong style="color:var(--text)">${meta.name}</strong>
       &middot; No ${meta.no} &middot; ${meta.cargo} &middot; status ${meta.status}
     </p>
+    <div class="ed-docs-box">
+      <h4 style="font-size:12px;font-weight:700;margin-bottom:6px">📎 Link Dokumen
+        <span style="font-weight:400;color:var(--muted)">(Google Drive — hanya tautan, file tidak diunggah)</span></h4>
+      <div id="ed-docs" style="font-size:12px;color:var(--muted)">Memuat…</div>
+      <p style="font-size:10px;color:var(--muted);margin-top:8px">
+        Tautan tersimpan seketika — terpisah dari tombol Simpan Perubahan di bawah.</p>
+    </div>
     <div id="ed-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${grid}</div>
     <div class="ed-bar">
       <button class="cbtn" id="ed-cancel">Batal</button>
@@ -356,6 +363,7 @@ function renderEditForm(values, meta) {
     </div>`;
   document.getElementById('ed-cancel').addEventListener('click', closeEditor);
   document.getElementById('ed-save').addEventListener('click', reviewEditChanges);
+  loadOgDocs(meta.id, 'ed-docs');
 }
 
 function openEditShipment(id) {
@@ -365,6 +373,7 @@ function openEditShipment(id) {
   const values = {};
   FLDS.forEach(f => { values[f.k] = editFieldValue(d, f); });
   const meta = {
+    id: d.id,
     name: d.project_name || '(tanpa nama)',
     no: d.no == null ? '-' : d.no,
     cargo: d.cargo_type || '-',
@@ -949,20 +958,28 @@ document.getElementById("sel-og").addEventListener("change", function () {
   else document.getElementById("og-docs").innerHTML = "Select a shipment to manage documents.";
 });
 
-async function loadOgDocs(shipmentId) {
-  const host = document.getElementById("og-docs");
+// hostId: "og-docs" is the Update & Export panel, "ed-docs" the card editor.
+async function loadOgDocs(shipmentId, hostId) {
+  const host = document.getElementById(hostId || "og-docs");
+  if (!host) return;
   host.innerHTML = '<span style="color:var(--muted)">Loading documents…</span>';
   try {
     const res = await fetch(`api/shipments/${shipmentId}/documents`);
     if (!res.ok) throw new Error(await readApiError(res, "Failed to load"));
-    renderOgDocs(shipmentId, await res.json());
+    const docs = await res.json();
+    // the modal may have been closed while the request was in flight
+    if (!document.getElementById(hostId || "og-docs")) return;
+    renderOgDocs(shipmentId, docs, hostId);
   } catch (e) {
-    host.innerHTML = `<span style="color:var(--red)">${e.message}</span>`;
+    const h = document.getElementById(hostId || "og-docs");
+    if (h) h.innerHTML = `<span style="color:var(--red)">${e.message}</span>`;
   }
 }
 
-function renderOgDocs(shipmentId, docs) {
-  const host = document.getElementById("og-docs");
+function renderOgDocs(shipmentId, docs, hostId) {
+  hostId = hostId || "og-docs";
+  const host = document.getElementById(hostId);
+  if (!host) return;
   const list = docs.length ? `<table class="upl-tb" style="width:100%;margin-bottom:10px">
     <tr><th>Type</th><th>Label</th><th>Link</th><th>Added</th><th></th></tr>
     ${docs.map(d => `<tr>
@@ -976,27 +993,27 @@ function renderOgDocs(shipmentId, docs) {
 
   host.innerHTML = `${list}
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <select class="sbox" id="og-doc-type" style="width:auto;padding:6px 8px">
+      <select class="sbox doc-type" style="width:auto;padding:6px 8px">
         ${SCOT_DOC_TYPES.map(o => `<option value="${o.value}">${o.label}</option>`).join("")}
       </select>
-      <input type="text" class="sbox" id="og-doc-label" placeholder="Label (optional)" style="width:140px;padding:6px 8px">
-      <input type="url" class="sbox" id="og-doc-url" placeholder="Paste Google Drive link…" style="flex:1;min-width:200px;padding:6px 8px">
-      <button class="abtn" id="og-doc-add" style="padding:6px 12px">🔗 Add Link</button>
+      <input type="text" class="sbox doc-label" placeholder="Label (optional)" style="width:140px;padding:6px 8px">
+      <input type="url" class="sbox doc-url" placeholder="Paste Google Drive link…" style="flex:1;min-width:200px;padding:6px 8px">
+      <button class="abtn doc-add" style="padding:6px 12px">🔗 Add Link</button>
     </div>`;
 
-  document.getElementById("og-doc-add").addEventListener("click", async () => {
-    const url = document.getElementById("og-doc-url").value.trim();
+  host.querySelector(".doc-add").addEventListener("click", async () => {
+    const url = host.querySelector(".doc-url").value.trim();
     if (!/^https?:\/\//i.test(url)) { tst("Paste a valid http(s) link", "er"); return; }
-    const btn = document.getElementById("og-doc-add");
+    const btn = host.querySelector(".doc-add");
     btn.disabled = true;
     try {
       await addDocumentLink(shipmentId, {
         storage_url: url,
-        doc_type: document.getElementById("og-doc-type").value,
-        file_name: document.getElementById("og-doc-label").value.trim() || null
+        doc_type: host.querySelector(".doc-type").value,
+        file_name: host.querySelector(".doc-label").value.trim() || null
       });
       tst("Link added", "ok");
-      loadOgDocs(shipmentId);
+      loadOgDocs(shipmentId, hostId);
     } catch (e) { tst("Failed to add link: " + e.message, "er"); btn.disabled = false; }
   });
 
@@ -1008,7 +1025,7 @@ function renderOgDocs(shipmentId, docs) {
         const r = await fetch(`api/documents/${a.dataset.del}`, { method: "DELETE" });
         if (!r.ok) throw new Error(await readApiError(r, "Delete failed"));
         tst("Link removed", "ok");
-        loadOgDocs(shipmentId);
+        loadOgDocs(shipmentId, hostId);
       } catch (err) { tst(err.message, "er"); }
     });
   });

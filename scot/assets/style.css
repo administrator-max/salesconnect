@@ -133,5 +133,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .ed-b{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--white);color:var(--muted);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
 .ed-b:hover{border-color:var(--pri);color:var(--pri);background:var(--blu-bg)}
 .mdl.wide{max-width:960px;max-height:88vh}
+.ed-docs-box{border:1px solid var(--border);border-radius:8px;background:var(--bg);padding:12px;margin-bottom:14px}
 .ed-bar{position:sticky;bottom:-20px;display:flex;gap:8px;justify-content:flex-end;background:var(--white);border-top:1px solid var(--border);margin-top:14px;padding:12px 0 20px}
 @media(max-width:720px){#ed-fields{grid-template-columns:1fr !important}}
