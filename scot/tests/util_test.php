@@ -25,6 +25,19 @@ chk('keeps consignee', $clean['consignee'] === 'PT X');
 chk('empty to blank', $clean['bl_number'] === '');
 chk('keeps year', $clean['year'] === 2026);
 
+// updated_by: diisi server, tidak boleh bisa dikirim klien
+$spoof = scot_sanitize(['consignee'=>'PT X','updated_by'=>'orang lain','updated_at'=>'2020-01-01']);
+chk('drops updated_by dari body', !array_key_exists('updated_by', $spoof));
+chk('drops updated_at dari body', !array_key_exists('updated_at', $spoof));
+
+$withBy = scot_shape(['id'=>'7','updated_by'=>'Ridwan','updated_at'=>'2026-09-16T09:00:00+07:00']);
+chk('updated_by lewat apa adanya', $withBy['updated_by'] === 'Ridwan');
+chk('updated_by kosong jadi null', scot_shape(['updated_by'=>''])['updated_by'] === null);
+chk('updated_at tidak dipotong jadi tanggal', $withBy['updated_at'] === '2026-09-16T09:00:00+07:00');
+
+// scot_actor: tanpa sesi (CLI) mengembalikan '', bukan melempar galat
+chk('scot_actor aman tanpa sc_user', scot_actor() === '');
+
 // scot_sort: year desc nulls last, id desc
 $rows = [ ['id'=>1,'year'=>2025], ['id'=>5,'year'=>2026], ['id'=>2,'year'=>null], ['id'=>9,'year'=>2026] ];
 scot_sort($rows);

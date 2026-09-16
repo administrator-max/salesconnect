@@ -27,6 +27,13 @@ function rPrg(d) {
   </div>`;
 }
 
+// "Siapa & kapan" untuk kartu detail. updated_by baru diisi sejak 2026-09-16,
+// jadi record lama tidak punya — barisnya disembunyikan, bukan diisi "-".
+function editedByLine(d) {
+  if (!d.updated_by) return null;
+  return d.updated_by + (d.updated_at ? " &middot; " + fD(d.updated_at) : "");
+}
+
 function rDet(d) {
   const im = d.cargo_type === "Import";
   
@@ -53,6 +60,8 @@ function rDet(d) {
     ];
     
     if (d.remarks) shipArr.push(["Remarks", d.remarks]);
+    const eb = editedByLine(d);
+    if (eb) shipArr.push(["Diubah oleh", eb]);
     if (d.status === "On Going" && d.vessel_name) {
       shipArr.push(["Track", `<a href="${vfUrl(d.vessel_name)}" target="_blank" style="color:var(--pri);text-decoration:underline">VesselFinder ↗</a>`]);
     }
@@ -76,6 +85,8 @@ function rDet(d) {
     ["Location", d.warehouse_location || "-"]
   ];
   if (d.remarks) delivArr.push(["Remarks", d.remarks]);
+  const eb2 = editedByLine(d);
+  if (eb2) delivArr.push(["Diubah oleh", eb2]);
   
   return `<div class="det">${g("Delivery", delivArr)}</div>`;
 }

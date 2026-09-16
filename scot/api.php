@@ -17,6 +17,8 @@ sc_require_tool_api('scot');
 $cfg = sc_config();
 $SID = $cfg['spreadsheets']['scot'];
 $gs  = new GoogleSheets();
+// Dibaca sekali di sini, lalu dicap ke setiap baris yang ditulis permintaan ini.
+$ACTOR = scot_actor();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $parts  = array_values(array_filter(explode('/', trim(sc_route(), '/')), fn($p) => $p !== ''));
@@ -42,7 +44,7 @@ try {
                 $b = json_body();
                 $updates = is_array($b['updates'] ?? null) ? $b['updates'] : [];
                 $inserts = is_array($b['inserts'] ?? null) ? $b['inserts'] : [];
-                $res2 = scot_with_lock(function () use ($gs, $SID, $updates, $inserts) {
+                $res2 = scot_with_lock(function () use ($gs, $SID, $updates, $inserts, $ACTOR) {
                     $updated = 0; $inserted = 0;
                     foreach ($updates as $u) {
                         $uid = $u['id'] ?? null;
@@ -52,6 +54,7 @@ try {
                         if (!$cur) continue;
                         $merged = array_merge($cur, $data);
                         $merged['updated_at'] = date('c');
+                        $merged['updated_by'] = $ACTOR;
                         $gs->updateAssoc($SID, 'shipments', $cur['_row'], $merged);
                         $updated++;
                     }
@@ -66,6 +69,7 @@ try {
                             $rows[] = array_merge($clean, [
                                 'id' => $nextId++, 'no' => $no,
                                 'created_at' => $now, 'updated_at' => $now,
+                                'updated_by' => $ACTOR,
                             ]);
                             $inserted++;
                         }
@@ -125,7 +129,7 @@ try {
             }
             if ($method === 'POST' && $id === null) {
                 $clean = scot_sanitize(json_body());
-                $created = scot_with_lock(function () use ($gs, $SID, $clean) {
+                $created = scot_with_lock(function () use ($gs, $SID, $clean, $ACTOR) {
                     $newId = scot_next_id($gs, $SID, 'shipments', 'id');
                     $newNo = array_key_exists('no', $clean) && $clean['no'] !== null
                         ? $clean['no'] : scot_next_id($gs, $SID, 'shipments', 'no');
@@ -133,6 +137,7 @@ try {
                     $row = array_merge($clean, [
                         'id' => $newId, 'no' => $newNo,
                         'created_at' => $now, 'updated_at' => $now,
+                        'updated_by' => $ACTOR,
                     ]);
                     $gs->appendAssoc($SID, 'shipments', $row);
                     return $row;
@@ -141,11 +146,12 @@ try {
             }
             if ($method === 'PUT' && $id !== null) {
                 $clean = scot_sanitize(json_body());
-                $updated = scot_with_lock(function () use ($gs, $SID, $id, $clean) {
+                $updated = scot_with_lock(function () use ($gs, $SID, $id, $clean, $ACTOR) {
                     $cur = find_by_id($gs, $SID, 'shipments', $id);
                     if (!$cur) return null;
                     $merged = array_merge($cur, $clean);
                     $merged['updated_at'] = date('c');
+                    $merged['updated_by'] = $ACTOR;
                     $gs->updateAssoc($SID, 'shipments', $cur['_row'], $merged);
                     return $merged;
                 });

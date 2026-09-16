@@ -348,6 +348,7 @@ function renderEditForm(values, meta) {
     <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
       <strong style="color:var(--text)">${meta.name}</strong>
       &middot; No ${meta.no} &middot; ${meta.cargo} &middot; status ${meta.status}
+      ${meta.by ? `<br>Terakhir diubah oleh <strong style="color:var(--text)">${meta.by}</strong>${meta.at ? ' &middot; ' + fD(meta.at) : ''}` : ''}
     </p>
     <div class="ed-docs-box">
       <h4 style="font-size:12px;font-weight:700;margin-bottom:6px">📎 Link Dokumen
@@ -374,6 +375,8 @@ function openEditShipment(id) {
   FLDS.forEach(f => { values[f.k] = editFieldValue(d, f); });
   const meta = {
     id: d.id,
+    by: d.updated_by || '',
+    at: d.updated_at || '',
     name: d.project_name || '(tanpa nama)',
     no: d.no == null ? '-' : d.no,
     cargo: d.cargo_type || '-',

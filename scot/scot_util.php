@@ -35,6 +35,30 @@ function scot_sanitize(array $body): array {
     return $clean;
 }
 
+/**
+ * Nama orang yang sedang menulis, untuk kolom `updated_by`.
+ *
+ * Diambil dari SESI (`sc_user()`), bukan dari body permintaan. Kolom audit yang
+ * boleh diisi klien tidak membuktikan apa pun — dan `updated_by` sengaja TIDAK
+ * ada di SCOT_WRITABLE, jadi nilai yang dikirim klien pasti dibuang oleh
+ * scot_sanitize(). Modul lain (crmproject, iqdash) memang menerimanya dari body;
+ * di sini tidak.
+ *
+ * Mengembalikan '' kalau identitasnya tidak diketahui (mis. dipanggil dari CLI),
+ * supaya baris tetap tersimpan — audit yang kosong lebih baik daripada
+ * penyimpanan yang gagal.
+ */
+function scot_actor(): string {
+    if (!function_exists('sc_user')) return '';
+    $u = sc_user();
+    if (!is_array($u)) return '';
+    foreach (['name', 'email', 'key'] as $k) {
+        $v = trim((string) ($u[$k] ?? ''));
+        if ($v !== '') return $v;
+    }
+    return '';
+}
+
 function scot_sort(array &$rows): void {
     usort($rows, function ($a, $b) {
         $ay = $a['year'] ?? null; $by = $b['year'] ?? null;
