@@ -44,9 +44,28 @@ function fireFpChange(fpId) {
   else if (fpId === 'fp-cndetail') rConsignee();
 }
 
+// Periode terpilih sebagai [from, to] (YYYY-MM-DD, inklusif), atau null = All Time.
+function fpRange(st) {
+  if (st.mode === 'range') return [st.from || '0000-01-01', st.to || '9999-12-31'];
+  const p = st.preset;
+  if (!p || p === 'all') return null;
+  if (/^\d{4}-\d{2}$/.test(p)) return [p + '-01', p + '-31'];
+  if (/^\d{4}$/.test(p)) return [p + '-01-01', p + '-12-31'];
+  if (p === 'q4-2025') return ['2025-10-01', '2025-12-31'];
+  if (p === 'q1-2026') return ['2026-01-01', '2026-03-31'];
+  if (p === 'ytd-2026') return ['2026-01-01', T];
+  return null;
+}
+
 function getFp(fpId) {
   const st = fpState[fpId] || {mode:'all', preset:'all', from:'', to:''};
   return function(d) {
+    // Belum dijadwalkan: tidak punya tanggal untuk dicocokkan, jadi dinilai dari
+    // rentang hidupnya. Shipment bertanggal tetap memakai aturan lama di bawah.
+    if (isUnscheduled(d)) {
+      const r = fpRange(st);
+      return !r || unscheduledOverlaps(d, r[0], r[1]);
+    }
     const ref = d.eta || d.etd || d.start_delivery || '';
     if (st.mode === 'range') {
       if (st.from && ref < st.from) return false;

@@ -136,3 +136,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .ed-docs-box{border:1px solid var(--border);border-radius:8px;background:var(--bg);padding:12px;margin-bottom:14px}
 .ed-bar{position:sticky;bottom:-20px;display:flex;gap:8px;justify-content:flex-end;background:var(--white);border-top:1px solid var(--border);margin-top:14px;padding:12px 0 20px}
 @media(max-width:720px){#ed-fields{grid-template-columns:1fr !important}}
+/* Shipment aktif yang belum dijadwalkan (tanpa ETD/ETA/Start Delivery) */
+.us-badge{color:#b45309;font-weight:600;white-space:nowrap}
+.us-note{background:#fffbeb;border:1px solid #fcd34d;color:#78350f;border-radius:8px;padding:9px 14px;font-size:12px;margin-bottom:12px;cursor:pointer}
+.us-note:hover{border-color:#f59e0b}

@@ -102,6 +102,8 @@ function rCd(d, op) {
     trackStr = ` &middot; <a href="${vfUrl(d.vessel_name)}" target="_blank" style="color:var(--pri);text-decoration:none;font-weight:600" onclick="event.stopPropagation()">📡 Track Vessel</a>`;
   }
   
+  const usStr = isUnscheduled(d) ? ` &middot; <span class="us-badge" title="Belum ada ETD/ETA/Start Delivery">📅 Belum dijadwalkan</span>` : "";
+
   let remStr = "";
   if (d.remarks) {
     remStr = ` &middot; <span style="color:#7c3aed;font-style:italic">${d.remarks}</span>`;
@@ -117,7 +119,7 @@ function rCd(d, op) {
             ${d.consignee ? d.consignee + " &middot; " : ""} 
             ${d.product || "-"} &middot; ${fN(d.quantity_mt)} MT 
             ${d.vessel_name ? " &middot; " + d.vessel_name : ""}
-            ${pf}${remStr}${trackStr}
+            ${pf}${usStr}${remStr}${trackStr}
           </div>
         </div>
         <div class="cd-s ${sc(d)}">${d._p.l}</div>
@@ -158,7 +160,7 @@ function sMdl(title, list) {
         <div style="font-size:16px">${d.cargo_type === "Import" ? "🌏" : "🏠"}</div>
         <div class="mdl-in">
           <div class="mdl-nm">${d.project_name}</div>
-          <div class="mdl-sb">${d.product} &middot; ${fN(d.quantity_mt)} MT ${d.vessel_name ? "&middot; " + d.vessel_name : ""}</div>
+          <div class="mdl-sb">${d.product} &middot; ${fN(d.quantity_mt)} MT ${d.vessel_name ? "&middot; " + d.vessel_name : ""}${isUnscheduled(d) ? ' &middot; <span class="us-badge">📅 Belum dijadwalkan</span>' : ""}</div>
           <div class="mdl-sb" style="color:${hd ? "var(--red)" : "var(--grn)"}">${info}</div>
         </div>
         <div class="mdl-bd" style="background:${hd ? "var(--red-bg)" : "var(--grn-bg)"};color:${hd ? "var(--red)" : "var(--grn)"}">
@@ -253,6 +255,16 @@ function rExec() {
     {l:'Delayed', v:dlCount, c:'var(--red)', sub:`${fiDn.length ? Math.round(dlCount / fiDn.length * 100) : 0}% of completed`}
   ];
   
+  const usList = fi.filter(isUnscheduled);
+  const noteEl = document.getElementById('exec-note');
+  if (noteEl) {
+    noteEl.hidden = !usList.length;
+    noteEl.innerHTML = usList.length
+      ? `📅 <strong>${usList.length} shipment aktif belum dijadwalkan</strong> (belum ada ETD/ETA/Start Delivery) — tetap dihitung di setiap periode, sejak diinput sampai hari ini. <u>Lihat &amp; lengkapi jadwalnya</u>`
+      : '';
+    noteEl.onclick = () => sMdl('Belum dijadwalkan', usList);
+  }
+
   document.getElementById('exec-kpi').innerHTML = kpis.map(k => `
     <div class="sc" style="cursor:pointer" data-kpi="${k.l}" onclick="showKpiDetail(this.dataset.kpi)">
       <div class="sc-l">${k.l}</div>
@@ -749,6 +761,19 @@ function rConsSummary() {
   
   const fd = it.filter(d => {
     if (!allSel && selPTs.indexOf((d.consignee || '').trim()) < 0) return false;
+    if (isUnscheduled(d)) {
+      if (yr === 'all' && mo === 'all') return true;
+      if (yr !== 'all') {
+        const r = mo === 'all' ? [yr + '-01-01', yr + '-12-31'] : [`${yr}-${mo}-01`, `${yr}-${mo}-31`];
+        return unscheduledOverlaps(d, r[0], r[1]);
+      }
+      // bulan tertentu di tahun mana pun
+      const y0 = Math.max(+unscheduledStart(d).substring(0, 4) || 0, +T.substring(0, 4) - 10);
+      for (let y = y0; y <= +T.substring(0, 4); y++) {
+        if (unscheduledOverlaps(d, `${y}-${mo}-01`, `${y}-${mo}-31`)) return true;
+      }
+      return false;
+    }
     if (yr !== 'all' && d.year !== +yr) return false;
     if (mo !== 'all') {
       const ref = d.eta || d.etd || d.start_delivery;

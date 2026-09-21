@@ -96,6 +96,25 @@ function gd(d) {
   return dl;
 }
 
+// Tanggal acuan yang dipakai semua filter periode.
+function refDate(d) { return d.eta || d.etd || d.start_delivery || ''; }
+
+// Shipment aktif yang belum punya ETD/ETA/Start Delivery — biasanya semua
+// Contract, kadang On Going yang jadwalnya belum diisi. Tanpa tanggal ia tidak
+// masuk periode mana pun, jadi dulu HILANG begitu tim memilih bulan/tahun
+// (21-Sep-2026: 17 dari 30 shipment aktif). Sekarang ia dianggap berjalan sejak
+// diinput sampai hari ini, dan muncul di setiap periode di rentang itu.
+function isUnscheduled(d) { return d.status !== 'Done' && !refDate(d); }
+
+function unscheduledStart(d) {
+  return d.created_at ? String(d.created_at).substring(0, 10) : '0000-01-01';
+}
+
+// Apakah rentang hidup [diinput, hari ini] beririsan dengan periode [from, to].
+function unscheduledOverlaps(d, from, to) {
+  return unscheduledStart(d) <= to && T >= from;
+}
+
 function gm(d) {
   const r = d.cargo_type === "Import" ? (d.eta || d.etd) : d.start_delivery;
   return r ? r.substring(0, 7) : null;
