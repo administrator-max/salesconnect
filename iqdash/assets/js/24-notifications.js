@@ -76,11 +76,16 @@ function notifItems() {
       const mt = targets.reduce((a, t) => a + (Number(t.mt) || 0), 0) || Number(v.requestedMT) || 0;
       const link = v.status === 'confirmed'
         ? `Revision Request — ${prodLabel(prod)}` : '';
+      /* Re-Apply model LAMA yang sudah dikonfirmasi = riwayat: siklus Submit-nya
+         sudah lama tercatat (Re-Apply #1 BBB/KJK/LCP/SJH). Bukan "In Process". */
+      const st = (tipe === 'Re-Apply' && String(v.status || '').toLowerCase() === 'confirmed')
+        ? { key: 'history', text: '✅ Confirmed · riwayat Re-Apply sebelumnya' }
+        : statusDari(String(v.status || '').toLowerCase(), link);
       out.push({
         id: `${co.code}|RV|${canonicalProduct(prod)}`, code: co.code, type: tipe,
         product: tipe === 'Revision' ? `${prodLabel(prod)} → ${tujuan}` : tujuan,
         mt, date: v.requestedDate || v.confirmedDate || '', by: v.requestedBy || 'Sales',
-        status: statusDari(String(v.status || '').toLowerCase(), link),
+        status: st,
         ts: ms(v.requestedDate || v.confirmedDate),
       });
     });
@@ -167,7 +172,7 @@ function renderNotifTable() {
     const n = k => semua.filter(x => x.status.key === k).length;
     sub.textContent = `${n('pending')} pending · ${n('process')} confirmed / in process · ${n('rejected')} rejected`;
   }
-  const warna = { pending: 'var(--amber)', process: 'var(--green)', rejected: 'var(--red2)' };
+  const warna = { pending: 'var(--amber)', process: 'var(--green)', rejected: 'var(--red2)', history: 'var(--txt3)' };
   const tipeWarna = { 'Re-Apply': '#7c3aed', 'Revision': 'var(--amber)', 'New Submission': 'var(--blue)' };
   body.innerHTML = rows.length ? rows.map(x => `
     <tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="notifOpenCompany('${x.code}')"
