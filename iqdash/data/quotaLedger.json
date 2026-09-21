@@ -6,6 +6,7 @@
   "generator": "tools/build_quota_ledger.js"
  },
  "products": {
+  "7225.30.90": "HRPO ALLOY",
   "7225.40.90": "BORDES ALLOY",
   "7225.50.90": "CRC ALLOY",
   "7225.92.90": "GI ALLOY",
@@ -185,7 +186,7 @@
    }
   },
   "MJU": {
-   "7225.50.90": {
+   "7225.30.90": {
     "obtained": 200,
     "util": 0
    }

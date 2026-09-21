@@ -111,3 +111,18 @@ request Sales → CorpSec.
 - Uji baru `test_submitted_tabel_sama_kartu.cjs`: Σ tabel PERTEK & SPI = drill
   = kartu, per company (41). `test_submitted_reapply_dan_historis.cjs` bagian J
   diperbarui (DIOR 6.000).
+
+## Lanjutan — MJU: revisi HRPO ALLOY → CRC ALLOY dibatalkan (Putri, 21-Sep-2026)
+Produk akhir MJU = HRPO ALLOY 200 MT. Angka tidak bergerak (obtained 200,
+available 200, submitted 6.000); yang dibersihkan jejak revisinya:
+- 2 baris `revision_changes` MJU (HRPO 200 → CRC 200) dihapus — backup
+  `backups/iqdash_mju_sebelum_batal_crc_*.json`; remarks diberi catatan pembatalan.
+  `tools/mju_batal_crc_2026-09-21.php`.
+- `iqdash/data/pendingRevisions.json`: entri MJU dihapus.
+- `iqdash/data/quotaLedger.json`: MJU dipindah dari HS 7225.50.90 (CRC ALLOY)
+  ke 7225.30.90 (HRPO ALLOY; kode ditambahkan ke peta produk ledger). Tanpa ini
+  ledger menampilkan CRC ALLOY begitu gate pendingRevisions dilepas.
+- teks spi_ref MJU diperbarui: "SPI Perubahan #2 TERBIT 16/07/2026".
+Verifikasi: PERTEK & SPI MJU = HRPO ALLOY 🟢 Active 200, BORDES/HOLLOW PIPE
+historis; Available Quota HRPO 200; panel CorpSec tanpa Product Change/CRC;
+kartu tidak berubah; seluruh uji .cjs lulus.
