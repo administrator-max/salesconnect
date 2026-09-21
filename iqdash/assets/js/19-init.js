@@ -472,13 +472,11 @@ function buildAvqProdGrid() {
      di sini, jadi produk yang sudah terutilisasi penuh di seluruh pemegangnya
      lenyap dari halaman — padahal obtained & utilisasinya justru yang ingin
      dibaca. Kartunya kini menulis Available 0 apa adanya. */
-  const PROD_CLR = {
-    'GL BORON':'#0369a1','GI BORON':'#0f766e','SHEETPILE':'#b45309',
-    'BORDES ALLOY':'#dc2626','PPGL CARBON':'#7c3aed','ERW PIPE OD≤140mm':'#9333ea',
-    'ERW PIPE OD>140mm':'#0891b2','AS STEEL':'#64748b','Hollow Pipe':'#78716c',
-    'SEAMLESS PIPE':'#0d6946','HRC/HRPO ALLOY':'#ca8a04',
-  };
-  const clr = p => { for (const k in PROD_CLR) if (p && p.toUpperCase().includes(k.toUpperCase())) return PROD_CLR[k]; return '#64748b'; };
+  /* Warna dari pc() di 01-data.js. Peta lokal yang dulu di sini hanya kenal
+     ejaan lama (GL BORON, GI BORON, SHEETPILE, ERW PIPE OD≤140mm) — sesudah
+     nama produk dikanonikkan (GL ALLOY, SHEET PILE, ERW PIPE (OD ≤ 140 mm))
+     separuh kartu jatuh ke abu-abu (dilaporkan 2026-09-21). */
+  const clr = p => pc(p).solid;
   /* `grid._prodMap` dulu disimpan di sini "untuk popup". Popup kini membaca
      availableQuotaRows() langsung, jadi state itu tidak dibaca siapa pun —
      dan state yang hanya ditulis persis yang membuat dua permukaan bisa
@@ -620,14 +618,7 @@ function openProdCoPopup(event, prodName, anchorEl) {
   const box    = document.getElementById('prodCoPopupBox');
   if (!popup || !box) return;
 
-  const PROD_CLR = {
-    'GL BORON':'#0369a1','GI BORON':'#0f766e','SHEETPILE':'#b45309',
-    'BORDES ALLOY':'#dc2626','PPGL CARBON':'#7c3aed','ERW PIPE OD≤140mm':'#9333ea',
-    'ERW PIPE OD>140mm':'#0891b2','AS STEEL':'#64748b','HOLLOW PIPE':'#78716c',
-    'SEAMLESS PIPE':'#0d6946','HRC/HRPO ALLOY':'#ca8a04',
-  };
-  const clr = p => { for (const k in PROD_CLR) if (p && p.toUpperCase().includes(k.toUpperCase())) return PROD_CLR[k]; return '#64748b'; };
-  const col = clr(prodName);
+  const col = pc(prodName).solid;   // sama dengan kartunya — lihat buildAvqProdGrid()
 
   // Position popup near the clicked badge
   const rect = anchorEl.getBoundingClientRect();

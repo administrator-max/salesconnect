@@ -36,7 +36,7 @@ function buildCycleTimeline(co) {
     };
     const prodStr = c.products && Object.keys(c.products).length
       ? Object.entries(c.products).map(([k,v]) => {
-          const col = PDOT[k] || '#64748b';
+          const col = PDOT[k] || pc(k).solid;   // ejaan kanonik → palet pusat
           const bg  = col + '18';
           const mtTxt = v !== 'TBA' && typeof v === 'number' ? fmtMt(v) + ' MT' : (v || 'TBA');
           return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 6px;border-radius:3px;background:${bg};border:1px solid ${col}33;color:${col}">

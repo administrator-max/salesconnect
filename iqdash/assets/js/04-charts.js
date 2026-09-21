@@ -709,6 +709,10 @@ function buildAvailableQuota() {
       'AS STEEL':'#7c3aed','SHEETPILE':'#059669','SEAMLESS PIPE':'#0d6946',
       'HRC/HRPO ALLOY':'#ca8a04','HOLLOW PIPE':'#78716c',
       'PPGL CARBON':'#7c3aed','ERW PIPE OD≤140mm':'#9333ea','ERW PIPE OD>140mm':'#0891b2',
+      /* Ejaan kanonik — tanpa ini pill & bar GL ALLOY, GI ALLOY, SHEET PILE,
+         HRPO ALLOY dan kedua ERW PIPE jatuh ke abu-abu (2026-09-21). */
+      'GL ALLOY':'#0c7c84','GI ALLOY':'#1e56c6','SHEET PILE':'#059669','HRPO ALLOY':'#ca8a04',
+      'ERW PIPE (OD ≤ 140 mm)':'#9333ea','ERW PIPE (OD > 140mm)':'#0891b2',
     };
     for (const k in MAP) if (p && p.toUpperCase().includes(k.toUpperCase())) return MAP[k];
     return '#64748b';

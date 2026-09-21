@@ -34,7 +34,8 @@ const PROD_DOT_COLORS = {
   'ERW PIPE OD>140mm': '#0891b2',
   'HRC/HRPO ALLOY':    '#ca8a04',
 };
-const prodDot = p => PROD_DOT_COLORS[p] || '#94a3b8';
+/* Ejaan kanonik (GL ALLOY, SHEET PILE, …) tidak ada di peta lama → palet pusat pc(). */
+const prodDot = p => PROD_DOT_COLORS[p] || pc(p).solid;
 
 /* HS Codes per product — Indonesian Customs Tariff (BTKI 2022).
    Kept here as a fallback for prodHS() in 01-data.js; the canonical
