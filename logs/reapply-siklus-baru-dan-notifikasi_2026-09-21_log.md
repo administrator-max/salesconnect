@@ -90,3 +90,24 @@ request Sales → CorpSec.
 - Tab yang masih terbuka dengan kode lama bisa membuang `_reapplyRequests`
   saat menyimpan — tim perlu memuat ulang halaman sesudah deploy.
 - Notifikasi bersifat di-dashboard (lencana + toast), belum email.
+
+## Lanjutan 21-Sep-2026 — keputusan pemilik data (Putri)
+- **Submission produk yang dipindah revisi TETAP dihitung.** "GAS total
+  submission 9.000: 6.000 submit BORDES (obtained 200, dipindah ke GI ALLOY)
+  + 3.000 re-apply GL ALLOY." Diputuskan berlaku untuk keenam company bentuk
+  ini: GAS 9.000, BDG/DIOR/GIS/MJU/SMS masing-masing 6.000 (sebelumnya 0).
+  Aturan 11-Sep di `scopedSubmittedByProd` dibatalkan. Baris produk lama tetap
+  ⚪ Inactive / historis, Obtained "—", tidak masuk Available.
+  Kartu Total Submitted 267.695 → 303.695; Obtained & Available tidak berubah.
+- Tabel PERTEK & SPI: produk yang dipindah tidak lagi tergolong "Belum terbit";
+  baris historis produk yang hanya diterima lewat revisi (MJU HOLLOW PIPE)
+  kolom Submit-nya "—", bukan 200.
+- **GAS Re-Apply GL ALLOY 3.000 = Submit #2 / Re-Apply #1** (bukan #3/#2),
+  "Menunggu PERTEK Perubahan Terbit". Siklus lama "Obtained #2" (mt 0, SPI
+  Perubahan 27/04/2026, revisi BORDES→GI) diganti nama menjadi
+  "Obtained (Revision #1) — SPI Perubahan 27/04/2026" supaya tidak berpasangan
+  dengan Submit #2 baru. `tools/gas_reapply1_2026-09-21.php`.
+- Obtained LCP #2 200, EMS #2 GI 500, BBB #2 300, SJH #2 90 dikonfirmasi benar.
+- Uji baru `test_submitted_tabel_sama_kartu.cjs`: Σ tabel PERTEK & SPI = drill
+  = kartu, per company (41). `test_submitted_reapply_dan_historis.cjs` bagian J
+  diperbarui (DIOR 6.000).

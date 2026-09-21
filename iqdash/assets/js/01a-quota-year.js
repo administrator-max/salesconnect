@@ -725,12 +725,16 @@ function spiTerbitRows() {
        terhadap kartu 261.845. Ketahuan saat memverifikasi permintaan Putri
        15-Sep-2026 bahwa angka PERTEK & SPI harus sama dengan Overview.
 
-       `sub` sudah menyaring produk yang kuotanya dipindahkan revisi, jadi
-       menambahkan kuncinya tidak menghidupkan kembali produk lama. */
+       Produk yang kuotanya sudah dipindahkan revisi DILEWATI di sini. Sejak
+       21-Sep-2026 `sub` sengaja MEMUAT produk itu (pengajuannya tetap dihitung
+       di Total Submitted — kasus GAS 9.000), jadi penyaringnya harus eksplisit:
+       tanpa ini BORDES ALLOY GAS/BDG kembali tampil "⏳ Belum terbit" alih-alih
+       baris historis ⚪ Inactive. */
+    const _pindah = (typeof revisedAwayProducts === 'function') ? revisedAwayProducts(co) : new Set();
     Object.keys(sub).forEach(p => {
       if ((Number(sub[p]) || 0) <= 0) return;
       const k = kanonProduk(p);
-      if (k) aktif.add(k);
+      if (k && !_pindah.has(k)) aktif.add(k);
     });
 
     const buatBaris = (prod, opsi) => {
@@ -813,7 +817,11 @@ function spiTerbitRows() {
            membuat satu kuota terbaca dua kali; persis kasus DIOR 28-Agu-2026,
            Wear Plate 100 + GL Alloy 100 = 200 MT padahal DIOR punya 100.
            Perender mencetak null sebagai "—". */
-        submitMT:   opsi.historis ? (ambil(subTampil, prod) || (h ? h.mt : null))
+        /* Tanpa jatuh ke h.mt: produk yang hanya pernah diterima lewat REVISI
+           (MJU HOLLOW PIPE 200) tidak pernah diajukan, jadi kolom Submit-nya
+           "—". Dulu tercetak 200, dan sejak pengajuan produk dipindah ikut
+           dihitung (21-Sep-2026) itu membuat Σ kolom Submit 200 di atas kartu. */
+        submitMT:   opsi.historis ? (ambil(subTampil, prod) || null)
                                   : (ambil(sub, prod) || 0),
         obtainedMT: opsi.historis ? null : (ambil(obt, prod) || 0),
         utilMT:     opsi.historis ? 0                 : (ambil(util, prod) || 0),

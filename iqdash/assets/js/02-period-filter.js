@@ -727,8 +727,20 @@ function scopedSubmittedByProd(co, sertakanDipindah) {
      dulu diajukan (DIOR: "Baris Wear Plate 6.000 MT tetap tampil sebagai
      historical"), sementara angka itu TIDAK boleh ikut Total Submitted.
      Satu fungsi dengan satu saklar, bukan dua fungsi yang lama-lama berbeda. */
-  const _dipindah = (!sertakanDipindah && typeof revisedAwayProducts === 'function')
-    ? revisedAwayProducts(co) : new Set();
+  /* ── DIBATALKAN 21-Sep-2026 atas keputusan pemilik data ────────────────
+     "GAS total submission 9.000 MT: 6.000 MT submit BORDES ALLOY, obtained
+     200 MT, lalu dipindah produk menjadi GI ALLOY; ditambah 3.000 MT re-apply
+     GL ALLOY." Diputuskan berlaku SAMA untuk keenam company bentuk ini (BDG,
+     DIOR, GAS, GIS, MJU, SMS — sebelumnya masing-masing terbaca 0 walau punya
+     obtained). Revisi MENGGANTI produk, bukan membatalkan pengajuan; total
+     cycle submission tetap master (ATURAN 1 & 3).
+
+     Yang TETAP berlaku: baris produk lama di PERTEK & SPI tetap kelabu /
+     historis, Obtained-nya "—", dan tidak masuk Available — itu diurus
+     revisedAwayProducts() di jalur obtained/available, bukan di sini.
+     Parameter sertakanDipindah dibiarkan demi pemanggil lama; kedua cabang
+     kini sama. */
+  const _dipindah = new Set();
   /* Kunci WAJIB dikanonikkan di KEDUA cabang. getSubmittedByProd() memakai
      ejaan siklus mentah ("GL BORON") sementara jalur obtained sudah kanonik
      ("GL ALLOY"). Pemanggil yang menggabungkan keduanya lalu melihat SATU

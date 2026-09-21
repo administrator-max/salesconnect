@@ -248,7 +248,10 @@ console.log('\nJ · Produk yang kuotanya sudah PINDAH tidak menambah Submitted')
     'BORDES ALLOY dikenali sebagai produk yang kuotanya sudah pindah',
     JSON.stringify(pindah && [...pindah]));
   ok(!(pindah && pindah.has('GL ALLOY')), 'GL ALLOY yang aktif TIDAK ikut ditandai');
-  ok(submitted(dior) === 0, 'Submitted DIOR = 0, bukan 6.000', String(submitted(dior)));
+  /* DIBALIK 21-Sep-2026 atas keputusan pemilik data (kasus GAS 9.000): revisi
+     mengganti produk, bukan membatalkan pengajuan. Produk lama tetap dikenali
+     "pindah" (baris historis, tanpa Obtained/Available), tapi Submit-nya dihitung. */
+  ok(submitted(dior) === 6000, 'Submitted DIOR = 6.000 — pengajuan tetap master walau produknya dipindah', String(submitted(dior)));
 
   /* Pagar terhadap percobaan pertama yang GAGAL: memakai productGrantHistory
      mentah-mentah ikut menandai produk yang MASIH dipegang, dan Total Submitted
