@@ -826,6 +826,16 @@ function spiTerbitRows() {
         obtainedMT: opsi.historis ? null : (ambil(obt, prod) || 0),
         utilMT:     opsi.historis ? 0                 : (ambil(util, prod) || 0),
         processKey: proses.key, processLabel: proses.label,
+        /* Tahap persetujuan yang dipilih CorpSec di form "Update Revision /
+           Submit #2 Status" (Approval Stage → co.revStatus). Dulu hanya tampil
+           di Submission & Revision Summary dan Cycle History, jadi tabel ini
+           cuma berkata "Under Submission" dan tim mengira update-nya tidak
+           tersimpan (AADC, 21-Sep-2026). Hanya untuk yang masih berjalan, dan
+           hanya nilai dari daftar tahap resmi — teks lain di revStatus (mis.
+           "SPI TERBIT 05/01/2026") bukan tahap. */
+        stage: (proses.key === 'under' || proses.key === 'pending')
+          && typeof RR_APPROVAL_STAGES !== 'undefined' && RR_APPROVAL_STAGES.includes(String(co.revStatus || '').trim())
+          ? String(co.revStatus).trim() : '',
         remarks: co.statusUpdate || '',
         /* Baris produk yang BARU DIAJUKAN tidak meminjam dokumen company.
 

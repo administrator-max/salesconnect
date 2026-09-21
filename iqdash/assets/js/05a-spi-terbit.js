@@ -287,7 +287,8 @@ function buildSpiTerbitTable() {
       <td class="t-r t-mono">${r.submitMT ? mt(r.submitMT) : _stDash()}</td>
       <td class="t-r t-mono" style="color:var(--teal);font-weight:700">${r.obtainedMT ? mt(r.obtainedMT) : _stDash()}</td>
       <td class="t-r t-mono" style="color:var(--blue)">${r.utilMT ? mt(r.utilMT) : _stDash()}</td>
-      <td>${baru ? _stProcessBadge(r.processKey, r.processLabel) : ''}</td>
+      <td>${baru ? _stProcessBadge(r.processKey, r.processLabel)
+        + (r.stage ? `<div style="font-size:9.5px;font-weight:600;color:var(--amber);margin-top:4px;line-height:1.3">Tahap: ${_stEsc(r.stage)}</div>` : '') : ''}</td>
       <td style="font-size:10px;color:var(--txt3);max-width:190px;line-height:1.4">${baru ? (_stEsc(r.remarks) || _stDash()) : ''}</td>
       <td style="font-size:10px;font-family:'DM Mono',monospace;color:var(--blue)">${r.pertekNo || _stDash()}</td>
       <td style="font-size:10.5px;color:var(--orange);white-space:nowrap">${fd(r.pertekDate)}</td>
