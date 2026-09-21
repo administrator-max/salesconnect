@@ -1554,10 +1554,147 @@ function buildRevisionRequestTable(co) {
           'Pilih type terlebih dahulu sebelum submit request.'}
       </div>
     </div>
-    <div id="revreq-rows-wrap">${rows}</div>
+    ${currentRevType === 'Re-Apply'
+      ? reapplyRequestFormHtml(co, canSales)
+      : `<div id="revreq-rows-wrap">${rows}</div>`}
     <div style="margin-top:8px;font-size:10px;color:var(--txt3)">
       <span class="tti tip-right" data-tip="Request ini tidak langsung mengubah data — CorpSec perlu konfirmasi terlebih dahulu sebelum perubahan berlaku" style="display:inline-flex;margin-top:2px">i</span>
     </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   FORM RE-APPLY (Sales) — diminta tim 21-Sep-2026
+
+   Sales pilih "Re-Apply" → pilih produk → isi tonase → simpan → CorpSec.
+   Produknya WAJIB dipilih ulang setiap kali: tidak ada "— Tetap sama —" dan
+   tidak ada produk yang dibawa otomatis dari siklus sebelumnya. Dulu form ini
+   adalah daftar produk yang SUDAH obtained, jadi re-apply GL ALLOY milik EMS
+   harus ditumpangkan ke baris "GI ALLOY" — dan GI ALLOY ikut terbawa sampai ke
+   konfirmasi CorpSec. Model datanya ada di blok RE-APPLY REQUEST, 13-rev-mgmt.js.
+
+   Satu company hanya punya SATU permintaan yang belum diputus; permintaan
+   yang sudah dikonfirmasi terkunci (sudah menjadi siklus Submit #N) dan
+   tampil sebagai riwayat di bawah form.
+   ═══════════════════════════════════════════════════════════════════════ */
+function reapplyRequestFormHtml(co, canSales) {
+  const semua   = (typeof raRequests === 'function') ? raRequests(co) : [];
+  const terbuka = semua.find(r => r && r.status === 'pending') || null;
+  const rows    = terbuka && Array.isArray(terbuka.products) && terbuka.products.length
+    ? terbuka.products : [{ product: '', mt: null }];
+  const mati    = !canSales;
+  const ALL_PRODS = (typeof selectableProducts === 'function') ? selectableProducts() : Object.keys(PROD_COLORS);
+  const tipe    = (typeof raCycleType === 'function') ? raCycleType(co, terbuka) : 'Submit #N';
+  const riwayat = semua.filter(r => r && r !== terbuka).slice().reverse().map(r => {
+    const info = (typeof raStatusInfo === 'function') ? raStatusInfo(co, r) : { text: r.status };
+    const isi  = (r.products || []).map(p => `${prodLabel(p.product)} ${Number(p.mt || 0).toLocaleString(MT_LOCALE)} MT`).join(' + ');
+    return `<div style="font-size:10px;color:var(--txt3);padding:3px 0;border-top:1px dashed var(--border)">
+      ${r.requestedDate || ''} · ${isi} · <strong>${info.text}</strong></div>`;
+  }).join('');
+  const total = rows.reduce((a, r) => a + (Number(r.mt) || 0), 0);
+  return `<div id="reapplyreq-form" data-co="${co.code}" data-req="${terbuka ? terbuka.id : ''}"
+      style="padding:10px;border:1px solid #c4b5fd;border-radius:7px;background:#f5f3ff;margin-bottom:8px">
+    <div style="font-size:10.5px;font-weight:700;color:#5b21b6;margin-bottom:6px">
+      📨 Re-Apply — produk &amp; tonase yang diajukan
+      ${terbuka ? '<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);margin-left:6px">⏳ Menunggu konfirmasi CorpSec</span>' : ''}
+    </div>
+    <div style="font-size:10px;color:var(--txt3);margin-bottom:8px;line-height:1.5">
+      Pilih produk yang ingin di-Re-Apply — produk dari siklus sebelumnya <strong>tidak</strong> ikut otomatis.
+      Setelah CorpSec konfirmasi, permintaan ini menjadi siklus <strong>${tipe}</strong> baru.
+    </div>
+    <div id="reapplyreq-rows-wrap">
+      ${rows.map((r, i) => reapplyReqRowHtml(r, i, ALL_PRODS, mati, rows.length > 1)).join('')}
+    </div>
+    ${!mati ? `<button onclick="addReapplyReqRow()" style="margin-top:4px;font-size:10.5px;font-weight:600;padding:4px 12px;border-radius:5px;border:1px dashed var(--border2);background:var(--bg2);color:var(--blue);cursor:pointer">+ Add Product</button>` : ''}
+    <div style="margin-top:8px">
+      <input type="text" class="fi" id="reapplyreq-note" value="${terbuka && terbuka.note ? String(terbuka.note).replace(/"/g, '&quot;') : ''}"
+        placeholder="Catatan (opsional)…" ${mati ? 'disabled' : ''} style="width:100%;font-size:11px">
+    </div>
+    <div style="margin-top:6px;font-size:10.5px;color:var(--txt3)">
+      Total diajukan: <strong id="reapplyreq-total" style="color:#5b21b6">${total.toLocaleString(MT_LOCALE)} MT</strong>
+      · simpan dengan tombol Save di bawah
+    </div>
+    ${riwayat ? `<div style="margin-top:8px"><div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Riwayat Re-Apply</div>${riwayat}</div>` : ''}
+  </div>`;
+}
+
+function reapplyReqRowHtml(r, i, allProds, mati, bolehHapus) {
+  const opts = `<option value="">— Pilih Produk —</option>` +
+    allProds.map(op => `<option value="${op}" ${op === r.product ? 'selected' : ''}>${op}</option>`).join('');
+  const mt = r.mt != null ? Number(r.mt).toLocaleString(MT_LOCALE) : '';
+  return `<div class="reapplyreq-row" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+    <div style="width:14px;flex-shrink:0;font-size:10px;color:var(--txt3);text-align:center">${i + 1}</div>
+    <select class="fi reapplyreq-prod" ${mati ? 'disabled' : ''} onchange="syncReapplyReqTotal()"
+      style="flex:1;min-width:0;padding:4px 6px;font-size:11.5px;border:1px solid var(--border2);border-radius:5px;background:var(--bg);color:var(--txt)">${opts}</select>
+    <input type="text" inputmode="decimal" class="pmt-mt-inp reapplyreq-mt" value="${mt}" placeholder="Qty (MT)" ${mati ? 'disabled' : ''}
+      oninput="fmtThousandInline(this);syncReapplyReqTotal()">
+    ${bolehHapus && !mati ? `<button onclick="this.closest('.reapplyreq-row').remove();syncReapplyReqTotal()" title="Hapus baris ini"
+      style="flex-shrink:0;width:22px;height:22px;border:1px solid var(--border2);border-radius:4px;background:var(--red-bg);color:var(--red2);cursor:pointer;font-size:12px;padding:0">✕</button>` : '<div style="width:22px"></div>'}
+  </div>`;
+}
+
+function addReapplyReqRow() {
+  const wrap = document.getElementById('reapplyreq-rows-wrap');
+  if (!wrap) return;
+  const ALL_PRODS = (typeof selectableProducts === 'function') ? selectableProducts() : Object.keys(PROD_COLORS);
+  const i = wrap.querySelectorAll('.reapplyreq-row').length;
+  wrap.insertAdjacentHTML('beforeend', reapplyReqRowHtml({ product: '', mt: null }, i, ALL_PRODS, false, true));
+}
+
+function syncReapplyReqTotal() {
+  const el = document.getElementById('reapplyreq-total');
+  if (!el) return;
+  let t = 0;
+  document.querySelectorAll('#reapplyreq-rows-wrap .reapplyreq-mt')
+    .forEach(inp => { t += parseFloat(String(inp.value || '').replace(/,/g, '')) || 0; });
+  el.textContent = t.toLocaleString(MT_LOCALE) + ' MT';
+}
+
+/* Baris dengan MT tapi tanpa produk = belum lengkap. saveEdit() menolak
+   menyimpan daripada menebak produknya. */
+function reapplyFormIssues() {
+  const out = [];
+  document.querySelectorAll('#reapplyreq-rows-wrap .reapplyreq-row').forEach((row, i) => {
+    const p  = String((row.querySelector('.reapplyreq-prod') || {}).value || '').trim();
+    const mt = parseFloat(String((row.querySelector('.reapplyreq-mt') || {}).value || '').replace(/,/g, ''));
+    if (!p && mt > 0) out.push(`Baris ${i + 1}: produk belum dipilih`);
+    if (p && !(mt > 0)) out.push(`Baris ${i + 1}: ${p} belum diisi MT`);
+  });
+  return out;
+}
+
+/* Baca form Re-Apply ke co.reapplyRequests. Hanya permintaan yang BELUM
+   diputus yang boleh diubah Sales. */
+function collectReapplyRequestData(co) {
+  const wrap = document.getElementById('reapplyreq-rows-wrap');
+  if (!co || !wrap) return;
+  const items = [];
+  wrap.querySelectorAll('.reapplyreq-row').forEach(row => {
+    const product = String((row.querySelector('.reapplyreq-prod') || {}).value || '').trim();
+    const mt = parseFloat(String((row.querySelector('.reapplyreq-mt') || {}).value || '').replace(/,/g, ''));
+    if (product && mt > 0) items.push({ product: canonicalProduct(product), mt });
+  });
+  const noteEl = document.getElementById('reapplyreq-note');
+  const note   = noteEl ? String(noteEl.value || '').trim() : '';
+  if (!Array.isArray(co.reapplyRequests)) co.reapplyRequests = [];
+  const terbuka = co.reapplyRequests.find(r => r && r.status === 'pending');
+  if (!items.length) {                                   // Sales mengosongkan form = tarik permintaan
+    if (terbuka) co.reapplyRequests = co.reapplyRequests.filter(r => r !== terbuka);
+    return;
+  }
+  const pending = items.map(it => ({ product: it.product, mt: null, status: 'pending' }));
+  if (terbuka) {
+    terbuka.products = items;
+    terbuka.confirmedTargets = pending;
+    terbuka.note = note;
+  } else {
+    co.reapplyRequests.push({
+      id: 'RA' + Date.now(),
+      products: items, confirmedTargets: pending, status: 'pending', note,
+      requestedBy: (typeof scActorName === 'function') ? scActorName() : (currentRole || 'Sales'),
+      requestedDate: todayStd(),
+      confirmedBy: null, confirmedDate: null, submitDate: null, cycleType: null,
+    });
+  }
 }
 
 /* Handle revision type change — update description and store on co object */
@@ -1575,7 +1712,13 @@ function onSalesRevTypeChange(sel, coCode) {
   }
   // Store on active company object
   const co = getSPI(coCode) || PENDING.find(p => p.code === coCode);
-  if (co) co.salesRevReqType = val;
+  if (co) {
+    const lama = co.salesRevReqType || '';
+    co.salesRevReqType = val;
+    /* Re-Apply dan Revision memakai form yang BERBEDA — gambar ulang saat
+       berpindah di antara keduanya. */
+    if ((lama === 'Re-Apply') !== (val === 'Re-Apply')) buildRevisionRequestTable(co);
+  }
 }
 
 /* Add a new target row for a source product */
@@ -1727,6 +1870,15 @@ function collectRevisionRequestData(co) {
   const typeEl = document.getElementById('salesRevReqType');
   if (typeEl) co.salesRevReqType = typeEl.value || co.salesRevReqType || '';
 
+  /* Form Re-Apply yang tampil → yang dikumpulkan permintaan Re-Apply saja.
+     Permintaan REVISI yang sudah ada dibiarkan utuh: daftar centangnya tidak
+     dirender dalam mode ini, dan tanpa pagar ini perulangan di bawah
+     menyimpulkan "tidak ada yang dicentang" lalu mengosongkan seluruhnya. */
+  if (document.getElementById('reapplyreq-rows-wrap')) {
+    collectReapplyRequestData(co);
+    return;
+  }
+
   let hasAny = false;
   document.querySelectorAll('.revreq-chk').forEach(chk => {
     const prod = chk.dataset.prod;
@@ -1751,16 +1903,23 @@ function collectRevisionRequestData(co) {
     if (requested) {
       // Backward compat: keep newProduct + requestedMT as first target
       const first = targets[0] || {};
-      co.salesRevRequest[prod] = {
+      const prev  = co.salesRevRequest[prod] || {};
+      /* Jejak konfirmasi CorpSec (confirmedTargets / confirmedDate /
+         confirmedBy) DIPERTAHANKAN. Versi sebelumnya membangun objek baru
+         tanpa field itu, jadi Sales yang menyimpan ulang form sesudah CorpSec
+         mengonfirmasi menghapus jejaknya diam-diam. */
+      co.salesRevRequest[prod] = Object.assign({}, prev, {
         requested: true,
         revisionType: co.salesRevReqType || '',   // "Revision" | "Re-Apply"
         newProduct:   first.product || null,
         requestedMT:  first.mt      || null,
         targetProducts: targets,
         note,
-        status: co.salesRevRequest[prod]?.status || null,
-        confirmedMT: co.salesRevRequest[prod]?.confirmedMT || null,
-      };
+        status: prev.status || null,
+        confirmedMT: prev.confirmedMT || null,
+        requestedBy:   prev.requestedBy   || ((typeof scActorName === 'function') ? scActorName() : (currentRole || 'Sales')),
+        requestedDate: prev.requestedDate || todayStd(),
+      });
       hasAny = true;
     } else {
       delete co.salesRevRequest[prod];

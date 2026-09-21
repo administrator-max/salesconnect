@@ -461,10 +461,12 @@ async function patchToServer(co) {
      baru hilang begitu halaman dimuat ulang, karena salesRevRequest-nya kosong. */
   let salesRevJson = null;
   const adaRevReq = co.salesRevRequest && Object.keys(co.salesRevRequest).length;
-  if (adaRevReq || co.newSubmission) {
+  const adaReapplyReq = Array.isArray(co.reapplyRequests) && co.reapplyRequests.length;
+  if (adaRevReq || co.newSubmission || adaReapplyReq) {
     const envelope = Object.assign({}, co.salesRevRequest || {});
     if (co.salesRevReqType) envelope._revisionType  = co.salesRevReqType;
     if (co.newSubmission)   envelope._newSubmission = co.newSubmission;
+    if (adaReapplyReq)      envelope._reapplyRequests = co.reapplyRequests;
     if (Object.keys(envelope).length) salesRevJson = JSON.stringify(envelope);
   }
 

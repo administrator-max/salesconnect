@@ -84,6 +84,9 @@ vm.runInContext(`
   var currentRole = 'CorpSec';
   var getObtainedByProdAgg = co => (co && co.__agg) || {};
   var salesRevReq = {}, co = {};
+  /* Dari buildRevMgmtSection(): siklus pengajuan yang sedang berjalan. Bukan
+     re-apply di kasus-kasus ini, jadi prodList tetap dibangun dari permintaan. */
+  var activeCycle = null;
   function bangun(srr, revTo) {
     salesRevReq = srr || {};
     co = { revTo: revTo || [], salesRevRequest: salesRevReq };

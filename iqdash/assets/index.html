@@ -67,6 +67,11 @@ window.ensureXLSX = function () {
          begitu ada angka yang tidak konsisten, supaya yang menemukan adalah
          dashboard-nya, bukan tim beberapa hari kemudian. -->
     <span class="tb-date" id="scLencana" onclick="iqTampilkanTemuan()" style="font-size:9px"></span>
+    <!-- Notifikasi request Sales → CorpSec (24-notifications.js). Jumlah di lencana
+         = request yang masih menunggu keputusan CorpSec. -->
+    <button class="tb-btn" id="notifBtn" onclick="openNotif()" title="Request Revision / Re-Apply dari Sales" style="position:relative">🔔 Request
+      <span id="notifBadge" style="display:none;position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;line-height:1">0</span>
+    </button>
     <button class="tb-btn" onclick="openImport()" title="Input & update company data manually">📝 Input Data</button>
     <button class="tb-btn" onclick="openMasterImport()" title="Upload master quota Excel, preview the diff, then apply">📥 Import Master</button>
     <button class="tb-btn" onclick="exportExecutivePDF()" title="Export Management Summary PDF (A4)" style="background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4);color:#fca5a5;letter-spacing:.3px">📄 PDF Summary</button>
@@ -491,6 +496,41 @@ window.ensureXLSX = function () {
 </div>
 
 <!-- ACTIVE REVISIONS POPUP (Overview insight detail — no page navigation) -->
+<!-- NOTIFIKASI REQUEST (24-notifications.js) -->
+<div id="notifModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(15,23,42,.55);backdrop-filter:blur(3px)" onclick="if(event.target===this)closeNotif()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(96vw,1040px);max-height:88vh;background:var(--bg);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;flex-shrink:0">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--txt)">🔔 Request Sales → CorpSec</div>
+        <div id="notifSubtitle" style="font-size:11px;color:var(--txt3);margin-top:2px">—</div>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="fpill on" onclick="setNotifFilter('pending',this)" style="font-size:10.5px;padding:3px 10px">⏳ Pending</button>
+        <button class="fpill" onclick="setNotifFilter('process',this)" style="font-size:10.5px;padding:3px 10px">✅ Confirmed / In Process</button>
+        <button class="fpill" onclick="setNotifFilter('all',this)" style="font-size:10.5px;padding:3px 10px">All</button>
+        <button onclick="closeNotif()" style="background:var(--border);border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:var(--txt3);margin-left:6px">✕</button>
+      </div>
+    </div>
+    <div style="overflow:auto;flex:1">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--bg2);position:sticky;top:0">
+          <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Company</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Request Type</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Product</th>
+          <th style="padding:8px 10px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">MT</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Request Date</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Requested by</th>
+          <th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Status</th>
+        </tr></thead>
+        <tbody id="notifBody"></tbody>
+      </table>
+    </div>
+    <div style="padding:9px 20px;border-top:1px solid var(--border);font-size:10px;color:var(--txt3);flex-shrink:0">
+      Klik baris untuk membuka company di form Input Data. Status mengikuti data permintaannya langsung — begitu CorpSec konfirmasi, request tertaut ke siklusnya di PERTEK &amp; SPI dan Overview.
+    </div>
+  </div>
+</div>
+
 <div id="activeRevModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(15,23,42,.55);backdrop-filter:blur(3px)" onclick="if(event.target===this)closeActiveRevPopup()">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(94vw,560px);max-height:88vh;background:var(--bg);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:16px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
@@ -1739,10 +1779,10 @@ window.ensureXLSX = function () {
 <div id="revList"      style="display:none"></div>
 <div id="pendingQuick" style="display:none"></div>
 <script defer src="assets/js/00-num.js?v=1"></script>
-<script defer src="assets/js/01-data.js?v=34"></script>
+<script defer src="assets/js/01-data.js?v=35"></script>
 <script defer src="assets/js/01a-quota-year.js?v=11"></script>
 <script defer src="assets/js/02-period-filter.js?v=19"></script>
-<script defer src="assets/js/03-kpis.js?v=23"></script>
+<script defer src="assets/js/03-kpis.js?v=24"></script>
 <script defer src="assets/js/04-charts.js?v=19"></script>
 <script defer src="assets/js/05-tables-spi.js?v=10"></script>
 <script defer src="assets/js/05a-spi-terbit.js?v=6"></script>
@@ -1751,19 +1791,20 @@ window.ensureXLSX = function () {
 <script defer src="assets/js/08-drawer.js?v=21"></script>
 <script defer src="assets/js/09-nav-import.js?v=4"></script>
 <script defer src="assets/js/10-edit-form.js?v=6"></script>
-<script defer src="assets/js/11-shipment.js?v=9"></script>
+<script defer src="assets/js/11-shipment.js?v=10"></script>
 <script defer src="assets/js/12-product-mt.js?v=7"></script>
-<script defer src="assets/js/13-rev-mgmt.js?v=16"></script>
+<script defer src="assets/js/13-rev-mgmt.js?v=17"></script>
 <script defer src="assets/js/14-export.js?v=10"></script>
 <script defer src="assets/js/15-leadtime.js?v=3"></script>
-<script defer src="assets/js/16-storage.js?v=9"></script>
+<script defer src="assets/js/16-storage.js?v=10"></script>
 <script defer src="assets/js/17-ou-chart.js?v=6"></script>
 <script defer src="assets/js/18-sales-priority.js?v=2"></script>
-<script defer src="assets/js/19-init.js?v=27"></script>
+<script defer src="assets/js/19-init.js?v=28"></script>
 <script defer src="assets/js/19b-util-breakdown.js?v=2"></script>
 <script defer src="assets/js/20-realization-import.js?v=4"></script>
 <script defer src="assets/js/21-master-import.js?v=3"></script>
 <script defer src="assets/js/22-auto-refresh.js?v=4"></script>
 <script defer src="assets/js/23-self-check.js?v=2"></script>
+<script defer src="assets/js/24-notifications.js?v=1"></script>
 </body>
 </html>

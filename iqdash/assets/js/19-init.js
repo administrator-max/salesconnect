@@ -975,6 +975,10 @@ const AA_GROUPS = [
 ];
 
 function buildRevSummaryStrip() {
+  /* Lonceng notifikasi ikut disegarkan di sini: fungsi ini dipanggil ulang di
+     setiap boot, penyimpanan, dan penyegaran otomatis — jadi jumlah request
+     yang menunggu CorpSec selalu seumur dengan Active Application. */
+  if (typeof renderNotifBadge === 'function') { try { renderNotifBadge(); } catch (e) { console.warn('notif', e); } }
   const el = document.getElementById('revSummaryStrip');
   if (!el) return;
   const badge = document.getElementById('revCardBadge');
@@ -1121,14 +1125,14 @@ document.addEventListener('keydown', e => {
   // 2. Drill-down modals (z-index 700) — close whichever is visible
   const drillIds = [
     'obtainedDrillModal','submitDrillModal','realizedDrillModal','avqDrillModal',
-    'utilDrillModal','reapplyDrillModal','pendingDrillModal','leadTimeDrillModal','salesPriorityModal',
+    'utilDrillModal','reapplyDrillModal','pendingDrillModal','leadTimeDrillModal','salesPriorityModal', 'notifModal',
   ];
   const drillCloseFns = {
     obtainedDrillModal:'closeObtainedDrill', submitDrillModal:'closeSubmitDrill',
     realizedDrillModal:'closeRealizedDrill', avqDrillModal:'closeAvqDrill',
     utilDrillModal:'closeUtilDrill', reapplyDrillModal:'closeReapplyDrill',
     pendingDrillModal:'closePendingDrill', leadTimeDrillModal:'closeLeadTimeDrill',
-    salesPriorityModal:'closeSalesPriority',
+    salesPriorityModal:'closeSalesPriority', notifModal:'closeNotif',
   };
   for (const id of drillIds) {
     const m = document.getElementById(id);

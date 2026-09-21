@@ -1049,62 +1049,75 @@ function refreshSubmitDrill() {
     return { text: '—', color: 'var(--txt3)' };
   }
 
-  /* ── Collect rows: SPI (Submit cycles only) + PENDING ── */
+  /* ── Baris: SATU sumber dengan kartu Total Submitted ─────────────────────
+     Drill ini dulu mengumpulkan sendiri siklus `Submit…` mentah, sementara
+     kartunya membaca canonicalSubmitted(). Hasilnya dua angka: drill 276.845
+     MT / 34 company terhadap kartu 261.695 MT / 29 company, dan re-apply yang
+     sudah dikonfirmasi tapi belum bersiklus tidak tampil sama sekali (KARA
+     terbaca 6.000, KJK 9.000, LCP 8.725, SJH 8.700 — padahal 9.000 / 12.000 /
+     11.725 / 11.700). Dilaporkan tim 21-Sep-2026.
+
+     Sekarang baris-barisnya dibangun dengan gerbang yang SAMA dengan
+     canonicalSubmitted[Filtered]() (Submit #N saja, mt > 0, satu per tipe,
+     bukan artefak revision-request, digerbang tanggal Submit MOI), ditambah
+     re-apply yang masih menunggu siklusnya (pendingReapplyCyclesForSubmitted),
+     lalu SATU baris penyesuaian per company bila masih ada selisih — yaitu
+     produk yang kuotanya sudah dipindahkan revisi (aturan scopedSubmittedByProd).
+     Dengan begitu Σ baris = kartu, per company, dan selisihnya terlihat. */
   const rows = [];
-  [...SPI].forEach(co => {
+  const _kolam = (typeof kpiPool === 'function') ? kpiPool() : [...SPI, ...PENDING];
+  _kolam.forEach(co => {
+    const isPending = PENDING.includes(co);
+    const target = PERIOD.active ? canonicalSubmittedFiltered(co) : canonicalSubmitted(co);
+    const seen = new Set();
+    let jumlah = 0;
+    const milikCo = [];
     (co.cycles || []).forEach(cy => {
-      // Submit cycles only — Revision cycles excluded (product modification, not new MT)
-      const isSubmit = /^submit/i.test(cy.type) && !/obtained/i.test(cy.type);
-      if (!isSubmit) return;
+      if (!/^submit\s*#\d/i.test(cy.type || '')) return;
       const mt = typeof cy.mt === 'number' ? cy.mt : 0;
       if (mt <= 0) return;
+      const key = String(cy.type).toLowerCase().trim();
+      if (seen.has(key)) return;
+      seen.add(key);
+      if (cy._fromRevReq) return;
       const submitDate = pDate(cy.submitDate);
       if (PERIOD.active && !inPd(submitDate)) return;
-      const cat    = getCycleCategory(cy.type, co);
-      const status = getCycleStatus(cy, co);
-      rows.push({
-        code: co.code, group: co.group || '—',
-        cycle: cy.type, cat, submitDate, mt,
-        status: status.text, statusColor: status.color,
-        isPending: false,
-      });
+      const cat    = isPending ? 'pending' : getCycleCategory(cy.type, co);
+      const status = isPending ? { text: '📬 New Submission — Awaiting PERTEK', color: 'var(--red2)' }
+                               : getCycleStatus(cy, co);
+      milikCo.push({ code: co.code, group: co.group || '—', cycle: cy.type, cat, submitDate, mt,
+        status: status.text, statusColor: status.color, isPending });
+      jumlah += mt;
     });
-  });
-
-  // Add PENDING companies as 'pending' category
-  [...PENDING].forEach(co => {
-    (co.cycles || []).forEach(cy => {
-      if (!/^submit/i.test(cy.type) || /obtained/i.test(cy.type)) return;
-      const mt = typeof cy.mt === 'number' ? cy.mt : 0;
+    (typeof pendingReapplyCyclesForSubmitted === 'function' ? pendingReapplyCyclesForSubmitted(co) : []).forEach(c => {
+      const t = pDate(c.releaseDate || c.submitDate || '');
+      if (PERIOD.active && !(t && inPd(t))) return;
+      const mt = Number(c.mt) || 0;
       if (mt <= 0) return;
-      const submitDate = pDate(cy.submitDate);
-      if (PERIOD.active && !inPd(submitDate)) return;
-      rows.push({
-        code: co.code, group: co.group || '—',
-        cycle: cy.type, cat: 'pending', submitDate, mt,
-        status: '📬 New Submission — Awaiting PERTEK', statusColor: 'var(--red2)',
-        isPending: true,
-      });
+      milikCo.push({ code: co.code, group: co.group || '—', cycle: 'Re-Apply (dikonfirmasi)', cat: 'submit2',
+        submitDate: t, mt, status: '⏳ Menunggu siklus Submit / PERTEK Perubahan', statusColor: 'var(--red2)', isPending });
+      jumlah += mt;
     });
+    const selisih = target - jumlah;
+    if (Math.abs(selisih) > 0.5) {
+      const pindah = (typeof revisedAwayProducts === 'function') ? [...revisedAwayProducts(co)] : [];
+      milikCo.push({ code: co.code, group: co.group || '—',
+        cycle: 'Penyesuaian — ' + (pindah.length ? pindah.join(', ') + ' (dipindah revisi)' : 'aturan Total Submitted'),
+        cat: 'adjust', submitDate: null, mt: selisih,
+        status: 'Historis — tidak dihitung di Total Submitted', statusColor: 'var(--txt3)', isPending });
+    }
+    milikCo.forEach(r => rows.push(r));
   });
-
-  // Dedup: keep only first occurrence per company+cycleType
-  const _subSeen = new Set();
-  const _subUniq = [];
-  rows.forEach(r => {
-    const key = `${r.code}|${r.cycle}`;
-    if (!_subSeen.has(key)) { _subSeen.add(key); _subUniq.push(r); }
-  });
-  rows.length = 0; _subUniq.forEach(r => rows.push(r));
 
   const periodLabel = PERIOD.active ? PERIOD.label : 'All Time';
 
   /* ── Group rows by category for display ── */
-  const CAT_ORDER = ['submit1', 'submit2', 'pending'];
+  const CAT_ORDER = ['submit1', 'submit2', 'pending', 'adjust'];
   const CAT_META  = {
     submit1:  { label: '📋 Submit #1',                                     bg: '#eef2ff', bd: '#c7d2fe', tc: 'var(--navy)' },
-    submit2:  { label: '📨 Submit #2 (Re-Apply — Additional MT/Products)',  bg: 'var(--blue-bg)',  bd: 'var(--blue-bd)',  tc: 'var(--blue)' },
+    submit2:  { label: '📨 Submit #2+ (Re-Apply — Additional MT/Products)', bg: 'var(--blue-bg)',  bd: 'var(--blue-bd)',  tc: 'var(--blue)' },
     pending:  { label: '📬 New Submission — Awaiting PERTEK/SPI',                  bg: 'var(--red-bg)',   bd: 'var(--red-bd)',   tc: 'var(--red)' },
+    adjust:   { label: '⚪ Produk dipindah revisi — historis, tidak dihitung',     bg: 'var(--bg2)',      bd: 'var(--border2)',  tc: 'var(--txt3)' },
   };
 
   // Totals per category
@@ -1121,8 +1134,12 @@ function refreshSubmitDrill() {
   const spiOnlyMT = rows.filter(r => !r.isPending).reduce((s, r) => s + r.mt, 0);
   const pendingMT = rows.filter(r =>  r.isPending).reduce((s, r) => s + r.mt, 0);
   const totalMT   = spiOnlyMT + pendingMT;
-  const coCount      = new Set(rows.map(r => r.code)).size;
-  const cycleCount   = rows.length;
+  /* Company dihitung seperti kartunya: yang Σ-nya > 0. Company yang seluruh
+     pengajuannya sudah dipindah revisi tetap tampil barisnya, tapi tidak ikut. */
+  const _perCo = {};
+  rows.forEach(r => { _perCo[r.code] = (_perCo[r.code] || 0) + r.mt; });
+  const coCount      = Object.values(_perCo).filter(v => v > 0.5).length;
+  const cycleCount   = rows.filter(r => r.cat !== 'adjust').length;
 
   // Subtitle
   document.getElementById('submitDrillSubtitle').textContent =

@@ -69,11 +69,37 @@ function rrCategoryLabel(cat) {
 /* Get the latest non-obtained cycle (active or pending) */
 function rrGetActiveCycle(co) {
   const ac = (co && co.cycles) || [];
-  // Prefer last Submit #N or Revision #N cycle
   const submitCycles = ac.filter(c =>
-    /^(submit\s*#[2-9]|revision\s*#\d)/i.test(c.type)
+    /^(submit\s*#([2-9]|\d{2,})|revision\s*#\d)/i.test(c.type)
   );
-  return submitCycles[submitCycles.length - 1] || null;
+  /* Yang MASIH BERJALAN, bukan sekadar yang terakhir.
+
+     Dulu fungsi ini memulangkan Submit #N/Revision #N terakhir apa pun
+     keadaannya. Selama re-apply baru tidak pernah dicatat sebagai siklus
+     Submit sendiri, "terakhir" berarti siklus re-apply SEBELUMNYA yang sudah
+     terbit — lalu Save Status Update menulis status dan Obtained MT
+     permintaan baru ke atasnya. Itu yang menimpa LCP Obtained #2 (200 → 3.000),
+     EMS Obtained #2 (GI ALLOY 500 → GL ALLOY 3.000), BBB Obtained #2 (300 →
+     3.000) dan SJH Obtained #2 (90 → 3.000). Dilaporkan tim 21-Sep-2026.
+
+     Berjalan = Obtained pasangannya belum terbit lengkap (PERTEK + SPI) —
+     aturan yang sama dengan activeApplicationCycle() di 04-charts.js. Kalau
+     semuanya sudah selesai, tidak ada yang aktif: form tidak boleh menyentuh
+     siklus yang sudah terbit. */
+  const obtained = ac.filter(c => /^obtained/i.test(c.type || ''));
+  const lengkap  = c => (typeof _cycleTerbitLengkap === 'function') ? _cycleTerbitLengkap(c) : !!(c && c.spiDate);
+  const berjalan = submitCycles.filter(c => {
+    const t = String(c.type || '');
+    let m = t.match(/^submit\s*#\s*(\d+)/i);
+    if (m) {
+      const p = obtained.find(o => new RegExp(`^obtained\\s*#\\s*${m[1]}\\b`, 'i').test(o.type || ''));
+      return !p || !lengkap(p);
+    }
+    m = t.match(/^revision\s*#\s*(\d+)/i);
+    const p = m && obtained.find(o => new RegExp(`^obtained\\s*\\(revision\\s*#\\s*${m[1]}\\)`, 'i').test(o.type || ''));
+    return !p || !lengkap(p);
+  });
+  return berjalan[berjalan.length - 1] || null;
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -108,7 +134,19 @@ function rrObtainedTypeFor(co) {
   const act = rrGetActiveCycle(co);
   const m = String((act && act.type) || '').match(/^(submit|revision)\s*#?\s*(\d+)/i);
   if (m) return /^revision$/i.test(m[1]) ? `Obtained (Revision #${m[2]})` : `Obtained #${m[2]}`;
-  // Tidak terbaca — ambil nomor berikutnya yang belum dipakai (minimal #2).
+  /* Tidak ada pengajuan berjalan. Pakai ulang placeholder yang BELUM terbit
+     kalau sudah ada — tanpa ini setiap Save Status menelurkan satu siklus
+     Obtained baru (PPGL sempat punya Obtained #2, #3, #4 masing-masing
+     3.000 MT dari satu permintaan). */
+  /* Hanya PLACEHOLDER buatan form ini (_fromRevReq). Obtained ber-MT tanpa
+     tanggal yang tidak bertanda itu bisa data asli yang tanggalnya belum
+     diketahui (SJH Obtained #2 90 MT sebelum PERTEK-nya diisi) — menimpanya
+     adalah kesalahan yang sama yang sedang diperbaiki di sini. */
+  const belumTerbit = (co.cycles || []).filter(c =>
+    /^obtained\s*#\s*([2-9]|\d{2,})\b/i.test(String(c.type || '')) && c._fromRevReq &&
+    !(typeof _isObtainedTerbit === 'function' ? _isObtainedTerbit(c, co.cycles) : false));
+  if (belumTerbit.length) return belumTerbit[belumTerbit.length - 1].type;
+  // Belum ada sama sekali — ambil nomor berikutnya yang belum dipakai (minimal #2).
   let maks = 1;
   (co.cycles || []).forEach(c => {
     const mm = String(c.type || '').match(/^obtained\s*(?:\(revision\s*)?#?\s*(\d+)/i);
@@ -464,6 +502,286 @@ function nsAfterDecision(co) {
   refreshAllSurfaces();
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   RE-APPLY REQUEST — permintaan kuota tambahan, SELALU siklus Submit baru
+   (diminta tim 21-Sep-2026)
+
+   Alurnya:
+     Sales pilih "Re-Apply" → pilih produk (dari master, WAJIB, tanpa pilihan
+     "tetap sama") → isi MT → simpan → notifikasi ke CorpSec
+     → CorpSec konfirmasi + isi tanggal Submit MOI Perubahan
+     → lahir siklus Submit #N (N = nomor berikutnya) berstatus
+       "Menunggu PERTEK Perubahan #k Terbit"
+     → Total Submitted, PERTEK & SPI, Active Application membaca siklus itu.
+
+   KENAPA TIDAK LAGI LEWAT salesRevRequest. Permintaan revisi berkunci PRODUK
+   ASAL yang sudah obtained. Re-Apply tidak punya produk asal, tapi dulu tetap
+   ditumpangkan ke salah satunya — EMS dan GAS menumpang di "GI ALLOY" lalu
+   memilih GL ALLOY sebagai tujuan. Akibatnya GI ALLOY ikut muncul di panel
+   CorpSec, di Product Change (GI ALLOY → GL ALLOY), dan di form Obtained,
+   padahal Sales hanya meminta GL ALLOY 3.000 MT.
+
+   Dan karena konfirmasinya hanya membuat siklus "Revision Request — X", tidak
+   pernah ada siklus Submit baru. Form status CorpSec lalu menganggap Submit
+   re-apply SEBELUMNYA sebagai yang aktif dan menimpa Obtained-nya.
+
+   Bentuk data (disimpan di amplop rev_note, kunci `_reapplyRequests`):
+     co.reapplyRequests = [{
+       id, products:[{product, mt}], confirmedTargets:[{product, mt, status}],
+       status: pending|confirmed|rejected, note,
+       requestedBy, requestedDate, confirmedBy, confirmedDate,
+       submitDate  — tanggal Submit MOI Perubahan, diisi CorpSec
+       cycleType   — "Submit #N" yang lahir dari permintaan ini (TAUTAN-nya)
+     }]
+   Konfirmasi per produk memakai mesin yang sama dengan New Submission
+   (nsTargetState + rrSyncReqStatus).
+   ═══════════════════════════════════════════════════════════════════════ */
+function raRequests(co) {
+  return (co && Array.isArray(co.reapplyRequests)) ? co.reapplyRequests : [];
+}
+function raFind(co, id) {
+  return raRequests(co).find(r => r && String(r.id) === String(id)) || null;
+}
+/* Nama pelaku untuk jejak "Requested by / Confirmed by": nama login bila ada
+   (disuntikkan iqdash/index.php), selalu disertai perannya. */
+function scActorName() {
+  const nama = (typeof window !== 'undefined' && window.SC_USER_NAME) ? String(window.SC_USER_NAME) : '';
+  const peran = currentRole || '';
+  return nama ? (peran ? `${nama} (${peran})` : nama) : (peran || 'Sales');
+}
+/* 14/09/2026 — bentuk tanggal siklus di sheet. */
+function raTodayDmy() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+/* Submit #3 adalah Re-Apply #2. */
+function raOrdinal(tipe) {
+  const m = String(tipe || '').match(/#\s*(\d+)/);
+  return m ? Math.max(1, +m[1] - 1) : 1;
+}
+function raWaitingText(tipe) {
+  const k = raOrdinal(tipe);
+  return `Menunggu PERTEK Perubahan${k > 1 ? ' #' + k : ''} Terbit`;
+}
+function raCycleType(co, req) {
+  if (req && req.cycleType) return req.cycleType;
+  let maks = 0;
+  (co.cycles || []).forEach(c => {
+    const m = String((c && c.type) || '').match(/^submit\s*#?\s*(\d+)/i);
+    if (m) maks = Math.max(maks, +m[1]);
+  });
+  return `Submit #${Math.max(2, maks + 1)}`;
+}
+function raCycleOf(co, req) {
+  if (!req || !req.cycleType) return null;
+  const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return (co.cycles || []).find(c => norm(c.type) === norm(req.cycleType)) || null;
+}
+/* PERTEK Perubahan siklusnya sudah terbit → permintaan dikunci. Siklus yang
+   sudah membawa tanggal terbit tidak boleh dibangun ulang dari permintaan. */
+function raPertekTerbit(c) {
+  const v = String((c && (c.pertekDate || c.releaseDate)) || '').trim();
+  return !!v && !/^tba$/i.test(v);
+}
+/* Status tampilan satu permintaan — dipakai panel CorpSec DAN notifikasi. */
+function raStatusInfo(co, req) {
+  if (!req) return { key: 'none', text: '—' };
+  if (req.status === 'rejected') return { key: 'rejected', text: '✕ Ditolak CorpSec' };
+  if (req.status !== 'confirmed') return { key: 'pending', text: '⏳ Menunggu konfirmasi CorpSec' };
+  const cy = raCycleOf(co, req);
+  if (cy && raPertekTerbit(cy))
+    return { key: 'terbit', text: `✅ Confirmed · ${cy.type} · PERTEK terbit ${cy.pertekDate || cy.releaseDate}` };
+  return { key: 'process', text: `✅ Confirmed / In Process · ${req.cycleType || '—'} · ${raWaitingText(req.cycleType)}` };
+}
+
+function raRebuildFromConfirmed(co, req) {
+  if (!co || !req) return;
+  if (!co.cycles) co.cycles = [];
+  const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const tipe = raCycleType(co, req);
+  const idx  = co.cycles.findIndex(c => norm(c.type) === norm(tipe));
+  const lama = idx >= 0 ? co.cycles[idx] : null;
+  /* Siklus milik permintaan lain (atau data lama) dengan nomor yang sama TIDAK
+     disentuh — hanya siklus yang sudah ditautkan ke permintaan INI. */
+  if (lama && !req.cycleType) {
+    delete req.cycleType;
+    return;
+  }
+  if (lama && raPertekTerbit(lama)) return;         // sudah terbit — kunci
+
+  const st  = nsTargetState(req);
+  const oke = st.filter(s => s.status === 'confirmed' && Number(s.mt) > 0);
+  if (!oke.length) {                                 // semua ditolak
+    if (idx >= 0) co.cycles.splice(idx, 1);
+    delete req.cycleType;
+    return;
+  }
+  const kanon   = p => canonicalProduct(String(p || '').trim());
+  const total   = oke.reduce((a, s) => a + (Number(s.mt) || 0), 0);
+  const prodObj = {};
+  oke.forEach(s => { const p = kanon(s.product); if (p) prodObj[p] = (prodObj[p] || 0) + (Number(s.mt) || 0); });
+  const tgl = req.submitDate || req.confirmedDate || raTodayDmy();
+  const k   = raOrdinal(tipe);
+
+  const cy = Object.assign(lama || {}, {
+    type:        tipe,
+    mt:          total,
+    products:    prodObj,
+    submitType:  `Submit MOI Perubahan (Re-Apply #${k})`,
+    submitDate:  tgl,
+    releaseType: `PERTEK Perubahan${k > 1 ? ' #' + k : ''}`,
+    releaseDate: 'TBA',
+    pertekDate:  '',
+    spiDate:     '',
+    status:      `${raWaitingText(tipe)} · Re-Apply #${k} dikonfirmasi ${req.confirmedBy || 'CorpSec'}`
+                 + `${req.confirmedDate ? ' · ' + req.confirmedDate : ''}`,
+    _fromRevReq: false,
+  });
+  if (!lama) co.cycles.push(cy);
+  req.cycleType = tipe;
+
+  co.products = [...new Set([...(co.products || []).map(kanon), ...Object.keys(prodObj)])].filter(Boolean);
+  co.revType       = 'active';
+  co.revStatus     = 'Submit';
+  co.revSubmitDate = tgl;
+  co.statusUpdate  = `Submit MOI Perubahan (Re-Apply #${k}) at ${tgl} — ${raWaitingText(tipe)}`;
+  co.submit1 = canonicalSubmitted(co);
+}
+
+function _raReadMt(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const raw = String(el.value || '').replace(/,/g, '').trim();
+  if (raw === '') return null;
+  const v = parseFloat(raw);
+  return isNaN(v) ? null : v;
+}
+
+/* CorpSec: konfirmasi SATU produk (ti) atau seluruhnya (ti null). */
+function raConfirm(code, id, ti) {
+  const co  = getSPI(code) || (typeof PENDING !== 'undefined' && PENDING.find(p => p.code === code));
+  const req = co && raFind(co, id);
+  if (!req) return;
+  const tglEl = document.getElementById('raconf-date-' + id);
+  const tgl   = tglEl ? String(tglEl.value || '').trim() : '';
+  if (!tgl && !req.submitDate) {
+    if (tglEl) { tglEl.style.borderColor = 'var(--red2)'; tglEl.focus(); }
+    alert('Isi Tanggal Submit MOI Perubahan (DD/MM/YYYY) dulu — tanggal ini menjadi tanggal submit siklus Re-Apply.');
+    return;
+  }
+  if (tgl) {
+    if (typeof pDate === 'function' && !pDate(tgl)) { alert('Tanggal tidak terbaca. Pakai format DD/MM/YYYY.'); return; }
+    req.submitDate = tgl;
+  }
+  const st  = nsTargetState(req);
+  const idx = (ti == null) ? null : Number(ti);
+  (idx == null ? st.map((_, n) => n) : [idx]).forEach(n => {
+    if (!st[n]) return;
+    const v = _raReadMt(`raconf-mt-${id}-${n}`);
+    st[n].mt     = v != null ? v : (st[n].mt != null ? st[n].mt : st[n].requested);
+    st[n].status = 'confirmed';
+  });
+  req.confirmedDate = todayStd();
+  req.confirmedBy   = scActorName();
+  rrSyncReqStatus(req, null, st);
+  raRebuildFromConfirmed(co, req);
+  nsAfterDecision(co);
+}
+
+function raBatal(code, id, ti) {
+  const co  = getSPI(code) || (typeof PENDING !== 'undefined' && PENDING.find(p => p.code === code));
+  const req = co && raFind(co, id);
+  if (!req) return;
+  const cy = raCycleOf(co, req);
+  if (cy && raPertekTerbit(cy)) { alert(`${cy.type} sudah ber-PERTEK — permintaan ini tidak bisa dibatalkan lagi.`); return; }
+  const st  = nsTargetState(req);
+  const idx = (ti == null) ? null : Number(ti);
+  (idx == null ? st.map((_, n) => n) : [idx]).forEach(n => { if (st[n]) st[n].status = 'rejected'; });
+  req.confirmedDate = todayStd();
+  req.confirmedBy   = scActorName();
+  rrSyncReqStatus(req, null, st);
+  raRebuildFromConfirmed(co, req);
+  nsAfterDecision(co);
+}
+
+/* Panel CorpSec untuk seluruh permintaan Re-Apply company ini. */
+function raPanelHtml(co) {
+  const daftar = raRequests(co).slice().reverse();          // terbaru di atas
+  if (!daftar.length) return '';
+  const code = co.code;
+  const bolehKonfirmasi = currentRole && (ROLE_PERMISSIONS[currentRole] || []).includes('corpsecRevConfirm');
+  const lencana = st => st === 'confirmed'
+    ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">✅ Dikonfirmasi</span>`
+    : st === 'rejected'
+    ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--red-bg);color:var(--red2);border:1px solid var(--red-bd)">✕ Ditolak</span>`
+    : `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)">⏳ Menunggu</span>`;
+
+  return daftar.map(req => {
+    const id   = String(req.id);
+    const st   = nsTargetState(req);
+    const info = raStatusInfo(co, req);
+    const cy   = raCycleOf(co, req);
+    const kunci = !!(cy && raPertekTerbit(cy));
+    const aksiAktif = bolehKonfirmasi && !kunci;
+    const tot  = st.reduce((a, s) => a + (Number(s.requested) || 0), 0);
+    const tipe = raCycleType(co, req);
+    const baris = st.map((s, ti) => {
+      const nilai = s.mt != null ? Number(s.mt).toLocaleString(MT_LOCALE) : '';
+      const minta = s.requested != null ? Number(s.requested).toLocaleString(MT_LOCALE) + ' MT' : '—';
+      const aksi = aksiAktif
+        ? `<div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
+             <input type="text" inputmode="numeric" class="pmt-mt-inp" id="raconf-mt-${id}-${ti}" value="${nilai}"
+               placeholder="Qty (MT)" oninput="fmtThousandInline(this)"
+               style="width:90px;font-size:11.5px;padding:3px 7px;border:1px solid var(--border2);border-radius:5px;text-align:right">
+             <button onclick="raConfirm('${code}','${id}',${ti})" title="Konfirmasi produk ini"
+               style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;border:none;cursor:pointer;background:var(--green);color:#fff">✓</button>
+             <button onclick="raBatal('${code}','${id}',${ti})" title="Tolak produk ini"
+               style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;border:1px solid var(--red-bd);cursor:pointer;background:var(--red-bg);color:var(--red2)">✕</button>
+           </div>`
+        : lencana(s.status);
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 10px"><div class="pmt-prod-chip"><div class="pmt-prod-dot" style="background:${prodDot(s.product)}"></div>
+          <span style="font-weight:700">${prodLabel(s.product)}</span></div></td>
+        <td style="padding:8px 10px;text-align:right"><span style="font-weight:700;color:var(--amber);font-family:'DM Mono',monospace">${minta}</span></td>
+        <td style="padding:8px 10px">${lencana(s.status)}</td>
+        <td style="padding:8px 10px">${aksi}</td>
+      </tr>`;
+    }).join('');
+    const tglVal = req.submitDate || '';
+    return `<div class="ra-req-panel" style="margin-bottom:12px;padding:12px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px">
+      <div style="font-size:11px;font-weight:700;color:#5b21b6;margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        📨 Re-Apply Request — ${tipe} (Re-Apply #${raOrdinal(tipe)})
+        <span style="font-size:9.5px;font-weight:600;padding:1px 6px;background:#7c3aed;color:#fff;border-radius:3px">${tot.toLocaleString(MT_LOCALE)} MT diminta</span>
+        <span style="font-size:9.5px;font-weight:600;color:#5b21b6">${info.text}</span>
+        ${!bolehKonfirmasi ? '<span style="font-size:9.5px;color:var(--txt3)">🔒 CorpSec / Super Admin only</span>' : ''}
+      </div>
+      <div style="font-size:10px;color:var(--txt3);margin-bottom:8px">
+        Diajukan ${req.requestedBy || 'Sales'}${req.requestedDate ? ' · ' + req.requestedDate : ''}
+        ${req.confirmedBy && req.status !== 'pending' ? ` · diputus ${req.confirmedBy}${req.confirmedDate ? ' · ' + req.confirmedDate : ''}` : ''}
+        ${req.note ? ` · 💬 <em>${req.note}</em>` : ''}
+      </div>
+      ${aksiAktif ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <span class="fl" style="margin:0">Tanggal Submit MOI Perubahan <span style="color:var(--red2)">*</span></span>
+        <input class="fi" id="raconf-date-${id}" type="text" placeholder="DD/MM/YYYY" value="${tglVal}" style="max-width:130px">
+        ${st.length > 1 ? `<button onclick="raConfirm('${code}','${id}',null)" style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px;border:none;cursor:pointer;background:var(--green);color:#fff">✓ Konfirmasi semua</button>` : ''}
+      </div>` : (tglVal ? `<div style="font-size:10px;color:var(--txt3);margin-bottom:8px">Submit MOI Perubahan: <strong>${tglVal}</strong></div>` : '')}
+      <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid var(--border)">
+        <thead><tr style="background:var(--bg2)">
+          <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Produk</th>
+          <th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3);width:110px">Qty Diminta</th>
+          <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3);width:110px">Status</th>
+          <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--txt3)">Aksi CorpSec</th>
+        </tr></thead>
+        <tbody>${baris}</tbody>
+      </table>
+      <div style="margin-top:8px;font-size:10px;color:var(--txt3)">
+        Konfirmasi membuat siklus <strong>${tipe}</strong> berisi HANYA produk di atas — MT-nya langsung masuk Total Submitted,
+        dan tampil di PERTEK &amp; SPI sebagai <strong>${raWaitingText(tipe)}</strong> sampai PERTEK Perubahan terbit.
+      </div>
+    </div>`;
+  }).join('');
+}
+
 /* "WELDED STAINLESS STEEL PIPE 325 MT + FABRICATED STEEL PAINTED FRAME 75 MT"
    — every target of a gated PERTEK Perubahan split, in one line. Falls back to
    the flat to/mt pair when the payload carries no `targets` list. */
@@ -721,6 +1039,9 @@ function buildRevMgmtSection(co) {
     </div>`;
   }
 
+  // ── 2a'. Re-Apply Request panel — tiap permintaan = satu siklus Submit baru
+  html += raPanelHtml(co);
+
   // ── 2b. Sales Revision Request panel (CorpSec read + confirm) ───────────
   const salesRevReq = co.salesRevRequest || {};
   /* SATU BARIS PER PRODUK, bukan per ejaan.
@@ -890,7 +1211,7 @@ function buildRevMgmtSection(co) {
         <span class="tti" data-tip="Input qty konfirmasi (pre-filled dari request Sales), lalu klik Konfirmasi atau Batal per produk. Hasil tersimpan saat klik Save &amp; Refresh.">i</span>
       </div>
     </div>`;
-  } else if (!nsReq) {
+  } else if (!nsReq && !raRequests(co).length) {
     html += `<div style="margin-bottom:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:10.5px;color:var(--txt3)">
       📋 <em>Belum ada Revision Request dari Sales.</em> CorpSec tidak dapat input revision sampai Sales mengajukan request.
     </div>`;
@@ -1131,6 +1452,16 @@ function buildRevMgmtSection(co) {
       });
       prodList = [...perProduk.entries()].map(([prod, mt]) => ({ prod, mt: mt > 0 ? mt : null }));
     }
+    /* Pengajuan yang sedang berjalan adalah RE-APPLY (Submit #N, N ≥ 2)? Maka
+       produknya adalah produk siklus itu — persis yang dipilih Sales dan
+       dikonfirmasi CorpSec, tidak lebih. Produk dari permintaan revisi lama
+       tidak boleh ikut terbawa (EMS: re-apply GL ALLOY 3.000; GI ALLOY tidak
+       diminta dan tidak boleh muncul). */
+    if (activeCycle && /^submit\s*#/i.test(activeCycle.type || '')
+        && Object.keys(activeCycle.products || {}).length) {
+      prodList = Object.entries(activeCycle.products)
+        .map(([p, m]) => ({ prod: prodLabel(p), mt: Number(m) > 0 ? Number(m) : null }));
+    }
     // Fallback to revTo if salesRevRequest empty
     if (!prodList.length && co.revTo && co.revTo.length) {
       /* Digabung dengan aturan yang sama seperti Product Change di atas:
@@ -1184,7 +1515,10 @@ function buildRevMgmtSection(co) {
     };
     const obt2SPI   = co.spiNo || '';
     const obt2SpiDate = obt2Cy ? _dateOr(obt2Cy.spiDate, obt2Cy.releaseDate) : '';
-    const obt2PERTEK= (co.cycles||[]).find(c => /^(submit\s*#2|revision\s*#)/i.test(c.type));
+    /* Tanggal PERTEK dibaca dari pengajuan yang SEDANG berjalan — dulu selalu
+       Submit #2, sehingga re-apply ketiga menampilkan (dan menyimpan ulang)
+       tanggal PERTEK milik re-apply kedua. */
+    const obt2PERTEK= activeCycle || (co.cycles||[]).find(c => /^(submit\s*#2|revision\s*#)/i.test(c.type));
     const pertekVal = co.pertekNo || '';
     const pertekDateVal = obt2PERTEK
       ? _dateOr(obt2PERTEK.pertekDate, obt2PERTEK.releaseDate)
@@ -1199,16 +1533,21 @@ function buildRevMgmtSection(co) {
         const existRaw = obt2Prods[prodName];
         const existParsed = parseFloat(String(existRaw).replace(/,/g,''));
         const revToMT = (t.mt != null && !isNaN(Number(t.mt)) && Number(t.mt) > 0) ? Number(t.mt) : null;
-        const existNum = (!isNaN(existParsed) && existParsed > 0)
-          ? existParsed
-          : revToMT;
+        /* HANYA angka Obtained yang sudah tercatat. MT PERMINTAAN tidak lagi
+           dijadikan isian awal: form ini menulis ke siklus Obtained, dan isian
+           awal 3.000 MT (permintaan) yang ikut tersimpan lewat Save Status
+           Update adalah cara Obtained LCP/EMS/BBB/SJH tertimpa. Obtained adalah
+           angka yang TERBIT di PERTEK/SPI, bukan angka yang diminta — jadi
+           permintaan cukup ditampilkan sebagai petunjuk. */
+        const existNum = (!isNaN(existParsed) && existParsed > 0) ? existParsed : null;
         const existVal = existNum != null ? existNum.toLocaleString(MT_LOCALE) : '';
+        const hint = revToMT != null ? `diminta ${revToMT.toLocaleString(MT_LOCALE)}` : 'e.g. 2,200';
         const dotColor = (typeof prodDot === 'function') ? prodDot(prodName) : '#94a3b8';
         const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:${dotColor};margin-right:5px;vertical-align:middle;flex-shrink:0"></span>`;
         return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div style="flex:1;font-size:11px;font-weight:600;color:var(--txt);display:flex;align-items:center">${dot}${prodName}</div>
           <input type="text" inputmode="decimal" class="fi rr-obt-prod-inp" data-prod="${prodName}"
-            value="${existVal}" placeholder="e.g. 2,200"
+            value="${existVal}" placeholder="${hint}"
             oninput="fmtThousandInline(this);rrUpdateObtTotal()"
             style="width:120px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:700">
         </div>`;
@@ -1218,9 +1557,7 @@ function buildRevMgmtSection(co) {
         const prodName = t.prod || t.product || '';
         const raw = obt2Prods[prodName];
         const parsed = parseFloat(String(raw).replace(/,/g,''));
-        const revToMT2 = (t.mt != null && !isNaN(Number(t.mt)) && Number(t.mt) > 0) ? Number(t.mt) : 0;
-        const v = (!isNaN(parsed) && parsed > 0) ? parsed : revToMT2;
-        return s + v;
+        return s + ((!isNaN(parsed) && parsed > 0) ? parsed : 0);   // sama dengan isian di atas
       }, 0);
       const initTotalDisp = initTotal > 0 ? initTotal.toLocaleString(MT_LOCALE) + ' MT' : '—';
 
@@ -1597,12 +1934,17 @@ function rrSaveStatus(code) {
   // Update / create the Obtained #2 cycle with new MT values
   const dateStr = new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'2-digit'});
   // Sasaran mengikuti pengajuan yang berjalan — lihat rrObtainedTypeFor().
-  const obt2Cy = rrFindOrCreateObtained(co);
-  if (obtTotal > 0) { obt2Cy.mt = obtTotal; co.revMT = obtTotal; }
-  if (Object.keys(obtByProd).length) obt2Cy.products = obtByProd;
-  // Number → co.spiNo (set above); DATE → the cycle's date columns. See
-  // rrApplyObtained() for why releaseDate must never hold the document No.
-  if (spiDate)  { obt2Cy.spiDate = spiDate; obt2Cy.releaseDate = spiDate; }
+  /* Siklus Obtained HANYA disentuh kalau form memang membawa angka atau
+     tanggal SPI. Menyimpan tahap persetujuan saja tidak boleh melahirkan
+     siklus Obtained kosong, apalagi menulis MT ke siklus yang sudah ada. */
+  if (obtTotal > 0 || Object.keys(obtByProd).length || spiDate) {
+    const obt2Cy = rrFindOrCreateObtained(co);
+    if (obtTotal > 0) { obt2Cy.mt = obtTotal; co.revMT = obtTotal; }
+    if (Object.keys(obtByProd).length) obt2Cy.products = obtByProd;
+    // Number → co.spiNo (set above); DATE → the cycle's date columns. See
+    // rrApplyObtained() for why releaseDate must never hold the document No.
+    if (spiDate)  { obt2Cy.spiDate = spiDate; obt2Cy.releaseDate = spiDate; }
+  }
 
   // Update active Submit #2 / Revision cycle with PERTEK no + date
   const activeCy = rrGetActiveCycle(co);
@@ -1791,6 +2133,15 @@ function saveEdit() {
         + '(' + missingDates.map(m => `${prodLabel(m.prod)} Lot ${m.idx + 1}`).join(', ') + ').\n\n'
         + 'Isi ETA JKT (atau PIB Date) dulu — tanpa tanggal, MT tersebut tidak akan '
         + 'muncul di filter periode manapun.');
+      return;
+    }
+  }
+
+  // ── Re-Apply guard: produk wajib dipilih, tidak pernah ditebak ─────
+  if (can('salesRevReq') && typeof reapplyFormIssues === 'function') {
+    const masalah = reapplyFormIssues();
+    if (masalah.length) {
+      alert('Form Re-Apply belum lengkap — produk wajib dipilih untuk setiap baris:\n\n• ' + masalah.join('\n• '));
       return;
     }
   }

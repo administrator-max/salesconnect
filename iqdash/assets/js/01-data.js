@@ -274,7 +274,20 @@ async function loadData() {
           co.newSubmission = env._newSubmission;
           delete env._newSubmission;
         }
+        /* Permintaan Re-Apply (model 21-Sep-2026) — daftar, bukan per produk
+           asal. Lihat blok RE-APPLY REQUEST di 13-rev-mgmt.js. */
+        if (Array.isArray(env._reapplyRequests)) {
+          co.reapplyRequests = env._reapplyRequests;
+          delete env._reapplyRequests;
+        }
       }
+      (co.reapplyRequests || []).forEach(r => {
+        if (!r) return;
+        ['products', 'confirmedTargets'].forEach(f => {
+          if (Array.isArray(r[f])) r[f] = r[f].map(x =>
+            x ? Object.assign({}, x, { product: canonicalProduct(String(x.product || '').trim()) }) : x);
+        });
+      });
       const ns = co.newSubmission;
       if (ns && Array.isArray(ns.products)) {
         ns.products = ns.products.map(x =>
@@ -988,6 +1001,12 @@ function pendingReapplyCycles(co) {
     .filter(t => t != null);
   return cy.filter(c => {
     if (!/^revision request/i.test(String(c.type || ''))) return false;
+    /* Sudah ditautkan ke siklus Submit-nya sendiri ("→ Submit #3"). Tautan
+       eksplisit ini yang menjadi pagar double count — syarat tanggal (d) di
+       bawah tidak cukup, karena tanggal Submit MOI ke kementerian bisa LEBIH
+       TUA dari tanggal CorpSec mengonfirmasi di dashboard (AADC: submit
+       14/09/2026, dikonfirmasi 21-Sep-26). */
+    if (/→\s*Submit\s*#\d/i.test(String(c.status || ''))) return false;
     if (Object.values(c.products || {}).some(m => (Number(m) || 0) < 0)) return false;
     const konf = pertama(c.releaseDate, c.submitDate);
     if (konf == null) return false;
@@ -1041,6 +1060,10 @@ function adaReapplyBerjalan(co) {
     v && v.requested && /re-?apply/i.test(String(v.revisionType || ''))
       && !/^(confirmed|rejected)$/i.test(String(v.status || '')));
   if (menunggu) return true;
+  /* Permintaan Re-Apply model baru yang belum diputus CorpSec. Yang sudah
+     dikonfirmasi tidak perlu ditangani di sini: ia sudah menjadi siklus
+     Submit #N, dan outstandingStage() membacanya dari siklus itu. */
+  if (((co && co.reapplyRequests) || []).some(r => r && r.status === 'pending')) return true;
   return (typeof pendingReapplyCyclesForSubmitted === 'function')
     && pendingReapplyCyclesForSubmitted(co).length > 0;
 }
