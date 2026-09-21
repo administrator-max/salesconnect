@@ -1362,7 +1362,10 @@ function buildRevMgmtSection(co) {
   if (cat === 'revision' || cat === 'submit2' || cat === 'complete_pending') {
     const stageVal  = co.revStatus || '';
     const dateVal   = co.revSubmitDate || '';
-    const noteVal   = co.revNote || '';
+    /* Field REMARKS menulis co.statusUpdate — yang tampil di kolom Remarks tabel
+       PERTEK & SPI — jadi isian awalnya juga dari situ: yang dilihat di form =
+       yang tampil di tabel. (Dulu berlabel "Status Note" dan diisi dari revNote.) */
+    const noteVal   = co.statusUpdate || co.revNote || '';
 
     // Product change summary from revFrom/revTo
     let changeHtml = '';
@@ -1635,7 +1638,7 @@ function buildRevMgmtSection(co) {
       </div>
       <div class="rr-form-row full">
         <div>
-          <div class="fl">Status Note <span class="tti" data-tip="Internal — ditampilkan di Revision table">i</span></div>
+          <div class="fl">REMARKS <span class="tti" data-tip="Tampil di kolom REMARKS tabel PERTEK &amp; SPI (sama dengan field Status Update di atas)">i</span></div>
           <input class="fi" id="rrStatusNote" type="text" placeholder="e.g. Update 06/03/26 — Awaiting ministry sign-off" value="${noteVal.replace(/"/g,'&quot;')}">
         </div>
       </div>
@@ -1782,9 +1785,29 @@ function rrReadObtainedFromForm(co) {
 }
 
 /* ── Apply obtained MT values directly to Obtained #2 cycle ── */
+/* Obtained BELUM BOLEH dicatat: pengajuan yang berjalan belum ber-PERTEK, dan
+   form pun tidak membawa tanggal PERTEK Terbit. Obtained adalah angka yang
+   TERBIT di PERTEK/SPI — sebelum itu tidak ada angka yang sah untuk diisi.
+   Tanpa pagar ini MT permintaan (AADC 2.850) bisa tersimpan sebagai Obtained,
+   lalu otomatis terhitung begitu tanggal PERTEK diisi belakangan. */
+function rrObtainedBelumBoleh(co) {
+  const act = rrGetActiveCycle(co);
+  if (!act) return false;
+  const tgl = String(act.pertekDate || act.releaseDate || "").trim();
+  if (tgl && !/^tba$/i.test(tgl)) return false;
+  const formPk = String(((g("rrRevPertekDate") || {}).value) || "").trim();
+  return !formPk;
+}
+const RR_PESAN_BELUM_PERTEK = "PERTEK Perubahan belum terbit — Obtained MT belum boleh diisi.\n\n"
+  + "Isi Obtained setelah PERTEK terbit (sekalian isi PERTEK Terbit Date). "
+  + "Approval Stage dan Remarks tetap bisa disimpan dengan Save Status Update.";
+
 function rrApplyObtained(code) {
   const co = getSPI(code); if (!co) return;
   const { total: obtTotal, byProd: obtByProd } = rrReadObtainedFromForm(co);
+  if ((obtTotal > 0 || Object.keys(obtByProd).length) && rrObtainedBelumBoleh(co)) {
+    alert(RR_PESAN_BELUM_PERTEK); return;
+  }
 
   if (obtTotal <= 0 && !Object.keys(obtByProd).length) {
     alert('Isi Obtained MT terlebih dahulu sebelum menerapkan.'); return;
@@ -1924,7 +1947,7 @@ function rrSaveStatus(code) {
   if (date)      co.revSubmitDate = date;
   if (note) {
     co.revNote     = note;
-    // Sync to statusUpdate so it shows in PERTEK & SPI main table "STATUS UPDATE" column
+    // Field REMARKS → kolom Remarks tabel PERTEK & SPI (co.statusUpdate)
     co.statusUpdate = note;
   }
   if (pertekNo)  co.pertekNo  = pertekNo;
@@ -1937,7 +1960,10 @@ function rrSaveStatus(code) {
   /* Siklus Obtained HANYA disentuh kalau form memang membawa angka atau
      tanggal SPI. Menyimpan tahap persetujuan saja tidak boleh melahirkan
      siklus Obtained kosong, apalagi menulis MT ke siklus yang sudah ada. */
-  if (obtTotal > 0 || Object.keys(obtByProd).length || spiDate) {
+  const _tolakObt = (obtTotal > 0 || Object.keys(obtByProd).length) && rrObtainedBelumBoleh(co);
+  if (_tolakObt) alert(RR_PESAN_BELUM_PERTEK.replace("Approval Stage dan Remarks tetap bisa disimpan dengan Save Status Update.",
+    "Approval Stage dan Remarks TETAP disimpan; Obtained MT tidak."));
+  if (!_tolakObt && (obtTotal > 0 || Object.keys(obtByProd).length || spiDate)) {
     const obt2Cy = rrFindOrCreateObtained(co);
     if (obtTotal > 0) { obt2Cy.mt = obtTotal; co.revMT = obtTotal; }
     if (Object.keys(obtByProd).length) obt2Cy.products = obtByProd;
