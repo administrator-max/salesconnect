@@ -382,6 +382,96 @@ function iq_realizations_delete(GoogleSheets $gs, string $sid, $id): bool {
     });
 }
 
+/**
+ * PUT/PATCH /api/realizations/:id — edit ONE stored realization row.
+ *
+ * There was no update path at all before this: Ops could import, add and
+ * delete, so a typo in `description` (Uraian Barang) or a customs revision
+ * of the HS code could only be fixed by deleting the row and re-importing
+ * the whole workbook. That is a destructive round-trip for a text edit,
+ * and it loses the row's id.
+ *
+ * WHOLE-ROW WRITE — the reason this merges instead of patching:
+ * GoogleSheets::updateAssoc() rewrites the ENTIRE sheet row from $assoc,
+ * filling every header it does not find with ''. Handing it just the
+ * changed keys would blank company_code, volume, created_at and the rest.
+ * So the stored row is read first and the patch is merged ON TOP of it.
+ *
+ * `id`, `company_code`, `created_at` and `source_program` are NOT editable
+ * — they are identity, not content. `updated_at` is always refreshed.
+ * Every changed field is logged individually so the edit is traceable the
+ * same way an insert or a delete is.
+ *
+ * Returns the merged row (without `_row`), or null when no row has that id.
+ */
+function iq_realizations_update(GoogleSheets $gs, string $sid, $id, array $patch, string $changedBy = ''): ?array {
+    return iq_with_lock(function () use ($gs, $sid, $id, $patch, $changedBy) {
+        $row = find_by_id($gs, $sid, 'realizations', $id);
+        if ($row === null) return null;
+
+        $sheetRow = $row['_row'];
+        $lama     = $row;
+        unset($lama['_row']);
+
+        // camelCase (what the frontend speaks) → sheet column. Identity
+        // columns are deliberately absent from this map.
+        static $PETA = [
+            'product'         => 'product',
+            'lineNo'          => 'line_no',
+            'description'     => 'description',
+            'hsCode'          => 'hs_code',
+            'volume'          => 'volume',
+            'unit'            => 'unit',
+            'valueUSD'        => 'value_usd',
+            'unitPrice'       => 'unit_price',
+            'kurs'            => 'kurs',
+            'countryOrigin'   => 'country_origin',
+            'portDestination' => 'port_destination',
+            'portLoading'     => 'port_loading',
+            'lsNo'            => 'ls_no',
+            'lsDate'          => 'ls_date',
+            'pibNo'           => 'pib_no',
+            'pibDate'         => 'pib_date',
+            'invoiceNo'       => 'invoice_no',
+            'invoiceDate'     => 'invoice_date',
+            'pengajuanNo'     => 'pengajuan_no',
+            'pengajuanDate'   => 'pengajuan_date',
+        ];
+        static $ANGKA = ['line_no', 'volume', 'value_usd', 'unit_price', 'kurs'];
+
+        $baru    = $lama;
+        $berubah = [];
+        foreach ($patch as $k => $v) {
+            $col = $PETA[$k] ?? (in_array($k, $PETA, true) ? $k : null);
+            if ($col === null) continue; // unknown or identity field — ignored
+            $nilai = in_array($col, $ANGKA, true)
+                ? iq_realization_num($v)
+                : (string) ($v ?? '');
+            if ((string) ($lama[$col] ?? '') === (string) ($nilai ?? '')) continue;
+            $baru[$col] = $nilai;
+            $berubah[$col] = [(string) ($lama[$col] ?? ''), (string) ($nilai ?? '')];
+        }
+
+        if (!$berubah) return $lama; // nothing actually changed — no write
+
+        $baru['updated_at'] = iq_iso_now();
+        $gs->updateAssoc($sid, 'realizations', $sheetRow, $baru);
+
+        foreach ($berubah as $col => [$dari, $ke]) {
+            iq_log_change($gs, $sid, [
+                'sheet'      => 'realizations',
+                'record_id'  => (string) $id,
+                'field'      => $col,
+                'old_value'  => $dari,
+                'new_value'  => $ke,
+                'changed_by' => $changedBy !== '' ? $changedBy : 'api',
+                'note'       => 'realization edit',
+            ]);
+        }
+        return $baru;
+    });
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
  * Task 12 — PATCH /api/company/:code: patchCompanySheets, server.js:1385-
  * 1548 (+ the util-recompute mirror of recomputeUtilizationFromLots,

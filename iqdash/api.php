@@ -14,7 +14,7 @@
  *   realizations                                 GET (?company_code=), POST (bulk)
  *   realizations/summary                         GET
  *   realizations/single                          POST
- *   realizations/:id                             DELETE
+ *   realizations/:id                             PUT / PATCH, DELETE
  *   insights[/:q]                                GET
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
@@ -447,6 +447,26 @@ try {
                 $ids = iq_realizations_insert($gs, $SID, $companyCode, [$row], $defaults);
                 @unlink(iq_payload_memo_file()); // realized volume changed — invalidate the /api/data memo
                 json_out(['ok' => true, 'id' => $ids[0] ?? null]);
+            }
+
+            // PUT|PATCH /api/realizations/:id — edit one stored row.
+            // Body: { ...fields to change, editedBy }. Only the fields sent
+            // are touched; everything else on the row is preserved (see
+            // iq_realizations_update's whole-row-write note). Used by the
+            // Realization Import → Existing Records tab so a wrong Uraian
+            // Barang / HS code can be corrected without deleting the row
+            // and re-uploading the whole workbook.
+            if (($method === 'PUT' || $method === 'PATCH') && isset($parts[1])) {
+                $idNum = (int) $parts[1];
+                if (!$idNum) json_out(['error' => 'invalid id'], 400);
+                $b = json_body();
+                $editedBy = isset($b['editedBy']) ? (string) $b['editedBy'] : '';
+                unset($b['editedBy'], $b['id'], $b['companyCode'], $b['company_code']);
+                if (!is_array($b) || !count($b)) json_out(['error' => 'no fields to update'], 400);
+                $updated = iq_realizations_update($gs, $SID, $idNum, $b, $editedBy);
+                if ($updated === null) json_out(['error' => 'not found'], 404);
+                @unlink(iq_payload_memo_file()); // the row changed — invalidate the /api/data memo
+                json_out(['ok' => true, 'realization' => $updated]);
             }
 
             // DELETE /api/realizations/:id — remove a row.
