@@ -1567,11 +1567,11 @@ function buildRevMgmtSection(co) {
       obtainedHtml = `<div style="margin-bottom:12px;padding:10px;background:var(--teal-bg);border:1px solid var(--teal-bd);border-radius:7px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div class="fl" style="color:var(--teal);margin-bottom:0">Obtained MT — Per Produk
-            <span class="tti" data-tip="Isi Obtained MT yang resmi diterbitkan dalam PERTEK/SPI revision ini. Pre-filled dari revisi request — edit sesuai dokumen resmi.">i</span>
+            <span class="tti" data-tip="Isi MT TAMBAHAN yang terbit di siklus ini — bukan total kumulatif. Contoh: sudah punya 1.400 MT, PERTEK Perubahan menaikkan jadi 1.700 MT → isi 300, bukan 1.700. Pre-filled dari revisi request; edit sesuai dokumen resmi.">i</span>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
             <button onclick="rrApplyObtained('${code}')"
-              title="Simpan nilai Obtained #2 ke cycle (belum dihitung sebagai kuota baru)"
+              title="Simpan MT tambahan siklus ini ke cycle history (belum dihitung sebagai kuota baru)"
               style="font-size:10.5px;font-weight:700;padding:4px 12px;border-radius:5px;border:none;
                 background:var(--teal);color:#fff;cursor:pointer;transition:background .13s;white-space:nowrap"
               onmouseover="this.style.background='#0a6670'" onmouseout="this.style.background='var(--teal)'">
@@ -1871,18 +1871,38 @@ async function rrRecordObtainedTerbit(code) {
   let terbit = ((g('rrRevSpiDate') || {}).value || '').trim();
   if (!terbit) terbit = (prompt('Tanggal SPI terbit untuk Obtained ini (DD/MM/YYYY):') || '').trim();
   if (!terbit) return;
+
+  /* Siklus sasaran diturunkan dari pengajuan yang SEDANG berjalan — sama
+     seperti rrApplyObtained(). Dulu baris ini mematok "Obtained #2" apa pun
+     keadaannya, jadi pencatatan re-apply KETIGA menimpa catatan re-apply
+     KEDUA. Itu bug CGK yang sudah diperbaiki di rrApplyObtained() (lihat
+     rrObtainedTypeFor()) tapi terlewat di sini — padahal justru tombol INI
+     yang menulis ke server dan mengubah Total Obtained.
+
+     Contoh yang akan kena: KJK punya Obtained #1 950 + Obtained #2 450
+     (total 1.400) dan sekarang menjalankan Submit #3. Mencatat +300 MT lewat
+     tombol ini akan menimpa Obtained #2, dan record-obtained menetralkan
+     kontribusi lamanya dulu — 1.400 bukan naik jadi 1.700, tapi turun jadi
+     1.250, dan catatan 450 MT-nya hilang. */
+  const cycleType = (typeof rrObtainedTypeFor === 'function')
+    ? rrObtainedTypeFor(co)
+    : 'Obtained #2';
+
   if (!confirm(`Catat sebagai Obtained TERBIT (kuota baru) — ${code}\n` +
+      `Siklus: ${cycleType}\n` +
       prods.map(([p, m]) => `• ${p}: ${Number(m).toLocaleString(MT_LOCALE)} MT`).join('\n') +
-      `\nTerbit: ${terbit}\n\nAkan masuk ke Total Obtained (overview) + Available.`)) return;
+      `\nTerbit: ${terbit}\n\n` +
+      `Isi MT TAMBAHAN yang terbit di siklus ini, BUKAN total kumulatif — ` +
+      `angka ini ditambahkan ke Total Obtained & Available.`)) return;
   try {
     for (const [product, mt] of prods) {
       const res = await fetch(`api/company/${encodeURIComponent(code)}/record-obtained`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cycleType: 'Obtained #2', product, mt: Number(mt), terbitDate: terbit, updatedBy: co.updatedBy || '', quotaYear: QUOTA_YEAR }),
+        body: JSON.stringify({ cycleType, product, mt: Number(mt), terbitDate: terbit, updatedBy: co.updatedBy || '', quotaYear: QUOTA_YEAR }),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || ('HTTP ' + res.status)); }
     }
-    if (typeof nsShowToast === 'function') nsShowToast(`✓ ${code} — Obtained terbit dicatat · Total Obtained & Available diperbarui`);
+    if (typeof nsShowToast === 'function') nsShowToast(`✓ ${code} — ${cycleType} terbit dicatat · Total Obtained & Available diperbarui`);
     if (typeof loadData === 'function') await loadData();
     const co2 = getSPI(code) || co;
     if (typeof buildRevMgmtSection === 'function') buildRevMgmtSection(co2);
