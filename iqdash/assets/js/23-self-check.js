@@ -147,6 +147,78 @@ const _SC_PERIKSA = [
     return beda.slice(0, 6).join(' · ');
   }],
 
+  ['Lot Sales yang diisi ikut terhitung', () => {
+    /* Pagar obtained di iq_sync_util_with_cycles() membuang lot yang akan
+       melampaui kuota produknya. Pagarnya benar — memakai lebih banyak dari
+       yang didapat mustahil — tapi selama ini ia membuang TANPA JEJAK: Sales
+       mengisi, menyimpan, angkanya tidak berubah, dan tidak ada satu pun
+       petunjuk kenapa.
+
+       Dilaporkan Sales 29-Sep-2026 untuk AMP / SUJU: "udah gw isi di utilisasi
+       2x tapi ilang mulu". Dua lot GL ALLOY (64 MT @ 08-Sep, 100 MT @ 29-Sep)
+       memang tersimpan rapi di company_shipments — yang hilang cuma
+       tampilannya, karena atap GL ALLOY terbaca 400 MT (dari stats) padahal
+       Obtained #1 + #2 sudah 1.000 MT (di cycles).
+
+       Dua sebab yang mungkin, dan keduanya perlu terlihat:
+         · stats tertinggal dari cycles  -> atapnya salah, harus dibetulkan;
+         · kuota produk itu memang sudah habis -> lot menunggu PERTEK
+           Perubahan, dan Sales berhak tahu itu alasannya.
+       Pemeriksa ini tidak membedakan keduanya; ia cuma menolak membiarkan MT
+       yang sudah diketik menghilang tanpa kabar. */
+    const kan = (p) => (typeof canonicalProduct === 'function' ? canonicalProduct(p) : p);
+    const hari = (s) => { const t = Date.parse(String(s || '').replace(/\s+/g, ' ').trim()); return isNaN(t) ? null : t; };
+    const beda = [];
+
+    [].concat(SPI || [], PENDING || []).forEach(co => {
+      // total baris master per produk kanonik
+      const master = {};
+      (co.utilCycles || []).forEach(u => {
+        const c = kan(u.product || '');
+        master[c] = (master[c] || 0) + (Number(u.mt) || 0);
+      });
+      // utilisasi yang akhirnya tampil, per produk kanonik
+      const tampil = {};
+      Object.keys(co.utilizationByProd || {}).forEach(p => {
+        const c = kan(p);
+        tampil[c] = (tampil[c] || 0) + (Number(co.utilizationByProd[p]) || 0);
+      });
+
+      Object.keys(co.shipments || {}).forEach(prod => {
+        const c = kan(prod);
+        const lots = (co.shipments[prod] || [])
+          .map(l => ({ mt: Number(l.utilMT) || 0, h: hari(l.utilDate) }))
+          .filter(l => l.mt > 0 && l.h !== null);
+        if (!lots.length) return;
+
+        const sumLot = lots.reduce((s, l) => s + l.mt, 0);
+        const mst = master[c] || 0;
+
+        /* Awalan lot yang PAS sama dengan total master adalah rincian baris
+           master itu sendiri, bukan pemakaian baru — aturan agregat yang sama
+           dengan sisi server (kasus IKM GI ALLOY). Tanpa ini IKM akan selalu
+           dilaporkan sebagai temuan palsu. */
+        let terliput = 0;
+        if (mst > 0 && lots.length === (co.shipments[prod] || []).length) {
+          const urut = lots.slice().sort((a, b) => a.h - b.h);
+          let akum = 0;
+          for (const x of urut) {
+            akum += x.mt;
+            if (Math.abs(akum - mst) <= 0.001) { terliput = akum; break; }
+          }
+        }
+
+        const baru   = sumLot - terliput;
+        const masuk  = Math.max(0, (tampil[c] || 0) - mst);
+        const buang  = baru - masuk;
+        if (buang > 0.001) {
+          beda.push(`${typeof coLabel === 'function' ? coLabel(co.code) : co.code}/${c} ${Math.round(buang)} MT`);
+        }
+      });
+    });
+    return beda.length ? beda.slice(0, 6).join(' · ') + ' tidak terhitung' : '';
+  }],
+
   ['Tidak ada company kembar', () => {
     const n = {};
     [].concat(SPI || [], PENDING || []).forEach(c => { n[c.code] = (n[c.code] || 0) + 1; });
