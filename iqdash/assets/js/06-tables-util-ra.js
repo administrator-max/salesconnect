@@ -75,10 +75,34 @@ function raPerCompany(pool) {
       ? raTotals(code, ws)
       : { berat: ws.reduce((s, r) => s + (Number(r.berat) || 0), 0), arrived: ws.some(r => r.cargoArrived) };
     const dasar = ws[ws.length - 1];
-    const obt   = Number(dasar.obtained) || 0;
+    /* Pembaginya obtained KANONIK milik company, bukan `dasar.obtained`.
+       `dasar` itu gelombang TERAKHIR, dan obtained-nya bisa cuma milik satu
+       produk — jadi berat GABUNGAN dibagi kuota SEPOTONG.
+
+       SGD kena persis begitu (29-Sep-2026): dua gelombang, SHEET PILE 2.000 +
+       GI ALLOY 500 = 2.500 obtained, tapi gelombang terakhir membawa 2.000.
+       Realisasi 2.287,546 terbaca 114,4% (2.287,546 / 2.000) alih-alih 91,5%,
+       dan Remaining Balance mencetak "✓ Fully Realized" padahal masih ada
+       212,454 MT. Persen di atas 100% itu sendiri sudah mustahil.
+
+       Cacatnya lama, cuma tidak terlihat: sebelum 14 baris TOTAL workbook
+       dihapus, realisasi SGD terbaca 2.578,994 — 103,2% bahkan dengan pembagi
+       yang benar, jadi badge "Fully Realized" tetap menyala dan tidak ada yang
+       ganjil di layar. Begitu angkanya benar, pembaginya yang salah muncul.
+
+       Ini penerapan aturan "kartu punya pasangan kanonik": ukuran resmi
+       obtained per company adalah canonicalObtained(), dan tabel yang
+       menghitung pembaginya sendiri akan selalu meleset. AMP tidak berubah —
+       canonicalObtained(AMP) = 1.000, sama dengan yang dipakai sebelumnya. */
+    const co    = (typeof getSPI === 'function' ? getSPI(code) : null)
+               || (typeof PENDING !== 'undefined' ? PENDING.find(c => c.code === code) : null);
+    const obtKanon = (co && typeof canonicalObtained === 'function')
+      ? (Number(canonicalObtained(co)) || 0) : 0;
+    const obt   = obtKanon || Number(dasar.obtained) || 0;
     return Object.assign({}, dasar, {
       berat:        t.berat,
       cargoArrived: t.arrived,
+      obtained:     obt,
       realPct:      obt > 0 ? t.berat / obt : (dasar.realPct || 0),
       _gelombang:   ws.length,
     });
@@ -125,10 +149,26 @@ function renderUtilTable() {
      harus dipisah — kalau tidak, cadangan utilMT dan aturan 'arrived' ikut
      berubah di All Time, jauh melampaui yang diukur. */
   const periodeAktif = (typeof PERIOD !== 'undefined' && PERIOD.active);
-
   // ── Build flat per-product rows from RA + SPI data ────────────────────────────
   function buildFlatRows(d) {
-    const co  = getSPI(d.code);
+    /* SPI **dan** PENDING. getSPI() hanya menggeledah SPI, jadi company
+       bersection PENDING memulangkan null — dan seluruh baris di bawah ini
+       jatuh ke cadangannya: ubp {} kosong, obtByProd {} kosong, prods kosong.
+       Akibatnya `utilMT` memakai cabang `periodeAktif ? 0 : d.berat`, sehingga
+       utilisasinya tampil UTUH saat All Time tapi NOL begitu periode mana pun
+       dinyalakan.
+
+       SNSD kena persis begitu (ketahuan 29-Sep-2026 dari selisih Σ kolom
+       UTILIZED vs kartunya): GI ALLOY 120 MT @ 24-Sep-2026 terbaca 120 di
+       kartu — kartu memakai scopedUtilTotal() yang membaca company-nya
+       langsung — tapi barisnya tertulis "Waiting · —" di setiap periode, dan
+       Σ kolom meleset 120 MT dari kartunya di Sep 2026, Q3, dan YTD.
+
+       Pola yang sama sudah dipakai di blok kolam realisasi beberapa puluh
+       baris di bawah; yang ini terlewat. */
+    const co  = getSPI(d.code)
+             || (typeof PENDING !== 'undefined' ? PENDING.find(c => c.code === d.code) : null)
+             || null;
     const ubp = co ? scopedUtilByProd(co) : {};   // period-aware (rule #3): util sliced by lot date
     const rbp = co ? (co.realizationByProd  || {}) : {};
     const ebp = co ? (co.etaByProd          || {}) : {};

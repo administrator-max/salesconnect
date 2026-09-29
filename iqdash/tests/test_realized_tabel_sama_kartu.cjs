@@ -295,14 +295,33 @@ console.log('\nF · All Time memakai sumber yang sama dengan kartunya');
   ok(induk.length === 34,
      'jumlah baris All Time 34 PT (33 + SNSD)',
      'dapat ' + induk.length);
-  /* Arah yang menahan: SNSD harus benar-benar ADA, dan sebagai Waiting —
-     bukan terhitung sebagai realisasi atau utilisasi yang tidak pernah terjadi. */
+  /* Arah yang menahan: SNSD harus benar-benar ADA, dan angkanya harus angka
+     yang memang terukur untuk dia — bukan utilisasi/realisasi yang tidak
+     pernah terjadi.
+
+     Semula dipatok `util === 0 && real === 0`, karena saat uji ini dibuat SNSD
+     cuma memegang kuota yang menunggu. Tim mengisi lot GI ALLOY 120 MT @
+     24-Sep-2026, jadi patokan itu basi dalam hitungan hari — persis kelas
+     kegagalan yang komentar panjang di atas sudah memperingatkan. Yang dipatok
+     sekarang HUBUNGANNYA dengan ukuran kanoniknya; utilisasi/realisasi hantu
+     tetap tertangkap, tapi uji ini tidak lagi merah tiap tim menginput.
+
+     SNSD juga yang membongkar cacat buildFlatRows() (29-Sep-2026): `getSPI()`
+     hanya menggeledah SPI, jadi company bersection PENDING memulangkan null
+     dan kolom UTILIZED-nya dipaksa 0 di SETIAP periode — Σ kolom meleset 120
+     MT dari kartunya di Sep 2026, Q3 dan YTD sekaligus. */
   {
     const s = induk.find(r => r.code === 'SNSD');
     ok(!!s, 'SNSD ada di tabel Realization Monitoring', 'tidak ketemu');
-    ok(s && s.util === 0 && s.real === 0,
-       'SNSD tercatat nol utilisasi dan nol realisasi — hanya kuota yang menunggu',
-       s ? ('util ' + s.util + ', real ' + s.real) : '-');
+    const co = '[].concat(SPI, PENDING).find(function(c){return c.code === "SNSD";})';
+    const utilKanon = Number(call('scopedUtilTotal(' + co + ') || 0')) || 0;
+    const realKanon = Number(call('(realizedByCompany() || {})["SNSD"] || 0')) || 0;
+    ok(s && dekat(s.util, utilKanon, 0.01),
+       'UTILIZED SNSD = scopedUtilTotal() — bukan 0 yang dipaksa karena section PENDING',
+       s ? ('baris ' + s.util + ' vs kanonik ' + utilKanon) : '-');
+    ok(s && dekat(s.real, realKanon, 0.01),
+       'REALIZED SNSD = realizedByCompany() — tidak mengarang realisasi',
+       s ? ('baris ' + s.real + ' vs kanonik ' + realKanon) : '-');
   }
 }
 console.log('\nG · Tidak ada company yang muncul dua kali');
@@ -342,9 +361,21 @@ console.log('\nH · Gelombang kedatangan tidak lagi menggandakan barisnya');
   const cari = c => induk.find(r => r.code === c) || {};
   const rbc = JSON.parse(call('JSON.stringify(realizedByCompany())'));
 
-  ok(cari('SGD').util === 2500 && cari('AMP').util === 800,
-     'UTILIZED All Time tidak lagi dobel: SGD 2.500, AMP 800',
-     'SGD ' + cari('SGD').util + ', AMP ' + cari('AMP').util);
+  /* Dulu dipatok mutlak (SGD 2.500, AMP 800). AMP naik ke 964 pada 29-Sep-2026
+     — sah: lot Sales 64 + 100 MT akhirnya ikut terhitung sesudah atap obtained
+     GL ALLOY di quotaLedger.json dibetulkan 400 -> 600. Patokan mutlak itu
+     langsung merah tanpa ada yang rusak, jadi diganti HUBUNGANNYA: baris tabel
+     harus sama dengan scopedUtilTotal() milik company yang sama. Gelombang
+     kembar dulu membuat SGD terbaca 5.000 dan AMP 1.600 — meleset dua kali
+     lipat dari ukuran kanoniknya, dan itu tetap tertangkap di sini. */
+  {
+    const kanon = c => Number(call('scopedUtilTotal([].concat(SPI, PENDING)'
+      + '.find(function(x){return x.code === "' + c + '";})) || 0')) || 0;
+    const salah = ['SGD', 'AMP'].filter(c => !dekat(cari(c).util, kanon(c), 0.01));
+    ok(!salah.length,
+       'UTILIZED All Time = scopedUtilTotal(), tidak dobel (SGD dulu 5.000, AMP dulu 1.600)',
+       salah.map(c => c + ' baris ' + cari(c).util + ' vs kanonik ' + kanon(c)).join('; '));
+  }
   ok(cari('SGD').obtained === 2500 && cari('AMP').obtained === 1000,
      'OBTAINED All Time tidak lagi dobel: SGD 2.500, AMP 1.000',
      'SGD ' + cari('SGD').obtained + ', AMP ' + cari('AMP').obtained);
@@ -565,9 +596,24 @@ PERIODE_RA.forEach(([nama, f, t, mode]) => {
   ok(amp[0] && /Eligible/i.test(amp[0].status),
      'AMP kini ✅ Eligible — 79,9% dari 1.000 MT (dulu dicap ✗ <60%)',
      amp[0] ? amp[0].status : '-');
-  ok(sgd[0] && dekat(sgd[0].sisa, 3.902, 0.05),
-     'SGD sisa 3,902 — bukan 2.003,902 yang dulu terhitung dua kali',
-     sgd[0] ? String(sgd[0].sisa) : '-');
+  /* Dulu dipatok 3,902 MT. Angka itu bergerak ke 212,454 pada 29-Sep-2026
+     karena baris TOTAL workbook yang terlanjur terimpor sebagai line item
+     dihapus (14 baris, 3.102,647 MT realisasi hantu) — realisasi SGD turun
+     dari 2.578,994 ke 2.287,546, dan 2.578,994 itu sendiri MUSTAHIL sebab
+     kuotanya cuma 2.500.
+
+     Yang dijaga assertion ini sejak awal bukan angkanya melainkan bahwa sisa
+     tidak dihitung dari SATU gelombang saja: dulu 2.003,902 = 2.500 − 496,098,
+     padahal dua gelombang SGD berjumlah 1.996,098. Jadi yang dipatok sekarang
+     hubungannya ke realisasi kanonik. */
+  {
+    const realKanon = Number(call('(realizedByCompany() || {})["SGD"] || 0')) || 0;
+    const obtKanon  = Number(call('canonicalObtained([].concat(SPI, PENDING)'
+      + '.find(function(x){return x.code === "SGD";})) || 0')) || 0;
+    ok(sgd[0] && dekat(sgd[0].sisa, obtKanon - realKanon, 0.05),
+       'SGD sisa = obtained − realisasi SELURUH gelombang (dulu 2.003,902 dari satu gelombang)',
+       sgd[0] ? (sgd[0].sisa + ' vs ' + (obtKanon - realKanon).toFixed(3)) : '-');
+  }
 }
 {
   /* Kolom realisasi baris anak dulu mencetak angka UTILISASI kalau
