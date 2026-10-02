@@ -18,7 +18,8 @@
   "7306.30.91": "ERW PIPE (OD ≤ 140 mm)",
   "7306.30.99": "ERW PIPE (OD > 140mm)",
   "7306.40.90": "WELDED STAINLESS STEEL PIPE",
-  "7326.90.99": "FABRICATED STEEL PAINTED FRAME"
+  "7326.90.99": "FABRICATED STEEL PAINTED FRAME",
+  "7210.61.11": "GL CARBON"
  },
  "companies": {
   "EMS": {
@@ -271,15 +272,27 @@
   },
   "IKM": {
    "7225.92.90": {
-    "obtained": 4150,
+    "obtained": 4650,
     "util": 2300
    },
-   "7301.10.00": {
-    "obtained": 1750,
+   "7225.99.90": {
+    "obtained": 1855,
+    "util": 0
+   },
+   "7210.70.13": {
+    "obtained": 600,
+    "util": 0
+   },
+   "7225.50.90": {
+    "obtained": 500,
+    "util": 0
+   },
+   "7210.61.11": {
+    "obtained": 120,
     "util": 0
    },
    "7304.19.00": {
-    "obtained": 2100,
+    "obtained": 275,
     "util": 0
    }
   }

@@ -112,6 +112,46 @@ const _SC_PERIKSA = [
     return beda.slice(0, 6).join(' · ');
   }],
 
+  ['Susunan produk revisi pengganti sudah masuk ledger', () => {
+    /* Pemeriksaan di atas hanya membandingkan TOTAL. Revisi yang mengganti
+       seluruh susunan produk (HS) lolos darinya, karena totalnya tetap sama.
+       IKM 02-Okt-2026: PERTEK Perubahan Rev.1/IX/2026 mengganti GI 4.150 +
+       Sheet Pile 1.750 + Seamless 2.100 menjadi enam produk/HS baru (GI 4.650,
+       GL 1.855, PPGL 600, CRC 500, GL Carbon 120, Seamless 275), tapi
+       quotaLedger.json — sumber angka per produk — masih menyimpan tiga HS
+       lama. Total 8.000 cocok; tim yang menemukannya dari Excel.
+
+       Yang diperiksa: siklus Obtained hasil revisi (_fromRevReq) TERBARU yang
+       totalnya = seluruh obtained company (pengganti penuh, bukan tambahan
+       re-apply), dan PERTEK Perubahan-nya sudah terbit — siklusnya lolos
+       gerbang terbit, atau nomor PERTEK company sudah ber-"Rev.N". Revisi
+       yang masih berproses sengaja tidak dilaporkan: aturan master no. 3,
+       PERTEK original tetap berlaku sampai PERTEK Perubahan terbit. */
+    const K = p => (typeof canonicalProduct === 'function' ? canonicalProduct(p) : p);
+    const peta = obj => { const o = {}; Object.entries(obj || {}).forEach(([p, v]) => {
+      const n = Number(v) || 0; if (n > 0.5) o[K(p)] = (o[K(p)] || 0) + n; }); return o; };
+    const noSiklus = t => { const m = String(t || '').match(/#\s*(\d+)/); return m ? +m[1] : 0; };
+    const beda = [];
+    [].concat(SPI || [], PENDING || []).forEach(co => {
+      const cy = co.cycles || [];
+      const rev = cy.filter(c => /^obtained\s*#\d/i.test(c.type || '') && c._fromRevReq && (Number(c.mt) || 0) > 0)
+        .sort((a, b) => noSiklus(b.type) - noSiklus(a.type))[0];
+      if (!rev) return;
+      const baru = peta(rev.products);
+      const total = Object.values(baru).reduce((s, v) => s + v, 0);
+      const can = Number(canonicalObtained(co)) || 0;
+      if (Math.abs(total - can) > 0.5 || Math.abs((Number(rev.mt) || 0) - can) > 0.5) return;
+      const terbit = _isObtainedTerbit(rev, cy) || /Rev\.?\s*\d/i.test(String(co.pertekNo || ''));
+      if (!terbit) return;
+      const ledger = peta(getObtainedByProdAgg(co));
+      const kunci = [...new Set([...Object.keys(baru), ...Object.keys(ledger)])];
+      const selisih = kunci.filter(p => Math.abs((baru[p] || 0) - (ledger[p] || 0)) > 0.5);
+      if (selisih.length) beda.push(co.code + ' (' + rev.type + '): ' + selisih.map(p =>
+        p + ' ledger ' + Math.round(ledger[p] || 0) + ' vs revisi ' + Math.round(baru[p] || 0)).join(', '));
+    });
+    return beda.join(' · ');
+  }],
+
   ['Submitted per produk = Submitted per company', () => {
     /* Pasangan dari pemeriksaan Obtained di atas, dan sama perlunya.
        Ditemukan 14-Sep-2026 dari tangkapan layar All Companies: AMP / SUJU

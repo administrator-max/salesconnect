@@ -99,7 +99,13 @@ console.log('\nB · Lot Sales dibaca apa adanya');
   ok(lot.every(r => r.utilDate) && lot.every(r => r.etaJKT),
     'tiap lot membawa Utilization Date dan ETA JKT-nya sendiri',
     lot.map(r => `${r.utilMT}@${r.utilDate || '-'}/${r.etaJKT || '-'}`).join(', '));
-  ok(lot[0].obtained === 4150, 'kolom Obtained = obtained produk itu (4.150)', String(lot[0].obtained));
+  /* Hubungan, bukan angka: dulu dipaku 4.150 dan pecah 02-Okt-2026 ketika
+     PERTEK Perubahan Rev.1 IKM menaikkan GI ALLOY menjadi 4.650. */
+  const obtGI = Number(call(`(() => { const c = [...SPI, ...PENDING].find(x => x.code === 'IKM');
+    const m = getObtainedByProdAgg(c) || {}; const k = Object.keys(m).find(p => canonicalProduct(p) === 'GI ALLOY');
+    return k ? m[k] : 0; })()`));
+  ok(obtGI > 0 && lot.every(r => Math.abs(r.obtained - obtGI) < 0.001),
+    `kolom Obtained = obtained produk itu menurut getObtainedByProdAgg (${obtGI})`, String(lot[0].obtained));
 
   /* Urut menurut tanggal pemakaian — bukan urutan penyimpanan. */
   const tgl = lot.map(r => r.utilDate);
