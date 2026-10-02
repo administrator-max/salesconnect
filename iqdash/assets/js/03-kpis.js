@@ -432,9 +432,26 @@ function refreshRealizedDrill() {
      5 company terhadap kartu 2.275,372 / 9 (audit 2026-08-14).
 
      Sekarang barisnya diringkas PER PERUSAHAAN dari baris PIB yang sama, jadi
-     Σ baris drill = angka kartu, selalu. `ra_records` tetap dipakai untuk
-     obtained — lewat raTotals(), karena ia satu baris per gelombang. */
+     Σ baris drill = angka kartu, selalu.
+
+     OBTAINED per company = canonicalObtained(), pasangan kanonik kartu
+     SPI/PERTEK Obtained. Dulu dibaca dari getRA(code).obtained — baris
+     ra_records gelombang TERAKHIR, yang hanya memuat obtained gelombang itu
+     dan tidak ikut diperbarui saat Obtained #2/#3 terbit. Diukur 02-Okt-2026:
+     BDG 350 (resmi 1.000), BBB 400 (800), GNG 250 (600), KJK 950 (1.700),
+     EMS 1.600 (2.600) — Real. % sampai 230%, tile Obtained 22.980 MT.
+     Sengaja KUMULATIF (tidak diiris periode), sama seperti Available: kuota
+     adalah stock, dan barang yang tiba di jendela ini bisa memakai kuota yang
+     terbit sebelum jendela. */
   const periodLabel = PERIOD.active ? PERIOD.label : 'All Time';
+  const _coByCode = {};
+  [...(SPI || []), ...(PENDING || [])].forEach(c => { if (c && c.code && !_coByCode[c.code]) _coByCode[c.code] = c; });
+  const obtainedOf = code => {
+    const co = _coByCode[code];
+    if (co && typeof canonicalObtained === 'function') return Number(canonicalObtained(co)) || 0;
+    const ra = (typeof getRA === 'function') ? getRA(code) : null;
+    return Number(ra && ra.obtained) || 0;
+  };
   const _hs2prod = (() => {
     const m = {};
     if (typeof PROD_HS_CODES !== 'undefined')
@@ -461,8 +478,7 @@ function refreshRealizedDrill() {
     });
     rows = Object.values(per).map(e => {
       const t = (typeof raTotals === 'function') ? raTotals(e.code) : null;
-      const ra = (typeof getRA === 'function') ? getRA(e.code) : null;
-      const obtained = Number(ra && ra.obtained) || 0;
+      const obtained = obtainedOf(e.code);
       return {
         code: e.code,
         product: [...e.prods].map(p => (typeof prodLabel === 'function' ? prodLabel(p) : p)).join(' + ') || '—',
@@ -479,7 +495,7 @@ function refreshRealizedDrill() {
       || inPd(r.arrivalDate ? raDate(r.arrivalDate) : null))).map(r => r.code))];
     rows = kode.map(c => {
       const t = raTotals(c), ra = getRA(c);
-      const obtained = Number(ra && ra.obtained) || 0;
+      const obtained = obtainedOf(c);
       return { code: c, product: ra ? ra.product : '—',
                arrivalDate: ra && ra.arrivalDate ? raDate(ra.arrivalDate) : null,
                berat: t.berat, obtained, realPct: obtained > 0 ? t.berat / obtained : 0,
