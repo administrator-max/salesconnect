@@ -40,10 +40,35 @@ function toggleUtilCo(code) {
    Monitoring (#raBody) membagi realisasi yang SAMA ke produk yang sama. Menyalin
    fungsinya ke sana akan membuat dua pembagi yang bisa menyimpang diam-diam —
    persis pola yang sedang dibereskan di berkas ini. */
-function splitRealPd(total, prods, rbp, obtByProd) {
+function splitRealPd(total, prods, rbp, obtByProd, pibByProd) {
   const out = {};
   if (!prods.length) return out;
   if (!(total > 0)) { prods.forEach(p => { out[p] = 0; }); return out; }
+
+  /* Angka PIB per produk (realizedByCompanyProd) didahulukan — itu yang
+     benar-benar tercatat di dokumen pabean, bukan taksiran. Hanya SISANYA
+     (baris PIB yang produknya tak dikenali, atau produk yang tidak ada di
+     daftar baris tabel) yang dibagi dengan porsi lama di bawah, supaya
+     Σ baris tetap persis = total. BTS: Bordes 241,419 -> 188,993. */
+  if (pibByProd && Object.keys(pibByProd).length) {
+    const K = p => (typeof canonicalProduct === 'function' ? canonicalProduct(p) : p);
+    let dipakai = 0;
+    prods.forEach(p => {
+      const v = Math.round((Number(pibByProd[K(p)]) || 0) * 1e6) / 1e6;
+      out[p] = v; dipakai += v;
+    });
+    const sisa = Math.round((total - dipakai) * 1e6) / 1e6;
+    if (Math.abs(sisa) <= 1e-6) return out;
+    if (sisa > 0) {
+      const tambahan = splitRealPd(sisa, prods, rbp, obtByProd);
+      prods.forEach(p => { out[p] = Math.round((out[p] + (tambahan[p] || 0)) * 1e6) / 1e6; });
+      return out;
+    }
+    /* sisa < 0 tidak semestinya terjadi (kolam & gerbang sama); kalau terjadi,
+       jangan cetak angka PIB yang melampaui total — pakai cara lama. */
+    prods.forEach(p => { delete out[p]; });
+  }
+
   let basis = prods.map(p => Math.max(0, (rbp && rbp[p]) || 0));
   let sum   = basis.reduce((a, b) => a + b, 0);
   if (sum <= 0) {
@@ -144,6 +169,8 @@ function renderUtilTable() {
      sesudahnya Σ kolom REALIZED = kartu Realized persis (19.591,834). */
   const realPd = (typeof realizedByCompany === 'function') ? realizedByCompany() : null;
   const realPdOf = code => (realPd ? (realPd[String(code).toUpperCase()] || 0) : null);
+  /* Realisasi per produk dari baris PIB — gerbang yang sama dengan realPd. */
+  const realPdProd = (typeof realizedByCompanyProd === 'function') ? realizedByCompanyProd() : {};
   /* Tiga perilaku di bawah HANYA berlaku saat periode aktif, dan dulu ikut
      menumpang bendera realPd. Sejak realPd menyala juga di All Time, keduanya
      harus dipisah — kalau tidak, cadangan utilMT dan aturan 'arrived' ikut
@@ -180,7 +207,8 @@ function renderUtilTable() {
        produk; periode mati → jalur lama (realizationByProd / ra.berat). */
     const pdReal   = realPdOf(d.code);
     const pdSplit  = realPd
-      ? splitRealPd(pdReal, prods.length ? prods : [prods[0] || d.product], rbp, obtByProd)
+      ? splitRealPd(pdReal, prods.length ? prods : [prods[0] || d.product], rbp, obtByProd,
+                    realPdProd[String(d.code).toUpperCase()])
       : null;
 
     // Single-product: one row
@@ -571,6 +599,8 @@ function renderRATable() {
     ? _asOfPeriod(null, null, () => realizedByCompany())
     : (realPd || {});
   const realSeumurOf = code => (realSeumur[String(code).toUpperCase()] || 0);
+  const realSeumurProd = (typeof _asOfPeriod === 'function' && typeof realizedByCompanyProd === 'function')
+    ? _asOfPeriod(null, null, () => realizedByCompanyProd()) : {};
 
   /* realPct diseragamkan ke definisi realisasi yang sama — isEligible() membaca
      properti ini, jadi kalau ia tetap dari `ra.berat` sementara kolomnya dari
@@ -734,7 +764,8 @@ function renderRATable() {
     </tr>`;
 
     // ── ↳ Sub-rows: one per product for ALL companies ──────────────────
-    const pecahReal = splitRealPd(realMT, prodKeys, rbpParent, obtByProd);
+    const pecahReal = splitRealPd(realMT, prodKeys, rbpParent, obtByProd,
+                                  realSeumurProd[String(d.code).toUpperCase()]);
     prodKeys.forEach(prod => {
       const prodObt    = obtByProd[prod] || 0;
       /* scopedUtilByProd(), bukan `utilizationByProd` mentah — kolom ini dulu
@@ -776,16 +807,24 @@ function renderRATable() {
          Akibatnya Σ baris anak tidak pernah sama dengan baris induknya: CGK
          menjumlah 1.270 (utilisasinya) di bawah induk yang menunjuk 983,188.
          Cadangan utilisasi tetap ada, tapi hanya ketika realisasinya memang
-         belum ada. */
+         belum ada.
+
+         Sejak realisasi per produk dibaca dari baris PIB (05-Okt-2026), produk
+         yang memang belum direalisasikan bernilai NOL sungguhan — dulu taksiran
+         porsi obtained selalu memberinya angka. Cadangan ini lalu menyala dan
+         mencetak utilisasi SEBAGAI ANGKA di kolom realisasi (BTS AS Steel 195),
+         sehingga Σ baris anak melampaui induknya. Utilisasinya tetap disebut,
+         tapi di tooltip; angka yang terlihat di kolom ini hanya "—", supaya
+         satu-satunya angka di sel realisasi memang angka realisasi. */
       const subRealMTCell = prodRealMT > 0
         ? `<div>
              <span style='font-size:11.5px;font-weight:600;color:${realColor(prodRealPct)}'>${prodRealMT.toLocaleString(MT_LOCALE)}</span>
              ${prodArrived ? `<span style='font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:#dcfce7;color:var(--green);border:1px solid #bbf7d0;margin-left:4px'>✓ Arrived</span>` : ''}
            </div>`
         : (prodUtilMT > 0
-            ? `<div>
-                 <span style='font-size:11.5px;font-weight:600;color:var(--blue)'>${prodUtilMT.toLocaleString(MT_LOCALE)}</span>
-                 <div style='font-size:9px;color:var(--txt3);font-style:italic;margin-top:1px'>Util · Real pending</div>
+            ? `<div title="Utilized ${prodUtilMT.toLocaleString(MT_LOCALE)} MT — belum ada PIB untuk produk ini">
+                 <span style='font-size:11.5px;color:var(--txt3)'>—</span>
+                 <div style='font-size:9px;color:var(--txt3);font-style:italic;margin-top:1px'>Real pending</div>
                </div>`
             : `<span style='font-size:10px;color:var(--txt3);font-style:italic'>Pending arrival</span>`);
 

@@ -1146,6 +1146,56 @@ function realizedByCompany() {
   return out;
 }
 
+/* Realisasi per PERUSAHAAN per PRODUK — dari baris PIB itu sendiri, dengan
+   kolam dan gerbang tanggal yang SAMA dengan realizedByCompany(), jadi untuk
+   tiap company Σ produk + `__tanpa` = angka realizedByCompany()-nya.
+
+   Ada karena tabel Utilization & Realization dulu MENAKSIR pembagian per
+   produk dari porsi obtained (splitRealPd), padahal setiap baris PIB sudah
+   membawa produk/HS-nya. BTS 05-Okt-2026: PIB 649867 = 188,993 MT Bordes
+   Alloy, tapi tabel menulis Bordes 241,419 dan AS Steel 241,419 (AS Steel
+   tidak pernah direalisasikan) — 900 : 900 : 1.000 : 3.200 dari obtained.
+
+   Produk tiap baris dibaca berurutan: kolom `product` → HS milik produk
+   company itu sendiri → HS di master produk. Baris yang tetap tak dikenali
+   (mis. HS kosong) masuk `__tanpa`; pemanggil membaginya dengan cara lama.
+   Kunci memakai canonicalProduct(). */
+function realizedByCompanyProd() {
+  const out = {};
+  const REAL = (typeof REALIZATIONS !== 'undefined') ? REALIZATIONS : null;
+  if (!Array.isArray(REAL) || !REAL.length) return out;
+  const K = p => (typeof canonicalProduct === 'function' ? canonicalProduct(p) : p);
+  const hsBersih = h => String(h || '').replace(/\s+/g, '');
+  const hsGlobal = {};
+  Object.entries(typeof PRODUCT_META !== 'undefined' ? PRODUCT_META : {}).forEach(([p, m]) => {
+    const h = hsBersih(m && m.hsCode); if (h && !hsGlobal[h]) hsGlobal[h] = K(p);
+  });
+  const hsCo = {};
+  const petaCo = code => {
+    if (hsCo[code]) return hsCo[code];
+    const m = {};
+    const co = [].concat(SPI || [], PENDING || []).find(c => c.code === code);
+    const obt = co && typeof getObtainedByProdAgg === 'function' ? getObtainedByProdAgg(co) : {};
+    Object.keys(obt || {}).forEach(p => {
+      const h = hsBersih(typeof prodHS === 'function' ? prodHS(p) : '');
+      if (h && h !== '—') m[h] = K(p);
+    });
+    return (hsCo[code] = m);
+  };
+  REAL.forEach(r => {
+    if (!realisasiDalamPeriode(r)) return;
+    const c = String(r.company_code || '').toUpperCase();
+    if (!c) return;
+    const v = parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0;
+    const h = hsBersih(r.hs_code);
+    const p = String(r.product || '').trim() ? K(String(r.product).trim())
+            : (h && (petaCo(c)[h] || hsGlobal[h])) || '__tanpa';
+    const e = out[c] || (out[c] = {});
+    e[p] = (e[p] || 0) + v;
+  });
+  return out;
+}
+
 /* Submitted per PERUSAHAAN, diiris periode — pasangan per-company dari
    reportSubmittedTotal(), aturan siklus yang sama (Submit #N saja, dedup per
    tipe, lewati _fromRevReq, gerbang tanggal Submit MOI). */
