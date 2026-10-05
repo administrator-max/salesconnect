@@ -432,12 +432,12 @@ function handleSearch(q) {
   filteredSPI().forEach(co => {
     const sc = (co.code.toLowerCase().startsWith(ql)?3:0)+(co.code.toLowerCase().includes(ql)?2:0)+
                (coLabel(co.code).toLowerCase().includes(ql)?2:0)+
-               (co.products.some(p=>p.toLowerCase().includes(ql))?1:0)+(co.spiRef.toLowerCase().includes(ql)?1:0);
+               (co.products.some(p=>(p+' '+(typeof prodTampil==='function'?prodTampil(p):'')).toLowerCase().includes(ql))?1:0)+(co.spiRef.toLowerCase().includes(ql)?1:0);
     if (sc > 0) results.push({type:'SPI', co, sc});
   });
   PENDING.forEach(co => {
     const sc = (co.code.toLowerCase().includes(ql)?2:0)+(coLabel(co.code).toLowerCase().includes(ql)?2:0)+
-               (co.products.some(p=>p.toLowerCase().includes(ql))?1:0);
+               (co.products.some(p=>(p+' '+(typeof prodTampil==='function'?prodTampil(p):'')).toLowerCase().includes(ql))?1:0);
     if (sc > 0) results.push({type:'PENDING', co, sc});
   });
   results.sort((a,b) => b.sc - a.sc);
@@ -452,7 +452,7 @@ function handleSearch(q) {
     const div = document.createElement('div'); div.className = 'sd-row';
     div.innerHTML = `<div class="sd-code">${coLabel(co.code)}</div>
       <div class="sd-meta">
-        <div class="sd-name">${(co.products||[]).map(prodLabel).join(' · ')} ${badge}</div>
+        <div class="sd-name">${(co.products||[]).map(p => (typeof prodTampil==='function'?prodTampil(p):prodLabel(p))).join(' · ')} ${badge}</div>
         <div class="sd-detail">${r.type==='PENDING'?co.status:(co.spiRef||'').slice(0,60)}${ra?` · Realization: ${(ra.realPct*100).toFixed(0)}%`:''}</div>
       </div>`;
     div.onclick = () => { dd.classList.remove('open'); document.getElementById('gSearch').value=''; r.type==='PENDING'?openDrawerPending(co.code):openDrawer(co.code); };
@@ -554,7 +554,7 @@ async function openRealizationDetail(code) {
               'Source':      'Operations (lot)',
             });
             lotRows += `<tr>
-              <td style="padding:6px 10px;font-size:12px">${esc(prodLabel(product))}</td>
+              <td style="padding:6px 10px;font-size:12px">${esc(typeof prodTampil === 'function' ? prodTampil(product) : prodLabel(product))}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:center">${esc(l.lotNo != null ? l.lotNo : '-')}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:right;font-family:'DM Mono',monospace;font-weight:700">${rm.toLocaleString(MT_LOCALE)}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:center">${esc(l.pibDate || '—')}</td>

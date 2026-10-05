@@ -138,7 +138,7 @@ function openUtilBreakdown(code, product) {
       const master = r.sumber === 'master';
       return `<tr style="border-top:1px solid var(--border)${master ? ';background:var(--bg2)' : ''}">
         <td style="padding:8px 14px"><span class="t-code" style="cursor:pointer" onclick="closeUtilBreakdown();openDrawer('${r.code}')">${coLabel(r.code)}</span></td>
-        <td style="padding:8px 10px"><span class="chip" style="background:#f0f9ff;color:#0369a1;font-size:10px;padding:2px 7px">${typeof prodLabel === 'function' ? prodLabel(r.product) : r.product}</span></td>
+        <td style="padding:8px 10px"><span class="chip" style="background:#f0f9ff;color:#0369a1;font-size:10px;padding:2px 7px">${typeof prodTampil === 'function' ? prodTampil(r.product) : r.product}</span></td>
         <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace">${mt(r.obtained)}</td>
         <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--green);font-weight:700">${mt(r.utilMT)}</td>
         <td style="padding:8px 10px;font-size:11px">${tgl(r.utilDate) || '<span style="color:var(--txt3)">—</span>'}</td>

@@ -476,12 +476,19 @@ function refreshRealizedDrill() {
       const d = pDate(r.pib_date);
       if (d && (!e.last || d > e.last)) e.last = d;
     });
+    /* Produk dari realizedByCompanyProd() — pemetaan HS yang sama dengan tabel
+       Utilization & Realization. _hs2prod di atas hanya kenal PROD_HS_CODES
+       lama, sehingga MIN/BHG (HS 7225.40.90, Wear Plate) tampil "—". */
+    const _prodPIB = (typeof realizedByCompanyProd === 'function') ? realizedByCompanyProd() : {};
     rows = Object.values(per).map(e => {
       const t = (typeof raTotals === 'function') ? raTotals(e.code) : null;
+      const _pk = Object.entries(_prodPIB[e.code] || {})
+        .filter(([p, v]) => p !== '__tanpa' && v > 0).sort((a, b) => b[1] - a[1]).map(([p]) => p);
+      if (_pk.length) e.prods = new Set(_pk);
       const obtained = obtainedOf(e.code);
       return {
         code: e.code,
-        product: [...e.prods].map(p => (typeof prodLabel === 'function' ? prodLabel(p) : p)).join(' + ') || '—',
+        product: [...e.prods].map(p => (typeof prodTampil === 'function' ? prodTampil(p) : p)).join(' + ') || '—',
         arrivalDate: e.last, berat: e.berat, obtained,
         realPct: obtained > 0 ? e.berat / obtained : 0,
         catatan: `${e.lines} PIB line${e.lines !== 1 ? 's' : ''}${e.pibs.size ? ' · ' + e.pibs.size + ' PIB' : ''}`,
@@ -704,7 +711,7 @@ function refreshAvqDrill() {
       : `color:var(--txt3)`;
     return `<tr style="border-bottom:1px solid var(--border);${rowBg};cursor:pointer" onclick="closeAvqDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
       <td style="padding:8px 14px;font-weight:700;color:var(--navy);${lBorder};padding-left:11px">${isFirst ? coLabel(r.code) : ''}</td>
-      <td style="padding:8px 10px;font-size:11px;color:var(--txt2)">${prodLabel(r.product)}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--txt2)">${prodTampil(r.product)}</td>
       <td style="padding:8px 10px;font-size:10.5px;font-family:'DM Mono',monospace;${hsHl}">${r.hs}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(r.obtained)}</td>
       ${r.utilMT > 0
@@ -816,7 +823,7 @@ function refreshUtilDrill() {
     return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="closeUtilDrill();setTimeout(()=>openDrawer('${r.code}'),100)">
       <td style="padding:8px 14px;font-weight:700;color:var(--navy)">${coLabel(r.code)}</td>
       <td style="padding:8px 10px;font-size:11px;font-weight:600;color:var(--txt2)">${r.group}</td>
-      <td style="padding:8px 10px;font-size:11px;color:var(--txt)">${prodLabel(r.product)}</td>
+      <td style="padding:8px 10px;font-size:11px;color:var(--txt)">${prodTampil(r.product)}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:var(--txt3)">${fmtMt(r.obtained)}</td>
       <td style="padding:8px 10px;text-align:right">
         <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
@@ -1721,7 +1728,7 @@ function refreshObtainedDrill() {
       <td style="padding:8px 8px;text-align:center;color:var(--txt3);font-family:'DM Mono',monospace;font-size:10.5px">${idx + 1}</td>
       <td style="padding:8px 12px;font-weight:700;color:var(--navy);white-space:nowrap">${isFirst ? coLabel(r.code) + groupBadge : '<span style=\"color:var(--txt3)\">' + coLabel(r.code) + '</span>'}</td>
       <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10.5px;color:var(--txt2)">${r.hs}</td>
-      <td style="padding:8px 10px;font-size:11px"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:${dot};display:inline-block"></span>${prodLabel(r.product)}</span></td>
+      <td style="padding:8px 10px;font-size:11px"><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:${dot};display:inline-block"></span>${prodTampil(r.product)}</span></td>
       <td style="padding:8px 10px;text-align:right">${buildMtCell(r.subMT, r.subBreakdown, 'var(--navy)')}</td>
       <td style="padding:8px 10px;text-align:right">${buildMtCell(r.obtMT, r.obtBreakdown, 'var(--teal)')}</td>
       <td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;color:${r.utilMT > 0 ? 'var(--blue)' : 'var(--txt3)'};font-weight:${r.utilMT > 0 ? '700' : '400'}">${r.utilMT > 0 ? fmtMt(r.utilMT) : '—'}</td>

@@ -427,7 +427,7 @@ function realizViewRow(r) {
         <td style="${mono}">${realizEsc(r.pib_no || '—')}</td>
         <td style="${td}">${realizEsc(r.line_no || 1)}</td>
         <td style="${mono}">${realizEsc(r.hs_code || '—')}</td>
-        <td style="${td};font-weight:600">${realizEsc(r.product || '—')}</td>
+        <td style="${td};font-weight:600">${realizEsc((r.product && typeof prodTampil === 'function' ? prodTampil(r.product) : r.product) || '—')}</td>
         <td style="${td};max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt2)" title="${realizEsc(r.description || '')}">${realizEsc(desc || '—')}</td>
         <td style="${mono};text-align:right">${r.volume != null ? fmtNum(Number(r.volume), { maximumFractionDigits: 3 }) : '—'}</td>
         <td style="${mono};text-align:right">${r.value_usd != null ? Number(r.value_usd).toLocaleString(MT_LOCALE) : '—'}</td>

@@ -70,6 +70,25 @@ const prodLabel = p => {
   return hit ? PRODUCT_ALIASES[hit] : s;
 };
 
+/* Nama dagang yang dipakai tim untuk produk kanonik tertentu — HANYA untuk
+   ditampilkan. Operations menyebut HS 7225.40.90 "Wear Plate" (dokumen PIB-nya
+   pun berbunyi "Wear Resistant Steel Plate"), sementara dashboard menamainya
+   BORDES ALLOY. 05-Okt-2026 Jeany mencari realisasi Wear Plate BTS 188,993 MT
+   yang ia input Jumat dan tidak menemukannya, karena kata "Wear Plate" tidak
+   ada di layar mana pun.
+
+   Sengaja fungsi terpisah, bukan perubahan prodLabel(): prodLabel dipakai juga
+   untuk MEMBANDINGKAN nama produk; menambah teks di sana akan memutus
+   pencocokan kembar ejaan (lihat ejaan-kembar). prodTampil hanya untuk sel
+   tampilan. */
+const PROD_NAMA_DAGANG = { 'BORDES ALLOY': 'Wear Plate' };
+const prodTampil = p => {
+  const l = prodLabel(p);
+  if (!l) return l;
+  const dagang = PROD_NAMA_DAGANG[canonicalProduct(l)];
+  return dagang ? `${l} (${dagang})` : l;
+};
+
 /* Daftar produk untuk DIPILIH di form (dropdown produk tujuan revisi, dll).
 
    Sumbernya MASTER PRODUK (`PRODUCT_META`, dari tabel products di DB) — bukan
