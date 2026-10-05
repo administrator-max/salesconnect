@@ -80,8 +80,15 @@ const prodLabel = p => {
    Sengaja fungsi terpisah, bukan perubahan prodLabel(): prodLabel dipakai juga
    untuk MEMBANDINGKAN nama produk; menambah teks di sana akan memutus
    pencocokan kembar ejaan (lihat ejaan-kembar). prodTampil hanya untuk sel
-   tampilan. */
-const PROD_NAMA_DAGANG = { 'BORDES ALLOY': 'Wear Plate' };
+   tampilan.
+
+   DICABUT di hari yang sama: Operations (Jeany) menegaskan Wear Plate dan
+   Bordes adalah barang BERBEDA. Penyamaan itu tebakan dari catatan lama
+   (MIN/DIOR "Wear Plate" = kuota BORDES ALLOY), bukan keputusan pemilik data.
+   Petanya dikosongkan sampai tim menetapkan nama yang benar per HS; mekanisme
+   prodTampil() dibiarkan supaya nama dagang yang SUDAH dikonfirmasi bisa
+   ditambahkan di sini tanpa menyentuh layar-layarnya lagi. */
+const PROD_NAMA_DAGANG = {};
 const prodTampil = p => {
   const l = prodLabel(p);
   if (!l) return l;

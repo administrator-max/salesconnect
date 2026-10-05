@@ -40,3 +40,17 @@ dan pencarian "wear plate" menemukan BTS, MIN, SPA.
 
 - Ekspor Excel/PDF belum memakai nama dagang (tidak diminta).
 - Nama dagang lain bisa ditambah di `PROD_NAMA_DAGANG`.
+
+## KOREKSI — label dicabut (hari yang sama)
+
+Jeany (Operations) menegaskan **Wear Plate dan Bordes adalah barang berbeda**.
+Penyamaan "BORDES ALLOY = Wear Plate" adalah tebakan dari catatan lama di kode,
+bukan keputusan pemilik data — dan label itu sempat tayang untuk BTS, MIN, SPA.
+
+`PROD_NAMA_DAGANG` dikosongkan (`01-data.js?v=37`); semua layar kembali
+menampilkan nama produk apa adanya. `prodTampil()` dan perbaikan kolom produk
+pop-up Total Realized (MIN/BHG tidak lagi "—") dipertahankan.
+
+Pertanyaan terbuka ke tim: realisasi PIB 649867 ber-HS 7225.40.90, yang di
+dashboard adalah kuota BORDES ALLOY BTS. Kalau Wear Plate punya HS/kuota
+sendiri, HS di file PIB atau master produk yang perlu diluruskan.
