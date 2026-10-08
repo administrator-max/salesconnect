@@ -64,10 +64,9 @@ function _daftarCoPasang(sel, entri, sementara) {
     o.value = x.code;
     o.textContent = x.name ? `${x.code} — ${x.name}` : x.code;
     if (x.isNew) o.dataset.isNew = '1';
-    if (x.tahunLain) {
-      o.dataset.tahunLain = '1';
-      o.textContent += ` (belum ada data ${typeof QUOTA_YEAR !== 'undefined' ? QUOTA_YEAR : ''})`;
-    }
+    /* Tanda saja, tanpa akhiran "(belum ada data 2027)" — dihapus atas
+       permintaan tim 08-Okt-2026. loadEdit() tetap memakai tandanya. */
+    if (x.tahunLain) o.dataset.tahunLain = '1';
     sel.appendChild(o);
   });
   sel.dataset.sementara = sementara ? '1' : '';

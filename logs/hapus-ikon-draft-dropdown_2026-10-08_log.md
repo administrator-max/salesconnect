@@ -19,3 +19,7 @@ dibuka kembali (toast "Draft … dipulihkan").
 
 - Pratinjau: dengan draft disimulasikan untuk HDP & GNG, label tetap tanpa ikon.
 - 51 uji `.cjs` lulus.
+
+## Tindak lanjut (hari yang sama)
+
+Akhiran "(belum ada data 2027)" pada nama company di dropdown juga dihapus; tanda `tahunLain` tetap dipakai loadEdit() (`19-init.js?v=30`).
