@@ -59,3 +59,7 @@ Konfirmasi (boleh ubah MT) / Batalkan → lahir siklus Submit bertanda 2027
 - Company yang benar-benar baru (tanpa data sama sekali) di 2027 masih lewat jalur
   New Company lama, yang mencatat Submit #1 sebagai 2026 — perlu dibereskan
   sebelum ada company baru khusus 2027.
+
+## Tindak lanjut (hari yang sama)
+
+Keterangan kuning "HDP belum punya data Quota Year 2027 …" dihapus atas permintaan tim; hanya panel Pengajuan yang tampil (`12-product-mt.js?v=10`).
