@@ -207,7 +207,9 @@ function refreshDropdownDraftBadges() {
     if (!opt.value) return;
     const baseText = opt.dataset.baseLabel || opt.textContent.replace(/^📝\s*/, '');
     opt.dataset.baseLabel = baseText;
-    opt.textContent = drafts.has(opt.value) ? `📝 ${baseText}` : baseText;
+    /* Ikon 📝 di depan nama company dihapus atas permintaan tim (08-Okt-2026).
+       Draft-nya sendiri tetap tersimpan & dipulihkan saat company dibuka. */
+    opt.textContent = baseText;
   });
 }
 
