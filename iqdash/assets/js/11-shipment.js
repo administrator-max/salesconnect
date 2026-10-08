@@ -26,6 +26,13 @@ function buildSalesOpsForm(co) {
   if (!products.length) {
     g('salesFormWrap').innerHTML = '<div class="pmt-note">No products with obtained quota found.</div>';
     g('opsFormWrap').innerHTML   = '<div class="pmt-note">No products with obtained quota found.</div>';
+    /* Dua bagian di bawah WAJIB tetap dibangun ulang. Dulu return di sini
+       melompatinya, sehingga Target Re-Apply dan Revision Request masih berisi
+       company yang dibuka SEBELUMNYA — Putri melihat "GL ALLOY 525 MT" (kuota
+       LCP 2026) di form HDP 2027, 08-Okt-2026. Tanpa obtained,
+       buildRevisionRequestTable() menampilkan formulir New Submission. */
+    buildReapplyTable(co);
+    buildRevisionRequestTable(co);
     return;
   }
 

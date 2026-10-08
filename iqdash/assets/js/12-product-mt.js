@@ -574,10 +574,48 @@ function loadEdit() {
 
   const c  = gv('editCo');
   const ef = g('editFields');
+  const pesanTahun = g('editQyNotice');
+  if (pesanTahun) pesanTahun.remove();
   if (!c) { ef.style.display = 'none'; return; }
 
   // Find record — could be in SPI or PENDING
   let co  = getSPI(c) || PENDING.find(p => p.code === c);
+
+  /* Company yang sudah ada, tapi belum punya satu pun siklus di Quota Year
+     yang sedang dipilih (HDP saat 2027 dipilih, 08-Okt-2026).
+
+     Dulu jatuh ke jalur "(New)" di bawah: stub GL BORON bertahun 2026, form
+     kosong, dan Save berujung 409. Lebih buruk lagi, bagian Target Re-Apply
+     masih memamerkan isi company sebelumnya (LCP 525 MT, kuota 2026).
+
+     Menyimpan data 2027 untuk company yang juga memegang kuota 2026 belum
+     didukung model datanya — patchToServer() sengaja menolak objek irisan
+     tahun, karena kolom Obtained/Utilization/shipments masih satu per company.
+     Sampai itu dibangun, form tidak dibuka; yang tampil penjelasannya. */
+  if (!co) {
+    const opt0 = g('editCo') && g('editCo').selectedOptions && g('editCo').selectedOptions[0];
+    const diTahunLain = (opt0 && opt0.dataset && opt0.dataset.tahunLain === '1')
+      || [...(typeof SPI_ALL !== 'undefined' ? SPI_ALL : []), ...(typeof PENDING_ALL !== 'undefined' ? PENDING_ALL : [])]
+           .some(x => x && x.code === c);
+    if (diTahunLain) {
+      ef.style.display = 'none';
+      ['salesFormWrap', 'opsFormWrap', 'reapplyProdTableWrap', 'salesRevReqWrap'].forEach(id => {
+        const w = g(id); if (w) w.innerHTML = '';
+      });
+      const tahunAda = [...new Set([...(SPI_ALL || []), ...(PENDING_ALL || [])]
+        .filter(x => x && x.code === c)
+        .flatMap(x => [...(typeof companyQuotaYears === 'function' ? companyQuotaYears(x) : [])]))].sort();
+      ef.insertAdjacentHTML('beforebegin', `
+        <div id="editQyNotice" style="margin:10px 0;padding:12px 14px;background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;font-size:11.5px;line-height:1.55;color:var(--txt)">
+          <div style="font-weight:700;color:var(--amber);margin-bottom:4px">${coLabel(c)} belum punya data Quota Year ${QUOTA_YEAR}</div>
+          Data company ini ada di Quota Year <strong>${tahunAda.join(', ') || '—'}</strong>.
+          Pengajuan ${QUOTA_YEAR} untuk company yang sudah memegang kuota tahun lain belum bisa diinput dari dashboard.
+          Untuk melihat atau mengubah data yang ada, ganti <strong>Quota Year</strong> di bagian atas ke
+          ${tahunAda.map(y => `<a href="#" onclick="setQuotaYear(${y});return false;" style="font-weight:700">${y}</a>`).join(' / ')}.
+        </div>`);
+      return;
+    }
+  }
   // If the code came from the "(New)" optgroup (company exists only in
   // company_directory but has no submission yet), create an in-memory
   // PENDING stub so the form renders normally. On save, saveEdit detects
@@ -651,6 +689,10 @@ function loadEdit() {
   } else {
     g('salesFormWrap').innerHTML = '<div class="pmt-note" style="color:var(--txt3)">No product data available.</div>';
     g('opsFormWrap').innerHTML   = '<div class="pmt-note" style="color:var(--txt3)">No product data available.</div>';
+    /* Jangan biarkan isi company sebelumnya tertinggal di dua bagian ini. */
+    ['reapplyProdTableWrap', 'salesRevReqWrap'].forEach(id => {
+      const w = g(id); if (w) w.innerHTML = '<div class="pmt-note" style="color:var(--txt3)">No product data available.</div>';
+    });
     const rmb = g('revMgmtBody'); if (rmb) rmb.innerHTML = '<div class="rr-no-active">Select a company above to manage its revision &amp; re-apply cycles.</div>';
   }
 

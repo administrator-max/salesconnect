@@ -64,6 +64,10 @@ function _daftarCoPasang(sel, entri, sementara) {
     o.value = x.code;
     o.textContent = x.name ? `${x.code} — ${x.name}` : x.code;
     if (x.isNew) o.dataset.isNew = '1';
+    if (x.tahunLain) {
+      o.dataset.tahunLain = '1';
+      o.textContent += ` (belum ada data ${typeof QUOTA_YEAR !== 'undefined' ? QUOTA_YEAR : ''})`;
+    }
     sel.appendChild(o);
   });
   sel.dataset.sementara = sementara ? '1' : '';
@@ -117,9 +121,19 @@ function isiDaftarCompany() {
       isNew: false,
     });
   });
+  /* Company yang SUDAH punya data di tahun kuota lain bukan company baru.
+     Tanpa pembeda ini, di Quota Year 2027 seluruh 41 company tampil sebagai
+     baru: memilihnya membuat stub "GL BORON" bertahun 2026, dan Save berujung
+     409 "sudah ada di database" (HDP, 08-Okt-2026). Ditandai `tahunLain`
+     supaya loadEdit() bisa menjelaskan keadaannya alih-alih membuat stub. */
+  const adaDiTahunLain = new Set([
+    ...(typeof SPI_ALL !== 'undefined' ? SPI_ALL : []),
+    ...(typeof PENDING_ALL !== 'undefined' ? PENDING_ALL : []),
+  ].map(d => d && d.code).filter(Boolean));
   (typeof COMPANY_DIRECTORY !== 'undefined' ? (COMPANY_DIRECTORY || []) : []).forEach(d => {
     if (!d.abbreviation || adaKode.has(d.abbreviation)) return;
-    entri.push({ code: d.abbreviation, name: d.fullName || '', isNew: true });
+    const lain = adaDiTahunLain.has(d.abbreviation);
+    entri.push({ code: d.abbreviation, name: d.fullName || '', isNew: !lain, tahunLain: lain });
   });
   entri.sort((a, b) => a.code.localeCompare(b.code));
 
