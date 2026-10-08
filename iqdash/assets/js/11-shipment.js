@@ -1400,6 +1400,15 @@ function buildRevisionRequestTable(co) {
      Sales tidak punya apa-apa untuk diajukan. Perusahaan baru (SUJU) masuk lewat
      jalur New Submission: pilih produk dari master, isi MT. */
   if (!products.length) {
+    /* Company yang memegang kuota tahun lain, atau sudah punya Pengajuan tahun
+       ini: pakai panel per tahun — New Submission menyimpan ke satu field per
+       company tanpa tahun (HDP 2027, 08-Okt-2026). */
+    const asal = (typeof pjtCompanyAsli === 'function') ? pjtCompanyAsli(co.code) : null;
+    if (typeof buildPengajuanTahun === 'function' && asal
+        && (co._quotaYearSliced || (typeof pjtReq === 'function' && pjtReq(asal, QUOTA_YEAR)))) {
+      buildPengajuanTahun(co.code, wrap, QUOTA_YEAR);
+      return;
+    }
     buildNewSubmissionForm(co, wrap);
     return;
   }

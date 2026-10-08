@@ -300,6 +300,16 @@ async function loadData() {
           co.newSubmission = env._newSubmission;
           delete env._newSubmission;
         }
+        /* Teks bebas rev_note yang ikut dibawa amplop (16-storage.js). */
+        if (typeof env._revNoteTeks === 'string') {
+          if (!co.revNote) co.revNote = env._revNoteTeks;
+          delete env._revNoteTeks;
+        }
+        /* Pengajuan per tahun kuota (11a-pengajuan-tahun.js). */
+        if (env._newSubmissionByYear && typeof env._newSubmissionByYear === 'object') {
+          co.newSubmissionByYear = env._newSubmissionByYear;
+          delete env._newSubmissionByYear;
+        }
         /* Permintaan Re-Apply (model 21-Sep-2026) — daftar, bukan per produk
            asal. Lihat blok RE-APPLY REQUEST di 13-rev-mgmt.js. */
         if (Array.isArray(env._reapplyRequests)) {

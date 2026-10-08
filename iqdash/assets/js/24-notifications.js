@@ -104,6 +104,24 @@ function notifItems() {
     }
   });
 
+  /* Pengajuan per tahun kuota — dari data SEMUA tahun, bukan irisan yang
+     sedang tampil: HDP belum ada di irisan 2027 sampai pengajuannya
+     dikonfirmasi, padahal justru saat itulah CorpSec perlu melihatnya. */
+  [...(typeof SPI_ALL !== 'undefined' ? SPI_ALL : []), ...(typeof PENDING_ALL !== 'undefined' ? PENDING_ALL : [])]
+    .forEach(co => {
+      Object.entries((co && co.newSubmissionByYear) || {}).forEach(([th, r]) => {
+        if (!r || !Array.isArray(r.products) || !r.products.length) return;
+        out.push({
+          id: `${co.code}|PJT|${th}`, code: co.code, year: Number(th), type: `Pengajuan ${th}`,
+          product: r.products.map(p => prodLabel(p.product)).join(' + '),
+          mt: r.products.reduce((a, p) => a + (Number(p.mt) || 0), 0),
+          date: r.requestedDate || '', by: r.requestedBy || 'Sales',
+          status: statusDari(String(r.status || '').toLowerCase(), r.cycleType ? `${r.cycleType} (${th})` : ''),
+          ts: ms(r.requestedDate),
+        });
+      });
+    });
+
   /* Kembar ejaan (GL BORON / GL ALLOY) pada revisi lama: satu permintaan,
      dua kunci. Yang dipertahankan satu per company+tipe+produk. */
   const unik = new Map();
@@ -173,9 +191,9 @@ function renderNotifTable() {
     sub.textContent = `${n('pending')} pending · ${n('process')} confirmed / in process · ${n('rejected')} rejected`;
   }
   const warna = { pending: 'var(--amber)', process: 'var(--green)', rejected: 'var(--red2)', history: 'var(--txt3)' };
-  const tipeWarna = { 'Re-Apply': '#7c3aed', 'Revision': 'var(--amber)', 'New Submission': 'var(--blue)' };
+  const tipeWarna = { 'Re-Apply': '#7c3aed', 'Revision': 'var(--amber)', 'New Submission': 'var(--blue)', 'Pengajuan 2027': 'var(--blue)' };
   body.innerHTML = rows.length ? rows.map(x => `
-    <tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="notifOpenCompany('${x.code}')"
+    <tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="notifOpenCompany('${x.code}'${x.year ? ', ' + x.year : ''})"
         onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
       <td style="padding:8px 10px;font-weight:700;color:var(--navy);white-space:nowrap">${coLabel(x.code)}</td>
       <td style="padding:8px 10px;font-weight:700;color:${tipeWarna[x.type] || 'var(--txt2)'};white-space:nowrap">${x.type}</td>
@@ -189,8 +207,10 @@ function renderNotifTable() {
 }
 
 /* Klik baris → form Input Data company itu, di panel CorpSec. */
-function notifOpenCompany(code) {
+function notifOpenCompany(code, year) {
   closeNotif();
+  /* Pengajuan per tahun: buka di Quota Year-nya, kalau tidak panelnya tidak ada. */
+  if (year && typeof setQuotaYear === 'function' && typeof QUOTA_YEAR !== 'undefined' && QUOTA_YEAR !== year) setQuotaYear(year);
   if (typeof openImport === 'function') openImport();
   const sel = document.getElementById('editCo');
   if (!currentRole) {

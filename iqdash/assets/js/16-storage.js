@@ -400,6 +400,88 @@ async function createPendingOnServer(payload) {
   return res.json();
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   MENYIMPAN IRISAN TAHUN — company yang memegang kuota lebih dari satu tahun.
+
+   Irisan (sliceCompanyToYear) hanya memuat siklus, lot, dan total SATU tahun.
+   Server justru menulis per COMPANY: PATCH /cycles mengganti seluruh siklus,
+   shipments mengganti seluruh lot setiap produk yang dikirim, dan
+   submit1/obtained/products adalah satu kolom per company. Jadi sebelum
+   dikirim, irisan digabung kembali dengan tahun-tahun lain dari objek asal:
+
+     · siklus  — allCyclesForSave(); siklus tahun lain yang belum bertahun
+                 DIPATOK ke tahun efektifnya dulu, supaya tidak ikut dicap tahun
+                 yang sedang dilihat (SNSD: dua siklus tanpa quota_year);
+     · lot     — lot tahun lain + lot irisan, masing-masing membawa quotaYear;
+                 nomor lot irisan yang bentrok dengan tahun lain (server
+                 mencocokkan company+produk+nomor) diberi nomor baru;
+     · total   — submit1/obtained dihitung ulang dari siklus gabungan;
+     · produk  — gabungan.
+   Field lain (permintaan Sales, status, catatan) memang tingkat company dan
+   diambil dari irisan yang baru disunting.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function _gabungIrisanTahun(co) {
+  const asal = [...(typeof SPI_ALL !== 'undefined' ? SPI_ALL : []), ...(typeof PENDING_ALL !== 'undefined' ? PENDING_ALL : [])]
+    .find(c => c && c.code === co.code && !c._quotaYearSliced);
+  if (!asal) throw new Error(`Simpan ${co.code} dibatalkan — data asal lintas tahun tidak ditemukan.`);
+  const y = QUOTA_YEAR;
+
+  const tampil = new Set(co.cycles || []);
+  const cycles = allCyclesForSave(co);
+  cycles.forEach(c => {
+    if (c && parseQuotaYear(c.quotaYear) == null) c.quotaYear = tampil.has(c) ? y : cycleQuotaYear(c);
+  });
+
+  const shipments = {};
+  const produkLot = new Set([...Object.keys(asal.shipments || {}), ...Object.keys(co.shipments || {})]);
+  produkLot.forEach(prod => {
+    const lain = ((asal.shipments || {})[prod] || [])
+      .filter(l => rowQuotaYear(l) !== y)
+      .map(l => Object.assign({}, l, { quotaYear: rowQuotaYear(l) }));
+    const dipakai = new Set(lain.map(l => String(l.lotNo)));
+    let maks = lain.reduce((m, l) => Math.max(m, Number(l.lotNo) || 0), 0);
+    const ini = ((co.shipments || {})[prod] || []).map((l, i) => {
+      if (l.lotNo == null || l.lotNo === '') l.lotNo = i + 1;
+      if (dipakai.has(String(l.lotNo))) l.lotNo = ++maks;
+      if (parseQuotaYear(l.quotaYear) == null) l.quotaYear = y;
+      maks = Math.max(maks, Number(l.lotNo) || 0);
+      dipakai.add(String(l.lotNo));
+      return l;
+    });
+    if (lain.length || ini.length) shipments[prod] = [...lain, ...ini];
+  });
+
+  const kanon = p => (typeof canonicalProduct === 'function') ? canonicalProduct(String(p || '').trim()) : String(p || '').trim();
+  const products = [...new Set([...(asal.products || []), ...(co.products || [])].map(kanon))].filter(Boolean);
+
+  const merged = Object.assign({}, co, {
+    cycles, shipments, products,
+    _quotaYearSliced: false, _allCycles: undefined,
+  });
+  merged.obtained = canonicalObtained(merged);
+  merged.submit1  = canonicalSubmitted(merged);
+  return { merged, asal };
+}
+
+async function _patchIrisanTahun(co) {
+  const { merged, asal } = _gabungIrisanTahun(co);
+  const hasil = await patchToServer(merged);
+
+  /* Sinkronkan objek asal (sumber semua irisan) dengan yang baru tersimpan. */
+  const khususIrisan = new Set(['cycles', 'shipments', 'utilCycles', '_quotaYearSliced', '_allCycles',
+    'utilizationByProd', 'availableByProd', 'realizationByProd', 'etaByProd', 'arrivedByProd',
+    'utilizationMT', 'availableQuota', 'obtained', 'submit1', '_canonicalObtained', '_canonicalSubmitted']);
+  Object.keys(co).forEach(k => { if (!khususIrisan.has(k)) asal[k] = co[k]; });
+  asal.cycles    = merged.cycles;
+  asal.shipments = merged.shipments;
+  asal.products  = merged.products;
+  asal.obtained  = merged.obtained;
+  asal.submit1   = merged.submit1;
+  if (merged._updatedAt) { asal._updatedAt = merged._updatedAt; co._updatedAt = merged._updatedAt; }
+  if (typeof applyQuotaYearSlice === 'function') applyQuotaYearSlice();
+  return hasil;
+}
+
 async function patchToServer(co) {
   if (!co || !co.code) return;
 
@@ -416,12 +498,19 @@ async function patchToServer(co) {
      ada di satu tahun, jadi irisannya adalah objek aslinya sendiri. Pagar ini
      untuk saat company pertama benar-benar memegang kuota 2026 dan 2027
      sekaligus — dan ia harus sudah berdiri sebelum hari itu, bukan sesudah. */
+  /* 08-Okt-2026 hari itu tiba (HDP mengajukan 2027). Irisan kini DISIMPAN,
+     tapi lewat objek GABUNGAN semua tahun — lihat _gabungIrisanTahun(). Yang
+     tetap dihentikan hanya penulisan stats per produk (_obtainedStats /
+     _etaWrite): tabel company_product_stats belum mengenal tahun, jadi angka
+     satu tahun akan menimpa produk yang sama milik tahun lain. */
   if (co._quotaYearSliced) {
-    const pesan = `Simpan ${co.code} dibatalkan — company ini punya kuota lebih dari satu tahun, `
-      + `dan kolom total (Obtained / Utilization / Available) berlaku lintas tahun. `
-      + `Menyimpannya dari tampilan satu tahun akan menimpa angka tahun lain.`;
-    if (typeof showToast === 'function') showToast('⚠ ' + pesan, 'error');
-    throw new Error(pesan);
+    if ((co._obtainedStats && co._obtainedStats.length) || (co._etaWrite && Object.keys(co._etaWrite).length)) {
+      const pesan = `Simpan ${co.code} dibatalkan — Obtained/ETA per produk untuk company yang memegang `
+        + `kuota lebih dari satu tahun belum didukung (stats per produk belum per tahun).`;
+      if (typeof showToast === 'function') showToast('⚠ ' + pesan, 'error');
+      throw new Error(pesan);
+    }
+    return _patchIrisanTahun(co);
   }
 
   // Build reapplyTargets array from co.reapplyByProd (or existing reapplyTargets)
@@ -449,6 +538,9 @@ async function patchToServer(co) {
         realMT:       l.realMT || 0,
         pibDate:      l.pibDate || '',
         cargoArrived: l.cargoArrived || false,
+        /* Tahun kuota lot — server memakai aturan ABSEN != KOSONG, jadi hanya
+           dikirim bila memang diketahui (lot gabungan dua tahun). */
+        ...(l.quotaYear != null ? { quotaYear: l.quotaYear } : {}),
       }));
     });
   }
@@ -462,11 +554,20 @@ async function patchToServer(co) {
   let salesRevJson = null;
   const adaRevReq = co.salesRevRequest && Object.keys(co.salesRevRequest).length;
   const adaReapplyReq = Array.isArray(co.reapplyRequests) && co.reapplyRequests.length;
-  if (adaRevReq || co.newSubmission || adaReapplyReq) {
+  /* Pengajuan per tahun kuota (11a-pengajuan-tahun.js) ikut amplop yang sama. */
+  const adaPerTahun = co.newSubmissionByYear && Object.keys(co.newSubmissionByYear).length;
+  if (adaRevReq || co.newSubmission || adaReapplyReq || adaPerTahun) {
     const envelope = Object.assign({}, co.salesRevRequest || {});
     if (co.salesRevReqType) envelope._revisionType  = co.salesRevReqType;
     if (co.newSubmission)   envelope._newSubmission = co.newSubmission;
     if (adaReapplyReq)      envelope._reapplyRequests = co.reapplyRequests;
+    if (adaPerTahun)        envelope._newSubmissionByYear = co.newSubmissionByYear;
+    /* rev_note adalah SATU kolom: teks bebas ATAU amplop JSON. Begitu amplop
+       ditulis, teks lama (HDP: "SPI Perubahan 2 Terbit 16/07/2026") hilang —
+       server mengosongkan revNote untuk rev_note berbentuk JSON. Ikut dibawa
+       di dalam amplop, dan dikembalikan oleh 01-data.js saat load. */
+    const teksLama = String(co.revNote || '').trim();
+    if (teksLama && !/^\s*\{/.test(teksLama)) envelope._revNoteTeks = teksLama;
     if (Object.keys(envelope).length) salesRevJson = JSON.stringify(envelope);
   }
 
@@ -597,7 +698,15 @@ async function patchCyclesToServer(co) {
      siklus yang bisa lupa. Dicap pada objeknya, bukan cuma pada salinan
      payload, supaya tampilan sesudah simpan langsung ikut tahun yang benar. */
   if (typeof parseQuotaYear === 'function') {
-    sumber.forEach(c => { if (c && parseQuotaYear(c.quotaYear) == null) c.quotaYear = QUOTA_YEAR; });
+    /* Pada irisan, hanya siklus yang TAMPIL yang boleh mendapat tahun irisan;
+       siklus tahun lain yang belum bertahun dipatok ke tahun efektifnya.
+       (Irisan normalnya sudah lewat _gabungIrisanTahun, ini jaring kedua.) */
+    const tampil = co._quotaYearSliced ? new Set(co.cycles || []) : null;
+    sumber.forEach(c => {
+      if (c && parseQuotaYear(c.quotaYear) == null) {
+        c.quotaYear = (!tampil || tampil.has(c)) ? QUOTA_YEAR : cycleQuotaYear(c);
+      }
+    });
   }
 
   // Only send cycles that have meaningful data (not empty shells)

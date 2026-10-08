@@ -608,11 +608,13 @@ function loadEdit() {
       ef.insertAdjacentHTML('beforebegin', `
         <div id="editQyNotice" style="margin:10px 0;padding:12px 14px;background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;font-size:11.5px;line-height:1.55;color:var(--txt)">
           <div style="font-weight:700;color:var(--amber);margin-bottom:4px">${coLabel(c)} belum punya data Quota Year ${QUOTA_YEAR}</div>
-          Data company ini ada di Quota Year <strong>${tahunAda.join(', ') || '—'}</strong>.
-          Pengajuan ${QUOTA_YEAR} untuk company yang sudah memegang kuota tahun lain belum bisa diinput dari dashboard.
-          Untuk melihat atau mengubah data yang ada, ganti <strong>Quota Year</strong> di bagian atas ke
+          Data yang sudah ada di Quota Year <strong>${tahunAda.join(', ') || '—'}</strong> tidak berubah — untuk melihat atau
+          mengubahnya, ganti <strong>Quota Year</strong> di bagian atas ke
           ${tahunAda.map(y => `<a href="#" onclick="setQuotaYear(${y});return false;" style="font-weight:700">${y}</a>`).join(' / ')}.
+          Pengajuan kuota ${QUOTA_YEAR} diisi di bawah.
+          <div id="editQyPanel"></div>
         </div>`);
+      if (typeof buildPengajuanTahun === 'function') buildPengajuanTahun(c, g('editQyPanel'), QUOTA_YEAR);
       return;
     }
   }
