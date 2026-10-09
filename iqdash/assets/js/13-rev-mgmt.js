@@ -148,7 +148,9 @@ function rrObtainedTypeFor(co) {
   if (belumTerbit.length) return belumTerbit[belumTerbit.length - 1].type;
   // Belum ada sama sekali — ambil nomor berikutnya yang belum dipakai (minimal #2).
   let maks = 1;
-  (co.cycles || []).forEach(c => {
+  /* Nomor dihitung dari siklus SEMUA tahun — server mendedup per company +
+     cycle_type, jadi nomor milik tahun lain tidak boleh dipakai ulang. */
+  (typeof allCyclesForSave === 'function' ? allCyclesForSave(co) : (co.cycles || [])).forEach(c => {
     const mm = String(c.type || '').match(/^obtained\s*(?:\(revision\s*)?#?\s*(\d+)/i);
     if (mm) maks = Math.max(maks, +mm[1]);
   });
@@ -378,7 +380,8 @@ function nsTargetState(req) {
 function nsCycleType(co, req) {
   if (req && req.cycleType) return req.cycleType;
   let maks = 0;
-  (co.cycles || []).forEach(c => {
+  // Semua tahun — lihat rrObtainedTypeFor().
+  (typeof allCyclesForSave === 'function' ? allCyclesForSave(co) : (co.cycles || [])).forEach(c => {
     const m = String((c && c.type) || '').match(/^submit\s*#?\s*(\d+)/i);
     if (m) maks = Math.max(maks, +m[1]);
   });
@@ -566,7 +569,8 @@ function raWaitingText(tipe) {
 function raCycleType(co, req) {
   if (req && req.cycleType) return req.cycleType;
   let maks = 0;
-  (co.cycles || []).forEach(c => {
+  // Semua tahun — lihat rrObtainedTypeFor().
+  (typeof allCyclesForSave === 'function' ? allCyclesForSave(co) : (co.cycles || [])).forEach(c => {
     const m = String((c && c.type) || '').match(/^submit\s*#?\s*(\d+)/i);
     if (m) maks = Math.max(maks, +m[1]);
   });
@@ -1894,6 +1898,44 @@ async function rrRecordObtainedTerbit(code) {
       `\nTerbit: ${terbit}\n\n` +
       `Isi MT TAMBAHAN yang terbit di siklus ini, BUKAN total kumulatif — ` +
       `angka ini ditambahkan ke Total Obtained & Available.`)) return;
+
+  /* Tahun selain tahun pertama company (EMS 2027, 09-Okt-2026): JANGAN lewat
+     record-obtained. Endpoint itu menambah MT ke company_product_stats —
+     yang milik tahun pertama, sehingga Available 2026 ikut naik — dan setiap
+     panggilannya MENGGANTI seluruh produk siklus, sehingga dari dua produk
+     hanya yang terakhir tersisa. Di sini siklus Obtained ditulis utuh dengan
+     semua produknya; angka per produk tahun ini dihitung dari siklus
+     (01a-quota-year.js). */
+  const primer = (typeof companyPrimaryYear === 'function')
+    ? companyPrimaryYear({ cycles: allCyclesForSave(co) }) : QUOTA_YEAR;
+  if (co._quotaYearSliced && QUOTA_YEAR !== primer) {
+    const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!co.cycles) co.cycles = [];
+    let cyc = co.cycles.find(c => norm(c.type) === norm(cycleType));
+    if (!cyc) { cyc = { type: cycleType, submitType: 'Submit MOT', releaseType: 'SPI' }; co.cycles.push(cyc); }
+    const prodObj = {};
+    prods.forEach(([p, m]) => { const k = canonicalProduct(p); prodObj[k] = (prodObj[k] || 0) + Number(m); });
+    cyc.products   = prodObj;
+    cyc.mt         = Object.values(prodObj).reduce((a, b) => a + b, 0);
+    cyc.releaseDate = terbit;
+    cyc.spiDate     = terbit;
+    cyc.status      = `SPI TERBIT ${terbit}`;
+    cyc._fromRevReq = false;
+    cyc.quotaYear   = QUOTA_YEAR;
+    co.updatedBy   = currentRole || co.updatedBy || '';
+    co.updatedDate = (typeof todayStd === 'function') ? todayStd() : co.updatedDate;
+    try {
+      await patchToServer(co);
+      if (typeof nsShowToast === 'function') nsShowToast(`✓ ${code} — ${cycleType} (${QUOTA_YEAR}) terbit dicatat`);
+      if (typeof loadData === 'function') await loadData();
+      const co2 = getSPI(code) || co;
+      if (typeof buildRevMgmtSection === 'function') buildRevMgmtSection(co2);
+    } catch (err) {
+      alert('Gagal mencatat Obtained terbit: ' + (err && err.message ? err.message : err));
+    }
+    return;
+  }
+
   try {
     for (const [product, mt] of prods) {
       const res = await fetch(`api/company/${encodeURIComponent(code)}/record-obtained`, {
@@ -2366,8 +2408,29 @@ function saveEdit() {
   if (co) {
     /* ── 2. Mutate SPI record ── */
     const ac     = co.cycles || [];
-    const subCy  = ac.find(cy => /^submit #1/i.test(cy.type));
-    const obtCy  = ac.find(cy => /^obtained #1/i.test(cy.type));
+    /* Company yang memegang kuota lebih dari satu tahun: siklus "pertama" =
+       siklus pertama DI TAHUN INI (EMS 2027 → Submit #4), sama seperti yang
+       ditampilkan buildProductMTTables(). Nomornya melanjutkan urutan company,
+       jadi pola /#1/ tidak pernah ketemu dan PERTEK/Obtained 2027 dulu tidak
+       tersimpan ke siklus mana pun (09-Okt-2026). Company satu tahun: tetap. */
+    const noSiklus = cy => { const m = String(cy.type || '').match(/#\s*(\d+)/); return m ? +m[1] : 0; };
+    const pertamaTahun = re => co._quotaYearSliced
+      ? ac.filter(cy => re.test(cy.type || '')).sort((a, b) => noSiklus(a) - noSiklus(b))[0]
+      : undefined;
+    const subCy  = ac.find(cy => /^submit #1/i.test(cy.type)) || pertamaTahun(/^submit\s*#\s*\d/i);
+    let   obtCy  = ac.find(cy => /^obtained #1/i.test(cy.type)) || pertamaTahun(/^obtained\s*#\s*\d/i);
+    /* Obtained diisi tapi siklusnya belum ada di tahun ini → buat pasangannya
+       (Submit #4 → Obtained #4), bertanda tahun yang sedang tampil. */
+    if (!obtCy && co._quotaYearSliced && subCy && canObtained && Object.keys(newObtainedProds).length > 0) {
+      obtCy = {
+        type: `Obtained #${noSiklus(subCy)}`, mt: 0, products: {},
+        submitType: 'Submit MOT', submitDate: 'TBA',
+        releaseType: 'SPI', releaseDate: 'TBA', spiDate: '',
+        status: '', quotaYear: QUOTA_YEAR,
+      };
+      ac.push(obtCy);
+      if (!co.cycles) co.cycles = ac;
+    }
 
     // ── Submit MT (per product) → KPI1 ─────────────────────────────
     if (canSubmit && Object.keys(newSubmitProds).length > 0) {

@@ -124,6 +124,58 @@ function iq_quota_year($v): ?int {
     return preg_match('/^\d{4}$/', $s) ? (int) $s : null;
 }
 
+/* ── Data per-produk server = milik TAHUN PERTAMA company (09-Okt-2026) ─────
+   company_product_stats, quotaLedger.json, dan sinkron utilisasi tidak mengenal
+   tahun. Sejak EMS memegang kuota 2026 + 2027, lot dan utilCycles 2027 tidak
+   boleh ikut dihitung ke angka itu — kalau ikut, utilisasi 2026 naik oleh lot
+   2027. Frontend menghitung tahun lain dari lot/siklusnya sendiri
+   (01a-quota-year.js, BIDANG_PER_TAHUN). Pasangan klien: QUOTA_YEAR_DEFAULT. */
+const IQ_TAHUN_BAWAAN = 2026;
+
+function iq_tahun_baris($r): int {
+    $y = iq_quota_year(is_array($r) ? ($r['quotaYear'] ?? ($r['quota_year'] ?? null)) : null);
+    return $y ?? IQ_TAHUN_BAWAAN;
+}
+
+/** Tahun terkecil di siklus company (siklus tanpa tahun = tahun bawaan). */
+function iq_tahun_primer(array $co): int {
+    $ys = [];
+    foreach (($co['cycles'] ?? []) as $c) $ys[] = iq_tahun_baris($c);
+    return $ys ? min($ys) : IQ_TAHUN_BAWAAN;
+}
+
+/**
+ * Jalankan $fn($co) dengan `shipments` & `utilCycles` HANYA milik tahun pertama,
+ * lalu kembalikan daftar lengkapnya (payload tetap membawa semua tahun — klien
+ * yang mengiris). Tanpa data tahun lain, $fn dipanggil apa adanya.
+ */
+function iq_dengan_data_tahun_primer(array &$co, callable $fn): void {
+    $primer = iq_tahun_primer($co);
+    $ship = $co['shipments'] ?? null;
+    $uc   = $co['utilCycles'] ?? null;
+    $adaLain = false;
+    $shipF = [];
+    if (is_array($ship)) {
+        foreach ($ship as $p => $lots) {
+            $k = [];
+            foreach ((array) $lots as $i => $l) {
+                if (iq_tahun_baris($l) === $primer) $k[$i] = $l; else $adaLain = true;
+            }
+            if ($k) $shipF[$p] = $k;
+        }
+    }
+    $ucF = [];
+    if (is_array($uc)) {
+        foreach ($uc as $u) { if (iq_tahun_baris($u) === $primer) $ucF[] = $u; else $adaLain = true; }
+    }
+    if (!$adaLain) { $fn($co); return; }
+    if (is_array($ship)) $co['shipments'] = $shipF;
+    if (is_array($uc))   $co['utilCycles'] = $ucF;
+    $fn($co);
+    if ($ship !== null) $co['shipments'] = $ship; else unset($co['shipments']);
+    if ($uc !== null)   $co['utilCycles'] = $uc;  else unset($co['utilCycles']);
+}
+
 /** Sort a list of rows by numeric `sort_order` ascending (stable — PHP 8 usort is stable). */
 function iq_sort_by_sort_order(array $rows): array {
     $copy = array_values($rows);
@@ -567,7 +619,7 @@ function iq_build_company_obj(
         $obj['status'] = $pendMeta['status'] ?? '';
         $obj['date']   = $pendMeta['date'] ?? '';
     }
-    iq_sync_util_with_cycles($obj, $aliasMap);
+    iq_dengan_data_tahun_primer($obj, function (array &$x) use ($aliasMap) { iq_sync_util_with_cycles($x, $aliasMap); });
     return $obj;
 }
 
@@ -1132,10 +1184,12 @@ function iq_build_payload(array $t): array {
         if ($ent) {
             $revDef = $pendingRevisions[$code] ?? null;
             $release = $releasedMap[$code] ?? '';
-            iq_apply_ledger($co, $ent, $hsName, $release, $revDef, $aliasMap);
-            // Ledger menulis ulang keempat kolom itu dari berkas statis quotaLedger.json —
-            // selaraskan lagi, kalau tidak hasilnya tertimpa kembali.
-            iq_sync_util_with_cycles($co, $aliasMap);
+            iq_dengan_data_tahun_primer($co, function (array &$x) use ($ent, $hsName, $release, $revDef, $aliasMap) {
+                iq_apply_ledger($x, $ent, $hsName, $release, $revDef, $aliasMap);
+                // Ledger menulis ulang keempat kolom itu dari berkas statis quotaLedger.json —
+                // selaraskan lagi, kalau tidak hasilnya tertimpa kembali.
+                iq_sync_util_with_cycles($x, $aliasMap);
+            });
         } else {
             $co['_ledgerObtained'] = 0; // not in current master -> contributes 0
         }
@@ -1223,10 +1277,12 @@ function iq_build_payload(array $t): array {
 
         $revDef = $pendingRevisions[$code] ?? null;
         $release = $releasedMap[$code] ?? '';
-        iq_apply_ledger($co, $ent, $hsName, $release, $revDef, $aliasMap);
-        // Ledger menulis ulang keempat kolom itu dari berkas statis quotaLedger.json —
-        // selaraskan lagi, kalau tidak hasilnya tertimpa kembali.
-        iq_sync_util_with_cycles($co, $aliasMap);
+        iq_dengan_data_tahun_primer($co, function (array &$x) use ($ent, $hsName, $release, $revDef, $aliasMap) {
+            iq_apply_ledger($x, $ent, $hsName, $release, $revDef, $aliasMap);
+            // Ledger menulis ulang keempat kolom itu dari berkas statis quotaLedger.json —
+            // selaraskan lagi, kalau tidak hasilnya tertimpa kembali.
+            iq_sync_util_with_cycles($x, $aliasMap);
+        });
         $spi[] = $co;
     }
 

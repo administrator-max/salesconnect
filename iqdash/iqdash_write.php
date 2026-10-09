@@ -854,8 +854,14 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
             $shipTbl = $gs->table($sid, 'company_shipments');
             $tabHeaders['company_shipments'] = $shipTbl['headers'];
             $ship = $shipTbl['rows'];
+            /* Stats per produk = milik tahun pertama company (iq_tahun_primer di
+               iqdash_data.php). Lot tahun lain disimpan apa adanya, tapi TIDAK
+               ikut menghitung utilisasi stats (EMS 2026 + 2027, 09-Okt-2026). */
+            $cyCo = array_values(array_filter($gs->table($sid, 'cycles')['rows'],
+                fn($r) => (string) ($r['company_code'] ?? '') === $code));
+            $tahunPrimer = iq_tahun_primer(['cycles' => $cyCo]);
             foreach ($ship as $r) {
-                if ((string) ($r['company_code'] ?? '') === $code) {
+                if ((string) ($r['company_code'] ?? '') === $code && iq_tahun_baris($r) === $tahunPrimer) {
                     $prod = $r['product'] ?? '';
                     $oldLotSums[$prod] = ($oldLotSums[$prod] ?? 0.0) + iq_num($r['util_mt'] ?? 0);
                 }
@@ -944,7 +950,9 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
 
         // ── recompute utilization from lots (mirror recomputeUtilizationFromLots) ──
         if ($shipmentsTouched) {
-            $companyLots = array_values(array_filter($changed['company_shipments'], fn($r) => (string) ($r['company_code'] ?? '') === $code));
+            $companyLots = array_values(array_filter($changed['company_shipments'],
+                fn($r) => (string) ($r['company_code'] ?? '') === $code
+                       && iq_tahun_baris($r) === ($tahunPrimer ?? IQ_TAHUN_BAWAAN)));
             $lotSums = iq_recompute_util_from_lots($companyLots);
             if (count($lotSums)) {
                 $statsTbl = $gs->table($sid, 'company_product_stats');

@@ -521,12 +521,13 @@ async function patchToServer(co) {
      _etaWrite): tabel company_product_stats belum mengenal tahun, jadi angka
      satu tahun akan menimpa produk yang sama milik tahun lain. */
   if (co._quotaYearSliced) {
-    if ((co._obtainedStats && co._obtainedStats.length) || (co._etaWrite && Object.keys(co._etaWrite).length)) {
-      const pesan = `Simpan ${co.code} dibatalkan — Obtained/ETA per produk untuk company yang memegang `
-        + `kuota lebih dari satu tahun belum didukung (stats per produk belum per tahun).`;
-      if (typeof showToast === 'function') showToast('⚠ ' + pesan, 'error');
-      throw new Error(pesan);
-    }
+    /* Stats per produk (company_product_stats) milik TAHUN PERTAMA company.
+       Untuk tahun lain, Obtained/ETA per produk hidup di siklus & lot tahun itu
+       (01a-quota-year.js menghitungnya dari sana) — jadi penulisan stats-nya
+       tidak dikirim, bukan ditolak. Di tahun pertama tetap dikirim seperti
+       biasa. (09-Okt-2026: dulu seluruh simpan ditolak.) */
+    const primer = (typeof companyPrimaryYear === 'function') ? companyPrimaryYear({ cycles: allCyclesForSave(co) }) : QUOTA_YEAR;
+    if (QUOTA_YEAR !== primer) { delete co._obtainedStats; delete co._etaWrite; }
     return _patchIrisanTahun(co);
   }
 
