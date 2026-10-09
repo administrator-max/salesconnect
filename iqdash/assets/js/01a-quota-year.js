@@ -109,6 +109,40 @@ function companyInQuotaYear(co, year) {
   return companyQuotaYears(co).has(year);
 }
 
+/* ── KOLOM PER TAHUN ─────────────────────────────────────────────────────────
+   Kolom tingkat company (PERTEK No, SPI No, Approval Stage, Status Update,
+   permintaan Sales, dst.) hanya SATU per company di sheet. Kolom itu milik
+   TAHUN PERTAMA company (tahun terkecil di siklusnya). Tahun berikutnya
+   menyimpan versinya sendiri di `co.perYear[tahun]` (amplop rev_note
+   `_perYear`), dan di irisannya mulai KOSONG — "logika sama, tidak menarik
+   data tahun lain" (permintaan tim 09-Okt-2026).
+
+   Ketahuan dari EMS: CorpSec menyimpan status 2027 ("MOI Submit #1 on
+   08/10/2026") dan menimpa Approval Stage, Rev. Submit Date, dan Status Update
+   2026; Overview 2027 juga memamerkan utilisasi 2026 (2.100 MT). */
+const BIDANG_PER_TAHUN = {
+  pertekNo: '', spiNo: '', spiRef: '', statusUpdate: '', remarks: '',
+  revType: 'none', revStatus: '', revSubmitDate: '', revMT: 0, revNote: '',
+  salesRevRequest: {}, salesRevReqType: '', reapplyRequests: [], newSubmission: undefined,
+  reapplyByProd: undefined, reapplyTargets: [], revFrom: [], revTo: [],
+  mt: 0, status: '', date: '',
+};
+
+/** Tahun pemilik kolom tingkat company = tahun terkecil company itu. */
+function companyPrimaryYear(co) {
+  const ys = [...companyQuotaYears(co)];
+  return ys.length ? Math.min(...ys) : QUOTA_YEAR_DEFAULT;
+}
+
+/** Ambil nilai kolom-per-tahun dari satu objek (untuk disimpan ke perYear). */
+function ambilBidangTahun(obj) {
+  const out = {};
+  Object.keys(BIDANG_PER_TAHUN).forEach(k => {
+    if (obj[k] !== undefined) out[k] = JSON.parse(JSON.stringify(obj[k]));
+  });
+  return out;
+}
+
 /* ── pengirisan ──────────────────────────────────────────────────────────── */
 
 /**
@@ -142,9 +176,53 @@ function sliceCompanyToYear(co, year) {
     out.shipments = ship;
   }
 
+  /* Tahun yang BUKAN tahun pertama company: kolom tingkat company diambil dari
+     perYear[tahun] (atau kosong), dan angka per produk dihitung HANYA dari
+     siklus/lot/utilCycles tahun ini — stats per produk & ledger di server
+     adalah milik tahun pertama. */
+  const primer = companyPrimaryYear(co);
+  if (year !== primer) {
+    const py = (co.perYear && co.perYear[year]) || {};
+    Object.entries(BIDANG_PER_TAHUN).forEach(([k, kosong]) => {
+      const v = Object.prototype.hasOwnProperty.call(py, k) ? py[k] : kosong;
+      out[k] = v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+    });
+    ['_pendingRevision', '_ledgerObtained', '_ledgerObtainedByProd', 'statsYearByProd'].forEach(k => { delete out[k]; });
+
+    const K = p => (typeof canonicalProduct === 'function') ? canonicalProduct(String(p || '').trim()) : String(p || '').trim();
+    const dariSiklus = {}, dariLot = {};
+    (out.utilCycles || []).forEach(u => { const p = K(u.product); if (p) dariSiklus[p] = (dariSiklus[p] || 0) + (Number(u.mt) || 0); });
+    Object.entries(out.shipments || {}).forEach(([p, lots]) => {
+      const k = K(p); (lots || []).forEach(l => { dariLot[k] = (dariLot[k] || 0) + (Number(l.utilMT) || 0); });
+    });
+    const obt = {};
+    if (typeof getCycleBreakdown === 'function') {
+      getCycleBreakdown(out, 'obtained').forEach(cy => Object.entries(cy.products || {}).forEach(([p, v]) => {
+        const k = K(p); if ((Number(v) || 0) > 0) obt[k] = (obt[k] || 0) + Number(v);
+      }));
+    }
+    const util = {}, avail = {};
+    new Set([...Object.keys(dariSiklus), ...Object.keys(dariLot)]).forEach(p => {
+      /* Dua sumber menyatakan TOTAL yang sama — direkonsiliasi dengan max(),
+         seperti server, bukan dijumlah. */
+      const u = Math.max(dariSiklus[p] || 0, dariLot[p] || 0);
+      if (u > 0) util[p] = u;
+    });
+    Object.keys(obt).forEach(p => { avail[p] = Math.max(0, obt[p] - (util[p] || 0)); });
+    out.utilizationByProd = util;
+    out.availableByProd   = avail;
+    out.realizationByProd = {};
+    out.etaByProd = {};
+    out.arrivedByProd = {};
+    const jumlah = m => Object.values(m || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+    out.utilizationMT  = jumlah(util);
+    out.availableQuota = jumlah(avail);
+    out.products = [...new Set(cycles.flatMap(c => Object.keys(c.products || {})).map(K))].filter(Boolean);
+  }
+
   /* Peta per-produk dari master (company_product_stats). Tahunnya dititipkan
      pada KUNCI lewat statsYearByProd — lihat catatannya di iqdash_data.php. */
-  const sy = co.statsYearByProd || null;
+  const sy = (year === primer) ? (co.statsYearByProd || null) : null;
   if (sy) {
     const irisPeta = m => {
       if (!m || typeof m !== 'object') return m;

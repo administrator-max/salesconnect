@@ -305,6 +305,11 @@ async function loadData() {
           if (!co.revNote) co.revNote = env._revNoteTeks;
           delete env._revNoteTeks;
         }
+        /* Kolom tingkat company per tahun (01a-quota-year.js, BIDANG_PER_TAHUN). */
+        if (env._perYear && typeof env._perYear === 'object') {
+          co.perYear = env._perYear;
+          delete env._perYear;
+        }
         /* Pengajuan per tahun kuota (11a-pengajuan-tahun.js). */
         if (env._newSubmissionByYear && typeof env._newSubmissionByYear === 'object') {
           co.newSubmissionByYear = env._newSubmissionByYear;

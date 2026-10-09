@@ -278,13 +278,24 @@ ok(bdgAvq.every(r => r.hasActiveSpi),
 /* ── E. Tahun kosong ──────────────────────────────────────────────────────── */
 console.log('\nE · Tahun 2027 (belum ada datanya)');
 call(`QUOTA_YEAR = 2027; applyQuotaYearSlice(); buildSpiTerbitTable(); buildAvqTable();`);
-ok(/Tidak ada data untuk tahun kuota 2027/.test(nodes['spiTerbitBody'].innerHTML),
-  'tabel 2027 menjelaskan kenapa kosong, bukan tabel hampa tanpa kata');
-ok(!/🟢 Active/.test(nodes['spiTerbitBody'].innerHTML), 'tidak ada baris 2026 yang bocor ke tampilan 2027');
-ok(nodes['avqTableBody'].innerHTML.trim() === '', 'Available Quota 2027 kosong');
-call(`renderQuotaYearUI();`);
-ok(/Belum ada data kuota <strong>2027<\/strong>/.test(nodes['qyEmptyTxt'].innerHTML),
-  'spanduk menyatakan nol-nya karena data belum ada, bukan karena kuota habis');
+/* Sejak 09-Okt-2026 2027 BISA berisi (EMS mengajukan 2027). Yang dijaga:
+   tidak ada company 2026 yang bocor; dan kalau memang kosong, tabel &
+   spanduknya menjelaskan kenapa. */
+const kode27 = JSON.parse(call(`JSON.stringify([...SPI, ...PENDING].map(c => c.code))`));
+const kode26saja = JSON.parse(call(`JSON.stringify([...SPI_ALL, ...PENDING_ALL].filter(c => !companyQuotaYears(c).has(2027)).map(c => c.code))`));
+const htmlTbl = nodes['spiTerbitBody'].innerHTML + nodes['avqTableBody'].innerHTML;
+const bocor = kode26saja.filter(k => htmlTbl.includes("'" + k + "'") || htmlTbl.includes('>' + k + '<'));
+ok(bocor.length === 0, 'tidak ada company 2026 yang bocor ke tabel 2027', bocor.join(', '));
+if (!kode27.length) {
+  ok(/Tidak ada data untuk tahun kuota 2027/.test(nodes['spiTerbitBody'].innerHTML),
+    'tabel 2027 menjelaskan kenapa kosong, bukan tabel hampa tanpa kata');
+  ok(nodes['avqTableBody'].innerHTML.trim() === '', 'Available Quota 2027 kosong');
+  call(`renderQuotaYearUI();`);
+  ok(/Belum ada data kuota <strong>2027<\/strong>/.test(nodes['qyEmptyTxt'].innerHTML),
+    'spanduk menyatakan nol-nya karena data belum ada, bukan karena kuota habis');
+} else {
+  console.log(`       catatan: 2027 berisi ${kode27.join(', ')} — pemeriksaan "tabel kosong" dilewati`);
+}
 
 call(`QUOTA_YEAR = 2026; applyQuotaYearSlice(); renderQuotaYearUI();`);
 ok(nodes['qyEmptyBanner'].style.display === 'none', '…dan disembunyikan lagi begitu kembali ke tahun yang berisi');

@@ -109,5 +109,37 @@ ok(call('pjtSiklusBerikut(__co)') === 'Submit #3', 'E. pengajuan berikut = Submi
 co.newSubmissionByYear = { '2027': { products: [{ product: 'GL ALLOY', mt: 1 }], status: 'pending' } };
 ok(call('!!pjtReq(__co, 2027) && !pjtReq(__co, 2026)'), 'F. pjtReq hanya membaca tahun yang diminta');
 
+/* ── G–J: kolom tingkat company per tahun (09-Okt-2026, EMS) ─────────────── */
+const co2 = {
+  code: 'YY', products: ['SHEET PILE'], pertekNo: 'P-2026', spiNo: 'S-2026', revStatus: 'Submit SPI',
+  statusUpdate: 'status 2026', reapplyRequests: [{ id: 'r1' }], salesRevRequest: { 'SHEET PILE': { requested: true } },
+  utilizationMT: 2100, utilizationByProd: { 'SHEET PILE': 1600 }, availableByProd: { 'SHEET PILE': 0 },
+  perYear: { '2027': { revStatus: 'Submit', statusUpdate: 'status 2027' } },
+  cycles: [
+    { type: 'Submit #1', mt: 8000, products: { 'SHEET PILE': 8000 }, quotaYear: 2026, releaseDate: '01/01/2026' },
+    { type: 'Obtained #1', mt: 1600, products: { 'SHEET PILE': 1600 }, quotaYear: 2026, releaseDate: '05/01/2026' },
+    { type: 'Submit #2', mt: 6000, products: { 'SHEET PILE': 2000, 'GI ALLOY': 4000 }, quotaYear: 2027, releaseDate: 'TBA' },
+  ],
+  shipments: { 'SHEET PILE': [ { lotNo: 1, utilMT: 1600 } ] },
+};
+ctx.__co2 = co2;
+call('SPI_ALL = [__co2]; PENDING_ALL = []; QUOTA_YEAR = 2027; applyQuotaYearSlice();');
+const i27 = call('SPI.find(c => c.code === "YY")');
+ok(i27.pertekNo === '' && i27.spiNo === '' && i27.reapplyRequests.length === 0 && !Object.keys(i27.salesRevRequest).length,
+   'G. irisan 2027 tidak mewarisi PERTEK/SPI/Re-Apply/Revision 2026', JSON.stringify({ p: i27.pertekNo, s: i27.spiNo }));
+ok(i27.revStatus === 'Submit' && i27.statusUpdate === 'status 2027', 'H. irisan 2027 memakai perYear[2027]');
+ok(i27.utilizationMT === 0 && !Object.keys(i27.utilizationByProd).length,
+   'I. utilisasi 2026 tidak terbawa ke 2027', String(i27.utilizationMT));
+i27.statusUpdate = 'status 2027 baru'; i27.pertekNo = 'P-2027';
+const g = call('_gabungIrisanTahun(SPI.find(c => c.code === "YY")).merged');
+ok(g.statusUpdate === 'status 2026' && g.pertekNo === 'P-2026' && g.revStatus === 'Submit SPI' && g.reapplyRequests.length === 1,
+   'J. simpan dari 2027: kolom company tetap milik 2026', JSON.stringify({ su: g.statusUpdate, p: g.pertekNo }));
+ok(g.perYear['2027'].statusUpdate === 'status 2027 baru' && g.perYear['2027'].pertekNo === 'P-2027',
+   'J. nilai 2027 masuk perYear[2027]');
+call('QUOTA_YEAR = 2026; applyQuotaYearSlice();');
+const g26 = call('_gabungIrisanTahun(SPI.find(c => c.code === "YY")).merged');
+ok(g26.perYear && g26.perYear['2027'] && g26.perYear['2027'].statusUpdate === 'status 2027',
+   'J. simpan dari 2026 tidak membuang perYear[2027]');
+
 console.log(`\n${pass} lulus, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

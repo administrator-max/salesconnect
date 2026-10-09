@@ -243,16 +243,26 @@ if (!fs.existsSync(cachePath)) {
   ok(call(`PENDING.length`) === real.pending.length,
     `seluruh ${real.pending.length} company PENDING tetap tampil`);
 
+  /* Company yang memegang kuota lebih dari satu tahun (EMS sejak 09-Okt-2026)
+     sengaja dihitung ulang dari siklus tahunnya sendiri — dikecualikan di sini. */
+  const duaTahun = new Set(JSON.parse(call(`JSON.stringify([...SPI_ALL, ...PENDING_ALL].filter(c => companyQuotaYears(c).size > 1).map(c => c.code))`)));
   const geser = JSON.parse(call(`JSON.stringify([...SPI, ...PENDING].map(c => [c.code, c.obtained]))`))
+    .filter(([code]) => !duaTahun.has(code))
     .filter(([code, o]) => Math.abs((Number(o) || 0) - (Number(sebelumObt[code]) || 0)) > 0.001);
   ok(geser.length === 0, 'tidak ada satu pun obtained yang bergeser gara-gara pengirisan tahun',
     JSON.stringify(geser));
 
   call(`QUOTA_YEAR = 2027; applyQuotaYearSlice();`);
-  ok(call(`SPI.length`) === 0 && call(`PENDING.length`) === 0,
-    '2027 kosong — belum ada satu pun baris yang ditandai 2027',
-    `SPI=${call('SPI.length')} PENDING=${call('PENDING.length')}`);
-  ok(call(`spiTerbitRows().length`) === 0, 'tabel SPI Terbit 2027 kosong, bukan menampilkan data 2026');
+  /* Dijaga sebagai HUBUNGAN, bukan '2027 kosong' — EMS mengajukan 2027 pada
+     09-Okt-2026 dan uji lama langsung gagal. */
+  const punya2027 = new Set(JSON.parse(call(`JSON.stringify([...SPI_ALL, ...PENDING_ALL].filter(c => companyQuotaYears(c).has(2027)).map(c => c.code))`)));
+  const kode27 = JSON.parse(call(`JSON.stringify([...SPI, ...PENDING].map(c => c.code))`));
+  ok(kode27.length === punya2027.size && kode27.every(k => punya2027.has(k)),
+    `2027 hanya memuat company yang punya siklus 2027 (${kode27.join(', ') || 'tidak ada'})`);
+  ok(call(`[...SPI, ...PENDING].every(c => (c.cycles || []).every(y => cycleQuotaYear(y) === 2027))`),
+    'setiap siklus di irisan 2027 bertahun 2027');
+  ok(call(`spiTerbitRows().every(r => [...SPI, ...PENDING].some(c => c.code === r.code))`),
+    'tabel SPI Terbit 2027 tidak menampilkan company 2026');
 
   /* Bukti bahwa Available Quota memang hanya mengikuti SPI yang Active. */
   call(`QUOTA_YEAR = 2026; applyQuotaYearSlice();`);

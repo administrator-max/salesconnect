@@ -458,6 +458,17 @@ function _gabungIrisanTahun(co) {
     cycles, shipments, products,
     _quotaYearSliced: false, _allCycles: undefined,
   });
+
+  /* Kolom tingkat company milik TAHUN PERTAMA. Kalau yang disimpan irisan
+     tahun lain, nilainya masuk perYear[tahun] dan kolomnya tetap milik tahun
+     pertama — dulu tertimpa (EMS 09-Okt-2026: Approval Stage, Rev. Submit
+     Date, Status Update 2026 berganti nilai 2027). */
+  const primer = (typeof companyPrimaryYear === 'function') ? companyPrimaryYear({ cycles }) : y;
+  merged.perYear = Object.assign({}, asal.perYear || {});
+  if (y !== primer && typeof BIDANG_PER_TAHUN !== 'undefined') {
+    merged.perYear[y] = ambilBidangTahun(co);
+    Object.keys(BIDANG_PER_TAHUN).forEach(k => { merged[k] = asal[k]; });
+  }
   merged.obtained = canonicalObtained(merged);
   merged.submit1  = canonicalSubmitted(merged);
   return { merged, asal };
@@ -471,7 +482,13 @@ async function _patchIrisanTahun(co) {
   const khususIrisan = new Set(['cycles', 'shipments', 'utilCycles', '_quotaYearSliced', '_allCycles',
     'utilizationByProd', 'availableByProd', 'realizationByProd', 'etaByProd', 'arrivedByProd',
     'utilizationMT', 'availableQuota', 'obtained', 'submit1', '_canonicalObtained', '_canonicalSubmitted']);
-  Object.keys(co).forEach(k => { if (!khususIrisan.has(k)) asal[k] = co[k]; });
+  const tahunLain = (typeof companyPrimaryYear === 'function') && QUOTA_YEAR !== companyPrimaryYear({ cycles: merged.cycles });
+  Object.keys(co).forEach(k => {
+    if (khususIrisan.has(k)) return;
+    if (tahunLain && typeof BIDANG_PER_TAHUN !== 'undefined' && k in BIDANG_PER_TAHUN) return;  // milik perYear
+    asal[k] = co[k];
+  });
+  asal.perYear = merged.perYear;
   asal.cycles    = merged.cycles;
   asal.shipments = merged.shipments;
   asal.products  = merged.products;
@@ -556,12 +573,15 @@ async function patchToServer(co) {
   const adaReapplyReq = Array.isArray(co.reapplyRequests) && co.reapplyRequests.length;
   /* Pengajuan per tahun kuota (11a-pengajuan-tahun.js) ikut amplop yang sama. */
   const adaPerTahun = co.newSubmissionByYear && Object.keys(co.newSubmissionByYear).length;
-  if (adaRevReq || co.newSubmission || adaReapplyReq || adaPerTahun) {
+  /* Kolom tingkat company untuk tahun selain tahun pertama (01a-quota-year.js). */
+  const adaKolomTahun = co.perYear && Object.keys(co.perYear).length;
+  if (adaRevReq || co.newSubmission || adaReapplyReq || adaPerTahun || adaKolomTahun) {
     const envelope = Object.assign({}, co.salesRevRequest || {});
     if (co.salesRevReqType) envelope._revisionType  = co.salesRevReqType;
     if (co.newSubmission)   envelope._newSubmission = co.newSubmission;
     if (adaReapplyReq)      envelope._reapplyRequests = co.reapplyRequests;
     if (adaPerTahun)        envelope._newSubmissionByYear = co.newSubmissionByYear;
+    if (adaKolomTahun)      envelope._perYear = co.perYear;
     /* rev_note adalah SATU kolom: teks bebas ATAU amplop JSON. Begitu amplop
        ditulis, teks lama (HDP: "SPI Perubahan 2 Terbit 16/07/2026") hilang —
        server mengosongkan revNote untuk rev_note berbentuk JSON. Ikut dibawa
