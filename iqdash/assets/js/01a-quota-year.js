@@ -134,6 +134,74 @@ function companyPrimaryYear(co) {
   return ys.length ? Math.min(...ys) : QUOTA_YEAR_DEFAULT;
 }
 
+/* ── Nomor siklus per tahun ──────────────────────────────────────────────────
+   Pola nama yang dinomori ulang; lainnya (mis. "Revision Request — X") apa
+   adanya. Urutan per jenis mengikuti nomor unik company, jadi hasilnya
+   deterministik: muat ulang memberi nama per-tahun yang sama. */
+const POLA_SIKLUS = [
+  { re: /^submit\s*#\s*(\d+)$/i,                        buat: n => `Submit #${n}` },
+  { re: /^obtained\s*#\s*(\d+)$/i,                      buat: n => `Obtained #${n}` },
+  { re: /^revision\s*#\s*(\d+)$/i,                      buat: n => `Revision #${n}` },
+  { re: /^obtained\s*\(\s*revision\s*#\s*(\d+)\s*\)$/i, buat: n => `Obtained (Revision #${n})` },
+];
+function polaSiklus(type) {
+  const t = String(type || '').trim();
+  for (let i = 0; i < POLA_SIKLUS.length; i++) {
+    const m = t.match(POLA_SIKLUS[i].re);
+    if (m) return { jenis: i, n: +m[1], buat: POLA_SIKLUS[i].buat };
+  }
+  return null;
+}
+
+/** Salinan siklus satu tahun, dinomori 1..n per jenis; nama unik di `_typeAsli`. */
+function beriNomorPerTahun(cycles) {
+  const salin = cycles.map(c => Object.assign({}, c));
+  const perJenis = {};
+  salin.forEach(c => { const p = polaSiklus(c.type); if (p) (perJenis[p.jenis] = perJenis[p.jenis] || []).push({ c, p }); });
+  Object.values(perJenis).forEach(arr => {
+    arr.sort((a, b) => a.p.n - b.p.n).forEach((x, i) => {
+      x.c._typeAsli = x.c.type;
+      x.c.type = x.p.buat(i + 1);
+    });
+  });
+  return salin;
+}
+
+/** Nama siklus per tahun → nama unik company, untuk SATU irisan yang akan disimpan.
+ *  Siklus lama: `_typeAsli`. Siklus baru (dibuat di layar): pakai nomor unik
+ *  pasangannya bila ada (Obtained #1 baru ↔ Submit #1 = "Submit #4" → "Obtained #4"),
+ *  kalau tidak nomor berikutnya yang belum dipakai jenis itu. */
+function namaUnikSiklus(irisanCycles, lainCycles) {
+  const dipakai = new Set(lainCycles.map(c => String(c.type || '').toLowerCase()));
+  irisanCycles.forEach(c => { if (c._typeAsli) dipakai.add(String(c._typeAsli).toLowerCase()); });
+  const semuaNomor = jenis => [...lainCycles, ...irisanCycles]
+    .map(c => polaSiklus(c._typeAsli || c.type)).filter(p => p && p.jenis === jenis).map(p => p.n);
+  return irisanCycles.map(c => {
+    if (c._typeAsli) return Object.assign({}, c, { type: c._typeAsli });
+    const p = polaSiklus(c.type);
+    if (!p) return Object.assign({}, c);
+    /* Pasangan: siklus irisan lain bernomor per-tahun SAMA yang punya nama unik. */
+    const pasangan = irisanCycles.find(x => x !== c && x._typeAsli && (polaSiklus(x.type) || {}).n === p.n);
+    let n = pasangan ? polaSiklus(pasangan._typeAsli).n : null;
+    if (n == null || dipakai.has(p.buat(n).toLowerCase())) n = Math.max(0, ...semuaNomor(p.jenis)) + 1;
+    while (dipakai.has(p.buat(n).toLowerCase())) n++;
+    const nama = p.buat(n);
+    dipakai.add(nama.toLowerCase());
+    return Object.assign({}, c, { type: nama });
+  });
+}
+
+/** Label tampilan per tahun untuk nama siklus unik (mis. req.cycleType "Submit #4"
+ *  milik EMS 2027 → "Submit #1"). Untuk nama yang bukan milik irisan tahun itu,
+ *  dikembalikan apa adanya. */
+function labelSiklusPerTahun(code, year, namaUnik) {
+  const asal = [...(SPI_ALL || []), ...(PENDING_ALL || [])].find(c => c && c.code === code);
+  if (!asal || !namaUnik) return namaUnik || '';
+  const ir = sliceCompanyToYear(asal, year);
+  const hit = ir && ir._namaPerTahun && (ir.cycles || []).find(c => c._typeAsli === namaUnik);
+  return hit ? hit.type : namaUnik;
+}
+
 /** Ambil nilai kolom-per-tahun dari satu objek (untuk disimpan ke perYear). */
 function ambilBidangTahun(obj) {
   const out = {};
@@ -158,11 +226,21 @@ function sliceCompanyToYear(co, year) {
   if (!co) return co;
   const semua = co.cycles || [];
   if (!semua.length) return year === QUOTA_YEAR_DEFAULT ? co : null;  // lihat companyQuotaYears()
-  const cycles = semua.filter(c => cycleQuotaYear(c) === year);
+  let cycles = semua.filter(c => cycleQuotaYear(c) === year);
   if (!cycles.length) return null;
   if (cycles.length === semua.length) return co;               // tidak campur → apa adanya
 
-  const out = Object.assign({}, co, { cycles, _quotaYearSliced: true, _allCycles: co.cycles });
+  /* Tahun selain tahun pertama: siklus DIPAKAI dengan nomor per tahun
+     (EMS 2027: "Submit #4" tampil & dikelola sebagai "Submit #1"), supaya
+     logika form, pasangan Submit↔Obtained, dan tampilannya sama persis dengan
+     tahun pertama (permintaan tim 09-Okt-2026). Nomor unik company disimpan di
+     `_typeAsli` dan dipulihkan saat simpan (16-storage.js) — server mendedup
+     siklus per company + cycle_type, jadi nama di sheet harus tetap unik. */
+  const namaPerTahun = year !== companyPrimaryYear(co);
+  if (namaPerTahun) cycles = beriNomorPerTahun(cycles);
+
+  const out = Object.assign({}, co, { cycles, _quotaYearSliced: true, _allCycles: co.cycles,
+    _namaPerTahun: namaPerTahun });
 
   if (Array.isArray(co.utilCycles)) {
     out.utilCycles = co.utilCycles.filter(u => rowQuotaYear(u) === year);

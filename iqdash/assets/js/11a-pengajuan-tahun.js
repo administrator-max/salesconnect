@@ -78,7 +78,7 @@ function buildPengajuanTahun(code, wrap, year) {
   const terkunci = status === 'confirmed';
 
   const lencana = status === 'confirmed'
-    ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">✅ Dikonfirmasi CorpSec · ${pjtEsc(req.cycleType || '')}</span>`
+    ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)">✅ Dikonfirmasi CorpSec · ${pjtEsc((typeof labelSiklusPerTahun === 'function' ? labelSiklusPerTahun(code, y, req.cycleType) : req.cycleType) || '')}</span>`
     : status === 'rejected'
     ? `<span style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:3px;background:var(--red-bg);color:var(--red2);border:1px solid var(--red-bd)">✕ Dibatalkan CorpSec</span>`
     : status

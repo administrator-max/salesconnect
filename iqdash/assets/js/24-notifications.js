@@ -116,7 +116,7 @@ function notifItems() {
           product: r.products.map(p => prodLabel(p.product)).join(' + '),
           mt: r.products.reduce((a, p) => a + (Number(p.mt) || 0), 0),
           date: r.requestedDate || '', by: r.requestedBy || 'Sales',
-          status: statusDari(String(r.status || '').toLowerCase(), r.cycleType ? `${r.cycleType} (${th})` : ''),
+          status: statusDari(String(r.status || '').toLowerCase(), r.cycleType ? `${typeof labelSiklusPerTahun === 'function' ? labelSiklusPerTahun(co.code, Number(th), r.cycleType) : r.cycleType} (${th})` : ''),
           ts: ms(r.requestedDate),
         });
       });

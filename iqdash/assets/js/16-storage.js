@@ -427,10 +427,16 @@ function _gabungIrisanTahun(co) {
   const y = QUOTA_YEAR;
 
   const tampil = new Set(co.cycles || []);
-  const cycles = allCyclesForSave(co);
+  let cycles = allCyclesForSave(co);
   cycles.forEach(c => {
     if (c && parseQuotaYear(c.quotaYear) == null) c.quotaYear = tampil.has(c) ? y : cycleQuotaYear(c);
   });
+  /* Irisan bernomor per tahun (EMS 2027 "Submit #1") → kembalikan ke nama unik
+     company ("Submit #4") sebelum dikirim; siklus baru diberi nama unik. */
+  if (co._namaPerTahun && typeof namaUnikSiklus === 'function') {
+    const lain = cycles.filter(c => !tampil.has(c));
+    cycles = [...lain, ...namaUnikSiklus(co.cycles || [], lain)];
+  }
 
   const shipments = {};
   const produkLot = new Set([...Object.keys(asal.shipments || {}), ...Object.keys(co.shipments || {})]);

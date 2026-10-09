@@ -150,7 +150,7 @@ function rrObtainedTypeFor(co) {
   let maks = 1;
   /* Nomor dihitung dari siklus SEMUA tahun — server mendedup per company +
      cycle_type, jadi nomor milik tahun lain tidak boleh dipakai ulang. */
-  (typeof allCyclesForSave === 'function' ? allCyclesForSave(co) : (co.cycles || [])).forEach(c => {
+  (co._namaPerTahun ? (co.cycles || []) : (typeof allCyclesForSave === 'function' ? allCyclesForSave(co) : (co.cycles || []))).forEach(c => {
     const mm = String(c.type || '').match(/^obtained\s*(?:\(revision\s*)?#?\s*(\d+)/i);
     if (mm) maks = Math.max(maks, +mm[1]);
   });
@@ -381,7 +381,7 @@ function nsCycleType(co, req) {
   if (req && req.cycleType) return req.cycleType;
   let maks = 0;
   // Semua tahun — lihat rrObtainedTypeFor().
-  (typeof allCyclesForSave === 'function' ? allCyclesForSave(co) : (co.cycles || [])).forEach(c => {
+  (co._namaPerTahun ? (co.cycles || []) : (typeof allCyclesForSave === 'function' ? allCyclesForSave(co) : (co.cycles || []))).forEach(c => {
     const m = String((c && c.type) || '').match(/^submit\s*#?\s*(\d+)/i);
     if (m) maks = Math.max(maks, +m[1]);
   });
@@ -570,7 +570,7 @@ function raCycleType(co, req) {
   if (req && req.cycleType) return req.cycleType;
   let maks = 0;
   // Semua tahun — lihat rrObtainedTypeFor().
-  (typeof allCyclesForSave === 'function' ? allCyclesForSave(co) : (co.cycles || [])).forEach(c => {
+  (co._namaPerTahun ? (co.cycles || []) : (typeof allCyclesForSave === 'function' ? allCyclesForSave(co) : (co.cycles || []))).forEach(c => {
     const m = String((c && c.type) || '').match(/^submit\s*#?\s*(\d+)/i);
     if (m) maks = Math.max(maks, +m[1]);
   });

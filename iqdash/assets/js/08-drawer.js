@@ -105,16 +105,25 @@ function openDrawer(code) {
   const ra = getRA(code);
   // Silently refresh this company's data from server to ensure all users see latest
   fetch(`api/company/${encodeURIComponent(code)}`).then(r=>r.json()).then(fresh => {
+    /* Data segar dari server adalah company UTUH (semua tahun kuota). Dulu
+       langsung ditimpakan ke `co` — yang bisa berupa IRISAN satu tahun —
+       sehingga drawer EMS 2026 memamerkan siklus 2027, dan irisan 2027
+       mendapat PERTEK/SPI/status 2026 (09-Okt-2026). Kini diterapkan ke objek
+       ASAL lalu diiris ulang; company satu tahun (irisan = objek asal) tetap
+       berperilaku seperti dulu. */
+    const asal = [...(typeof SPI_ALL !== 'undefined' ? SPI_ALL : []), ...(typeof PENDING_ALL !== 'undefined' ? PENDING_ALL : [])]
+      .find(x => x && x.code === code) || co;
     // Merge fresh fields that might differ across sessions
     const fieldsToSync = ['obtained','utilizationMT','availableQuota','pertekNo','spiNo',
       'statusUpdate','updatedBy','updatedDate','spiRef','revType','revStatus','revSubmitDate'];
-    fieldsToSync.forEach(f => { if (fresh[f] !== undefined) co[f] = fresh[f]; });
-    if (fresh.cycles && fresh.cycles.length) co.cycles = fresh.cycles;
-    if (fresh.shipments) co.shipments = fresh.shipments;
-    if (fresh.utilizationByProd) co.utilizationByProd = fresh.utilizationByProd;
-    if (fresh.availableByProd)   co.availableByProd   = fresh.availableByProd;
+    fieldsToSync.forEach(f => { if (fresh[f] !== undefined) asal[f] = fresh[f]; });
+    if (fresh.cycles && fresh.cycles.length) asal.cycles = fresh.cycles;
+    if (fresh.shipments) asal.shipments = fresh.shipments;
+    if (fresh.utilizationByProd) asal.utilizationByProd = fresh.utilizationByProd;
+    if (fresh.availableByProd)   asal.availableByProd   = fresh.availableByProd;
     // Fresh authoritative util/lots → recapture non-lot baseline (2026-06-26 fix).
-    co._utilBaseline = {};
+    asal._utilBaseline = {};
+    if (asal !== co && typeof applyQuotaYearSlice === 'function') applyQuotaYearSlice();
   }).catch(()=>{/* fallback to cached data — no-op */});
 
   document.getElementById('d-code').textContent = code;

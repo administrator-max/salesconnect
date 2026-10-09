@@ -141,5 +141,30 @@ const g26 = call('_gabungIrisanTahun(SPI.find(c => c.code === "YY")).merged');
 ok(g26.perYear && g26.perYear['2027'] && g26.perYear['2027'].statusUpdate === 'status 2027',
    'J. simpan dari 2026 tidak membuang perYear[2027]');
 
+/* ── K–L: nomor siklus per tahun (09-Okt-2026, EMS "Submit #4" → "Submit #1") ── */
+ctx.__co3 = {
+  code: 'ZZ', products: ['GL ALLOY'],
+  cycles: [
+    { type: 'Submit #1', mt: 100, products: { 'GL ALLOY': 100 }, quotaYear: 2026 },
+    { type: 'Obtained #1', mt: 50, products: { 'GL ALLOY': 50 }, quotaYear: 2026, releaseDate: '01/02/2026' },
+    { type: 'Submit #2', mt: 200, products: { 'GL ALLOY': 200 }, quotaYear: 2026 },
+    { type: 'Submit #3', mt: 300, products: { 'GL ALLOY': 300 }, quotaYear: 2027, releaseDate: 'TBA' },
+  ],
+};
+call('SPI_ALL = [__co3]; PENDING_ALL = []; QUOTA_YEAR = 2027; applyQuotaYearSlice();');
+const z = call('SPI.find(c => c.code === "ZZ")');
+ok(z.cycles.length === 1 && z.cycles[0].type === 'Submit #1' && z.cycles[0]._typeAsli === 'Submit #3',
+   'K. 2027 menampilkan siklus pertamanya sebagai Submit #1 (nama unik Submit #3)', JSON.stringify(z.cycles.map(c => c.type)));
+z.cycles.push({ type: 'Obtained #1', mt: 300, products: { 'GL ALLOY': 300 }, releaseDate: 'TBA' });
+const zm = call('_gabungIrisanTahun(SPI.find(c => c.code === "ZZ")).merged');
+const nm = zm.cycles.map(c => c.type + ':' + c.quotaYear).sort();
+ok(JSON.stringify(nm) === JSON.stringify(['Obtained #1:2026', 'Obtained #3:2027', 'Submit #1:2026', 'Submit #2:2026', 'Submit #3:2027']),
+   'L. simpan: nama per tahun dipulihkan; Obtained #1 baru → Obtained #3 (pasangan Submit #3), tidak bentrok dengan 2026',
+   nm.join(' '));
+ok(call('labelSiklusPerTahun("ZZ", 2027, "Submit #3")') === 'Submit #1', 'L. label tampilan nama unik → nomor per tahun');
+call('QUOTA_YEAR = 2026; applyQuotaYearSlice();');
+const z26 = call('SPI.find(c => c.code === "ZZ")');
+ok(z26.cycles.map(c => c.type).join(',') === 'Submit #1,Obtained #1,Submit #2', 'L. tahun pertama tetap bernama apa adanya');
+
 console.log(`\n${pass} lulus, ${fail} gagal`);
 process.exit(fail ? 1 : 0);
