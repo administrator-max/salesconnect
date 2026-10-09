@@ -1956,6 +1956,17 @@ async function rrRecordObtainedTerbit(code) {
 /* -- Record PERTEK Perubahan terbit date -> un-gate the split -- */
 async function rrSavePertekPerubahan(code) {
   const co = getSPI(code); if (!co) return;
+  /* Gerbang PERTEK Perubahan (pertek_perubahan_release) milik TAHUN PERTAMA
+     company — mencatatnya dari tampilan tahun lain akan membuka split 2026.
+     Normalnya tak terjangkau (irisan tahun lain tidak membawa _pendingRevision);
+     ini jaring kedua. Sisir 09-Okt-2026. */
+  if (co._quotaYearSliced && typeof companyPrimaryYear === 'function') {
+    const thPertama = companyPrimaryYear({ cycles: allCyclesForSave(co) });
+    if (QUOTA_YEAR !== thPertama) {
+      alert(`PERTEK Perubahan ${code} milik Quota Year ${thPertama} — catat dari tampilan tahun itu.`);
+      return;
+    }
+  }
   const pr = co._pendingRevision; if (!pr) return;
   const input = g('ppReleaseDate_' + code);
   const releaseDate = ((input || {}).value || '').trim();

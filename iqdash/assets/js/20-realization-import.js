@@ -297,7 +297,10 @@ async function confirmRealizationImport() {
         source: 'excel',
         sourceFile: _realizParsed.sourceFile,
         importedBy: (typeof currentRole === 'function' ? currentRole() : '') || 'Operations',
-        rows: _realizParsed.rows,
+        /* PIB yang diupload di tampilan tahun selain tahun bawaan wajib
+           bertahun itu — tanpa ini server menulis '' (= 2026). Sisir 09-Okt-2026. */
+        rows: _realizParsed.rows.map(r => (QUOTA_YEAR !== QUOTA_YEAR_DEFAULT && r.quotaYear == null)
+          ? Object.assign({}, r, { quotaYear: QUOTA_YEAR }) : r),
       }),
     });
     if (!res.ok) {
@@ -346,6 +349,7 @@ async function submitRealizationManual() {
         companyCode: code,
         importedBy: (typeof currentRole === 'function' ? currentRole() : '') || 'Operations',
         ...row,
+        ...(QUOTA_YEAR !== QUOTA_YEAR_DEFAULT ? { quotaYear: QUOTA_YEAR } : {}),
       }),
     });
     if (!res.ok) {
@@ -391,7 +395,8 @@ async function loadRealizationsList() {
   try {
     const res = await fetch(`api/realizations?company_code=${encodeURIComponent(code)}`);
     const data = await res.json();
-    _realizRows = data.realizations || [];
+    /* Hanya PIB tahun kuota yang sedang tampil (server memulangkan semua tahun). */
+    _realizRows = (data.realizations || []).filter(r => typeof rowQuotaYear !== 'function' || rowQuotaYear(r) === QUOTA_YEAR);
     renderRealizationsList();
   } catch (err) {
     body.innerHTML = `<tr><td colspan="10" style="padding:18px;text-align:center;color:var(--red2)">Load failed: ${realizEsc(err.message || err)}</td></tr>`;

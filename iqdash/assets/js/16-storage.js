@@ -544,6 +544,7 @@ async function patchToServer(co) {
       }))
     : (co.reapplyTargets || []);
 
+  const _tahunCo = (typeof companyPrimaryYear === 'function') ? companyPrimaryYear(co) : QUOTA_YEAR_DEFAULT;
   // Build shipments payload (only lots with actual data)
   const shipPayload = {};
   if (co.shipments) {
@@ -564,7 +565,11 @@ async function patchToServer(co) {
         cargoArrived: l.cargoArrived || false,
         /* Tahun kuota lot — server memakai aturan ABSEN != KOSONG, jadi hanya
            dikirim bila memang diketahui (lot gabungan dua tahun). */
-        ...(l.quotaYear != null ? { quotaYear: l.quotaYear } : {}),
+        /* Lot tanpa tahun milik company yang tahun pertamanya BUKAN tahun bawaan
+           (company khusus 2027) dicap tahun itu — bukan tahun yang sedang
+           tampil: panel Pengajuan menyimpan objek 2026 dari tampilan 2027. */
+        ...(l.quotaYear != null ? { quotaYear: l.quotaYear }
+           : (_tahunCo !== QUOTA_YEAR_DEFAULT ? { quotaYear: _tahunCo } : {})),
       }));
     });
   }
@@ -769,6 +774,11 @@ async function patchRAToServer(co, ra) {
   if (!co || !co.code || !ra) return;
   const body = {
     ra: {
+      /* Baris ra_records dicocokkan server per company + TAHUN (iqdash_write.php).
+         Dulu per company saja: simpan RA dari tampilan 2027 menimpa baris RA
+         2026 (sisir 09-Okt-2026). */
+      quotaYear:     (typeof rowQuotaYear === 'function' && (ra.quotaYear != null || ra.quota_year != null))
+                       ? rowQuotaYear(ra) : QUOTA_YEAR,
       berat:         ra.berat        || 0,
       obtained:      ra.obtained     || co.obtained || 0,
       cargoArrived:  ra.cargoArrived || false,

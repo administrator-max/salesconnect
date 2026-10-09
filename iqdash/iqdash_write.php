@@ -1087,8 +1087,15 @@ function iq_patch_company(GoogleSheets $gs, string $sid, string $code, array $bo
             $raTbl = $gs->table($sid, 'ra_records');
             $tabHeaders['ra_records'] = $raTbl['headers'];
             $ra = $raTbl['rows'];
+            /* Dicocokkan per company + TAHUN KUOTA (09-Okt-2026). Dulu baris
+               pertama company dipakai apa pun tahunnya, sehingga RA yang disimpan
+               dari tampilan 2027 menimpa baris RA 2026. Klien lama yang tidak
+               mengirim quotaYear tetap jatuh ke tahun bawaan (= perilaku lama). */
+            $raTahun = iq_quota_year($r['quotaYear'] ?? null) ?? IQ_TAHUN_BAWAAN;
             $exIdx = null;
-            foreach ($ra as $i => $x) { if ((string) ($x['company_code'] ?? '') === $code) { $exIdx = $i; break; } }
+            foreach ($ra as $i => $x) {
+                if ((string) ($x['company_code'] ?? '') === $code && iq_tahun_baris($x) === $raTahun) { $exIdx = $i; break; }
+            }
             if ($exIdx !== null) {
                 $ra[$exIdx] = array_merge($ra[$exIdx], [
                     'berat'               => $r['berat'] ?? null,

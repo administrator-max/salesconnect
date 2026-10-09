@@ -822,7 +822,12 @@ async function mdApply() {
     try {
       /* 1. company-level: grp + obtainedStats */
       const grpChange = mine.find(c => c.cat === 'group');
-      const obtChanges = mine.filter(c => c.cat === 'obtained');
+      /* company_product_stats milik TAHUN PERTAMA company. Untuk tahun lain
+         obtained per produk hidup di siklus (ikut langkah 2), jadi tidak
+         ditulis ke stats — kalau ditulis, angka 2026 tertimpa angka 2027. */
+      const tahunLainCo = co._quotaYearSliced && typeof companyPrimaryYear === 'function'
+        && QUOTA_YEAR !== companyPrimaryYear({ cycles: co._allCycles || co.cycles });
+      const obtChanges = tahunLainCo ? [] : mine.filter(c => c.cat === 'obtained');
       if (grpChange || obtChanges.length) {
         const body = { _ifUpdatedAt: co.updatedAt || null, updatedBy: mdActor() };
         if (grpChange) body.grp = grpChange.to;
@@ -872,8 +877,15 @@ async function mdApply() {
           /* Tahun kuota ikut baris utilisasinya. Import master menulis
              ulang SELURUH baris company ini, jadi tanpa cap tahun baris 2027
              akan kembali jatuh ke tahun bawaan setiap kali master diimpor. */
+          /* PUT ini MENGGANTI seluruh baris company — baris tahun lain harus
+             ikut dikirim apa adanya, kalau tidak terhapus (09-Okt-2026). */
           body: JSON.stringify({
-            rows: utilChange.rows.map(r => Object.assign({ quotaYear: QUOTA_YEAR }, r)),
+            rows: [
+              ...(([...(SPI_ALL || []), ...(PENDING_ALL || [])].find(x => x && x.code === code) || {}).utilCycles || [])
+                .filter(u => rowQuotaYear(u) !== QUOTA_YEAR)
+                .map(u => ({ cycle: u.cycle, product: u.product, mt: u.mt, date: u.date, quotaYear: rowQuotaYear(u) })),
+              ...utilChange.rows.map(r => Object.assign({ quotaYear: QUOTA_YEAR }, r)),
+            ],
           }),
         });
         if (!r.ok) {
@@ -926,6 +938,10 @@ function mdMergeCycles(co, changes) {
       products: Object.assign({}, cy.products || {}),
       pertekDate: cy.pertekDate, spiDate: cy.spiDate,
       _fromRevReq: cy._fromRevReq,
+      /* Tahun & nama unik WAJIB ikut — tanpa quotaYear server menulis ''
+         (= tahun bawaan), jadi siklus 2027 pulang sebagai 2026. */
+      quotaYear: cy.quotaYear != null ? cy.quotaYear : null,
+      _typeAsli: cy._typeAsli,
     };
     if (mdIsPreservedCycle(cy)) return clone;      // never edited
     const e = edits[cy.type];
@@ -950,10 +966,26 @@ function mdMergeCycles(co, changes) {
       releaseType: xc.releaseType, releaseDate: xc.releaseDate,
       status: xc.status, products,
       pertekDate: '', spiDate: '', _fromRevReq: false,
+      quotaYear: QUOTA_YEAR,
     });
   });
 
-  return out;
+  /* PATCH /cycles MENGGANTI seluruh siklus company. `co` adalah irisan tahun
+     yang sedang tampil, jadi siklus tahun lain WAJIB ikut — dulu Import
+     Master di tampilan 2026 menghapus Submit 2027 EMS (temuan 09-Okt-2026).
+     Irisan bernomor per tahun dipulihkan ke nama unik company. */
+  const salinLain = c => ({
+    type: c.type, mt: c.mt, submitType: c.submitType, submitDate: c.submitDate,
+    releaseType: c.releaseType, releaseDate: c.releaseDate, status: c.status,
+    products: Object.assign({}, c.products || {}), pertekDate: c.pertekDate, spiDate: c.spiDate,
+    _fromRevReq: c._fromRevReq, quotaYear: cycleQuotaYear(c),
+  });
+  const lain = co._quotaYearSliced
+    ? (co._allCycles || []).filter(c => cycleQuotaYear(c) !== QUOTA_YEAR).map(salinLain)
+    : [];
+  out.forEach(c => { if (parseQuotaYear(c.quotaYear) == null && co._quotaYearSliced) c.quotaYear = QUOTA_YEAR; });
+  const irisan = (co._namaPerTahun && typeof namaUnikSiklus === 'function') ? namaUnikSiklus(out, lain) : out;
+  return [...lain, ...irisan].map(c => { const x = Object.assign({}, c); delete x._typeAsli; return x; });
 }
 
 function mdFinish() {

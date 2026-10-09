@@ -166,5 +166,16 @@ call('QUOTA_YEAR = 2026; applyQuotaYearSlice();');
 const z26 = call('SPI.find(c => c.code === "ZZ")');
 ok(z26.cycles.map(c => c.type).join(',') === 'Submit #1,Obtained #1,Submit #2', 'L. tahun pertama tetap bernama apa adanya');
 
+/* ── M: Import Master tidak menghapus siklus tahun lain (sisir 09-Okt-2026) ── */
+call('QUOTA_YEAR = 2026; applyQuotaYearSlice();');
+const mm26 = call('mdMergeCycles(SPI.find(c => c.code === "ZZ"), [])');
+ok(mm26.length === 4 && mm26.some(c => c.type === 'Submit #3' && c.quotaYear === 2027),
+   'M. Import Master di 2026 tetap mengirim siklus 2027 (PATCH /cycles mengganti semua)', mm26.map(c => c.type + ':' + c.quotaYear).join(' '));
+call('QUOTA_YEAR = 2027; applyQuotaYearSlice();');
+const mm27 = call('mdMergeCycles(SPI.find(c => c.code === "ZZ"), [])');
+ok(mm27.length === 4 && mm27.every(c => c.quotaYear != null) && mm27.some(c => c.type === 'Submit #3' && c.quotaYear === 2027)
+   && !mm27.some(c => c._typeAsli !== undefined),
+   'M. Import Master di 2027: nama unik dipulihkan, tahun tidak hilang', mm27.map(c => c.type + ':' + c.quotaYear).join(' '));
+
 console.log(`\n${pass} lulus, ${fail} gagal`);
 process.exit(fail ? 1 : 0);

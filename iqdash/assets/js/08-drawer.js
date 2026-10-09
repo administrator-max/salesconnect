@@ -517,6 +517,12 @@ async function openRealizationDetail(code) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     let rows = (data && data.realizations) || [];
+    /* Server memulangkan PIB company SEMUA tahun — disaring ke tahun kuota yang
+       tampil, sama seperti REALIZATIONS (applyQuotaYearSlice). Temuan sisir
+       09-Okt-2026: di 2027, PIB 2026 ikut tercantum. */
+    if (typeof rowQuotaYear === 'function' && typeof QUOTA_YEAR !== 'undefined') {
+      rows = rows.filter(r => rowQuotaYear(r) === QUOTA_YEAR);
+    }
     // ── Period filter ─────────────────────────────────────────────────────
     // realizations.pib_date is ISO 'YYYY-MM-DD'; pDate parses it cleanly.
     // When a period is active, show only PIB lines whose PIB date is in range.

@@ -456,6 +456,14 @@ function onSalesAddChange(inp) { onSalesDirectChange(inp); }
 /* ── Patch shipment + utilization data to PostgreSQL server ── */
 async function patchShipmentsToServer(co) {
   if (!co || !co.code) return;
+  /* Irisan tahun: server MENGHAPUS lot setiap produk yang dikirim tapi tidak
+     ada di payload — lot tahun lain untuk produk yang sama ikut hilang, dan
+     lot baru tidak bertahun. Lewat patchToServer, yang menggabung lot semua
+     tahun (_gabungIrisanTahun). Temuan sisir 09-Okt-2026. */
+  if (co._quotaYearSliced && typeof patchToServer === 'function') {
+    try { await patchToServer(co); } catch (err) { console.error('patchShipmentsToServer (irisan) error:', err); }
+    return;
+  }
   try {
     const obtByProd = getObtainedByProd(co);
     const totalUtil  = Object.keys(obtByProd).reduce((s, p) => s + totalUtilForProd(co.shipments || {}, p), 0);
@@ -475,6 +483,11 @@ async function patchShipmentsToServer(co) {
           realMT:       l.realMT || 0,
           pibDate:      l.pibDate || '',
           cargoArrived: l.cargoArrived || l.arrived || false,
+          /* Lot tanpa tahun milik company khusus tahun selain tahun bawaan
+             dicap tahun company itu (lihat 16-storage.js, _tahunCo). */
+          ...(l.quotaYear != null ? { quotaYear: l.quotaYear }
+             : (typeof companyPrimaryYear === 'function' && companyPrimaryYear(co) !== QUOTA_YEAR_DEFAULT
+                ? { quotaYear: companyPrimaryYear(co) } : {})),
         }));
       });
     }
