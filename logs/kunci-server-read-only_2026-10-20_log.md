@@ -42,3 +42,14 @@ Perubahan deploy.sh dikembalikan ke versi sebelumnya (tidak boleh memberi rasa a
 Ganti password FTP `salesconnect@salesconnect.tapworkspace.com` di hPanel (pemilik hosting),
 hapus akun FTP lain yang tak dikenal, cek Git auto-deploy & Cron Jobs; simpan password baru
 hanya di komputer ini (`git config git-ftp.password`).
+
+## Pengganti: penjaga server (deteksi, 2026-10-20 09:25)
+- `tools/penjaga_server.sh` — HANYA MEMBACA: listing FTP semua folder program dalam satu
+  koneksi, bandingkan ukuran 115 file dengan repo (file yang sedang diedit lokal dilewati).
+  Beda/hilang → notifikasi balon Windows + `logs/penjaga-server.log` (sekali per temuan baru;
+  "PULIH" dicatat saat cocok lagi). Listing tak lengkap → dilewati, bukan alarm palsu.
+- `tools/penjaga_server.vbs` — peluncur tanpa jendela; Task Scheduler "SalesConnect Penjaga"
+  tiap 10 menit (hanya saat pengguna login di PC ini).
+- Uji: kondisi sekarang OK (115 cocok); simulasi `PENJAGA_SIMULASI=lib/auth.php` → BEDA
+  terdeteksi, tidak dobel, lalu PULIH tercatat. Task dijalankan manual → hasil 0.
+- Catatan: file yang sudah di-commit tapi belum di-deploy juga akan memicu peringatan.

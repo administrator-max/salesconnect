@@ -47,3 +47,4 @@ sync_tools.jsonc
 
 # Build artifacts — never commit (may embed config.php)
 *_deploy.zip
+logs/penjaga-server.log
