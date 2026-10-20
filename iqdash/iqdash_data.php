@@ -1000,6 +1000,7 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
     $utilByProd = [];
     $availByProd = [];
     $obtByProd = [];
+    $basisU = [];
     $ships = $co['shipments'] ?? [];
 
     /* Utilisasi versi `company_product_stats`, sebagaimana dibaca
@@ -1046,7 +1047,8 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
         // above the frozen ledger baseline — without counting the overlap
         // twice. Verified over every company in the ledger: only IKM moves,
         // and the new total lands exactly on the master's 22,547 MT.
-        $u = min($o, max($ledgerU, $lotU, $statU));
+        $basisU[$name] = max($ledgerU, $lotU, $statU);   // dipakai lagi oleh susulan di bawah
+        $u = min($o, $basisU[$name]);
         $obtByProd[$name] = $o;
         $utilByProd[$name] = $u;
         $availByProd[$name] = max(0, $o - $u);
@@ -1088,6 +1090,37 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
         }
     }
 
+    $ledgerObt = 0.0;
+    foreach ($obtByProd as $v) $ledgerObt += iq_num($v);
+    $ledgerObtByProd = $obtByProd;
+
+    /* Obtained BARU yang belum ada di ledger beku — lihat
+       iq_obtained_belum_di_ledger(). Tanpa susulan ini, atap pemakaian per
+       produk tetap angka ledger lama, dan setiap pemakaian di atasnya dibuang
+       diam-diam (di sini lewat min(), di iq_sync_util_with_cycles() lewat
+       pagar obtained). Kena berulang: AMP 29-Sep-2026 ("udah gw isi 2x tapi
+       ilang mulu"), lalu EMS 500 / KJK 300 / SJH 81 pada 20-Okt-2026 — semua
+       kuota Re-Apply #2 yang PERTEK Perubahan-nya terbit sesudah snapshot. */
+    $statsUKanon = [];
+    foreach ($statsU as $p => $v) $statsUKanon[$aliasMap[$p] ?? $p] = $v;
+    foreach (iq_obtained_belum_di_ledger($co, $obtByProd, $aliasMap) as $kanon => $mt) {
+        $name = null;
+        foreach (array_keys($obtByProd) as $n) {
+            if (($aliasMap[$n] ?? $n) === $kanon) { $name = $n; break; }
+        }
+        if ($name === null) {
+            // Produk yang sama sekali tidak ada di ledger company ini (EMS GL ALLOY).
+            $name = $kanon;
+            $lotU = 0.0;
+            foreach (($ships[$name] ?? []) as $l) $lotU += iq_num($l['utilMT'] ?? 0);
+            $basisU[$name] = max($lotU, $statsUKanon[$kanon] ?? 0.0);
+            $obtByProd[$name] = 0.0;
+        }
+        $obtByProd[$name] = round((iq_num($obtByProd[$name]) + $mt) * 1000) / 1000;
+        $utilByProd[$name] = min($obtByProd[$name], $basisU[$name] ?? iq_num($utilByProd[$name] ?? 0));
+        $availByProd[$name] = max(0, round(($obtByProd[$name] - $utilByProd[$name]) * 1000) / 1000);
+    }
+
     $obt = 0.0;
     $util = 0.0;
     foreach (array_keys($obtByProd) as $name) {
@@ -1102,9 +1135,90 @@ function iq_apply_ledger(array &$co, array $ent, array $hsName = [], string $rel
     $co['availableQuota'] = max(0, round(($obt - $util) * 1000) / 1000);
     $co['utilizationByProd'] = $utilByProd;
     $co['availableByProd'] = $availByProd;
-    $co['_ledgerObtained'] = $obt;
-    $co['_ledgerObtainedByProd'] = $obtByProd;
+    // Tetap angka ledger MURNI — pembanding untuk melihat ledger yang tertinggal.
+    $co['_ledgerObtained'] = round($ledgerObt * 1000) / 1000;
+    $co['_ledgerObtainedByProd'] = $ledgerObtByProd;
     $co['products'] = array_keys($obtByProd);
+}
+
+/**
+ * Obtained per produk (kanonik) yang SUDAH TERBIT di siklus tahun pertama
+ * company tetapi BELUM ada di quotaLedger.json.
+ *
+ * Ledger adalah snapshot beku master (03-Agu-2026); setiap Obtained yang terbit
+ * sesudahnya tidak pernah masuk sendiri. Aturannya meniru persis jalur
+ * dashboard — canonicalObtained() + _isObtainedTerbit() di 01-data.js dan
+ * "Cadangan KEDUA" getObtainedByProdAgg():
+ *   - total = Σ siklus "Obtained #N" (dedupe per tipe, mt > 0, sudah terbit);
+ *   - yang ditambahkan hanya SELISIH total itu terhadap ledger, diambil dari
+ *     siklus TERBARU ke belakang, dibagi menurut produk siklusnya.
+ * Selisih nol/negatif -> tidak ada yang ditambah. Itu sengaja: siklus menyimpan
+ * produk SEBELUM revisi, ledger NET sesudahnya, jadi membangun ulang per produk
+ * dari siklus akan menghidupkan lagi produk lama (BDG, GAS, MJU, ...).
+ *
+ * @return array produk kanonik => MT tambahan
+ */
+function iq_obtained_belum_di_ledger(array $co, array $obtByProd, array $aliasMap = []): array {
+    $primer = iq_tahun_primer($co);
+    $siklus = array_values(array_filter($co['cycles'] ?? [], fn($c) => iq_tahun_baris($c) === $primer));
+
+    $kosong = fn($v) => ($s = trim((string) ($v ?? ''))) === '' || preg_match('/^(TBA|null|undefined|—)$/iu', $s);
+    $terbit = function (array $c) use ($siklus, $kosong): bool {
+        $tipe = (string) ($c['type'] ?? '');
+        if (preg_match('/^obtained\s*#?1\b/i', $tipe)) return true;
+        if (!$kosong($c['releaseDate'] ?? null)) return true;
+        foreach (['spiDate', 'pertekDate'] as $k) {
+            $v = trim((string) ($c[$k] ?? ''));
+            if ($v !== '' && !preg_match('/^TBA$/i', $v)) return true;
+        }
+        // Tanggal PERTEK Terbit siklus Submit pasangannya (getPertekTerbitForObtained).
+        if (!preg_match('/^Obtained\s+#?(\d+)/i', $tipe, $m)) return false;
+        foreach ($siklus as $s) {
+            if ($s === $c) continue;
+            if (preg_match('/^Submit\s*#?' . $m[1] . '\b/i', (string) ($s['type'] ?? ''))) {
+                return iq_is_date_like($s['releaseDate'] ?? null);
+            }
+        }
+        return false;
+    };
+
+    $dihitung = [];
+    $seen = [];
+    $total = 0.0;
+    foreach ($siklus as $c) {
+        $tipe = (string) ($c['type'] ?? '');
+        if (!preg_match('/^obtained #/i', $tipe)) continue;
+        $mt = is_int($c['mt'] ?? null) || is_float($c['mt'] ?? null) ? (float) $c['mt'] : 0.0;
+        if ($mt <= 0) continue;
+        $kunci = strtolower(trim($tipe));
+        if (isset($seen[$kunci])) continue;
+        $seen[$kunci] = true;
+        if (!$terbit($c)) continue;
+        $total += $mt;
+        $dihitung[] = $c;
+    }
+
+    $diLedger = 0.0;
+    foreach ($obtByProd as $v) $diLedger += iq_num($v);
+    $kurang = $total - $diLedger;
+    if ($kurang <= 0.001) return [];
+
+    $no = fn($c) => preg_match('/#\s*(\d+)/', (string) ($c['type'] ?? ''), $m) ? (int) $m[1] : 0;
+    usort($dihitung, fn($a, $b) => $no($b) <=> $no($a));
+    $hasil = [];
+    foreach ($dihitung as $c) {
+        if ($kurang <= 0.001) break;
+        $isi = array_filter((array) ($c['products'] ?? []), fn($v) => iq_num($v) > 0);
+        $jumlah = array_sum(array_map('iq_num', $isi));
+        if ($jumlah <= 0) continue;
+        $ambil = min($kurang, $jumlah);
+        foreach ($isi as $p => $v) {
+            $k = $aliasMap[trim((string) $p)] ?? trim((string) $p);
+            $hasil[$k] = ($hasil[$k] ?? 0) + $ambil * (iq_num($v) / $jumlah);
+        }
+        $kurang -= $ambil;
+    }
+    return $hasil;
 }
 
 /**

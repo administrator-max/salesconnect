@@ -183,9 +183,16 @@ $totalAvail = $sum($payload['spi'], 'availableQuota');
  *     effective yet. That also retires the stray .3, so obtained is a round
  *     34,840 for the first time. If CorpSec says the split stands, restore
  *     backups/quotaLedger_before_regen_2026-08-03.json and revert these three. */
-ok(abs($totalObt - 34840) < 0.01,   "parity (all companies as SPI rows): total obtained 34840 (got $totalObt)");
+/* Hand edits since the 3-Aug regen, each a quota issued AFTER the snapshot
+ * (obtained only — the ledger's util stays the 3-Aug master figure):
+ *   + 200  AMP GL ALLOY 400 -> 600   (0ed28a1, 29-Sep; never re-pinned here)
+ *   + 300  IKM HS move per PERTEK Perubahan Rev.1 (c7103bd, 02-Okt; ditto)
+ *   + 500  EMS GL ALLOY new           (20-Okt, Re-Apply #2 PERTEK 28/09/2026)
+ *   + 300  KJK GL ALLOY 1400 -> 1700  (20-Okt, Re-Apply #2 PERTEK 19/09/2026)
+ * 34,840 + 1,300 = 36,140; utilized unchanged; available + 1,300. */
+ok(abs($totalObt - 36140) < 0.01,   "parity (all companies as SPI rows): total obtained 36140 (got $totalObt)");
 ok(abs($totalUtil - 22547) < 0.01,  "parity (all companies as SPI rows): total utilized 22547 (got $totalUtil)");
-ok(abs($totalAvail - 12293) < 0.01, "parity (all companies as SPI rows): total available 12293 (got $totalAvail)");
+ok(abs($totalAvail - 13593) < 0.01, "parity (all companies as SPI rows): total available 13593 (got $totalAvail)");
 
 /* ── invariant 4: company code not present in the ledger contributes 0 ── */
 $t0 = ['companies' => [['code' => 'ZZZ-NOT-IN-LEDGER', 'full_name' => 'Nobody', 'grp' => '', 'section' => 'SPI']]] + $emptyTabs;
