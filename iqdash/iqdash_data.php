@@ -481,6 +481,13 @@ function iq_sync_util_with_cycles(array &$co, array $aliasMap = []): void {
            bukan membantah master"): di mana master bicara ia tetap menang, di
            mana ia diam kita tidak boleh menganggapnya nol. */
         $u   = array_key_exists($c, $utilBaru) ? $utilBaru[$c] : ($utilStats[$c] ?? 0);
+        /* Master DIAM soal produk ini dan yang ada hanya lot: stats tetap ikut
+           sebagai TOTAL (max, bukan jumlah — keduanya mengaku total yang sama).
+           Tanpa ini, lot pertama untuk produk yang pemakaiannya baru tercatat di
+           stats justru MENURUNKAN Used: EMS GL ALLOY stats 500 + lot 100 baru
+           -> tampil 100 terpakai / 400 sisa. Ditemukan 20-Okt-2026 oleh simulasi
+           log aktivitas, sebelum sempat terjadi pada tim. */
+        if (!isset($master0[$c]) && isset($utilStats[$c])) $u = max($u, $utilStats[$c]);
         // Produk yang hanya muncul di utilCycles: obtained-nya minimal sebesar
         // yang terpakai — menganggapnya 0 akan membuat saldo negatif.
         $o   = $obtProd[$c] ?? $u;

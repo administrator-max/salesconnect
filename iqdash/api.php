@@ -16,12 +16,17 @@
  *   realizations/single                          POST
  *   realizations/:id                             PUT / PATCH, DELETE
  *   insights[/:q]                                GET
+ *   activity                                     GET (?company= ?since= ?mine=1 ?limit=)
+ *
+ * Setiap penulisan di atas juga dicatat ke tab `activity_log` beserta efeknya
+ * pada angka dashboard — lihat iqdash_activity.php.
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/iqdash_util.php';
 require_once __DIR__ . '/iqdash_data.php';
 require_once __DIR__ . '/iqdash_insights.php';
 require_once __DIR__ . '/iqdash_write.php';
+require_once __DIR__ . '/iqdash_activity.php';
 require_once __DIR__ . '/../lib/tool_guard.php';
 sc_require_tool_api('iqdash');
 
@@ -166,7 +171,21 @@ try {
     $SID = $cfg['spreadsheets']['iqdash'];
     $gs  = new GoogleSheets();
 
+    // Log aktivitas: potret sebelum/sesudah setiap penulisan (iqdash_activity.php).
+    // Tidak pernah menggagalkan penyimpanannya sendiri.
+    if ($method !== 'GET') iq_akt_mulai($gs, $SID, $method, $parts);
+
     switch ($res) {
+        // ====================================================================
+        // GET /api/activity — log aktivitas input (terbaru dulu).
+        //   ?company=EMS  ?since=2026-10-20T00:00:00Z  ?mine=1  ?limit=200
+        // ====================================================================
+        case 'activity':
+            if ($method === 'GET') {
+                json_out(['activity' => iq_akt_daftar($gs, $SID, $_GET)]);
+            }
+            break;
+
         // ====================================================================
         // GET /api/version — sidik jari data, beberapa ratus byte.
         //
