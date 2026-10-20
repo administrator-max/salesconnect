@@ -30,3 +30,15 @@ cek hPanel (Git auto-deploy, Cron Jobs, akun FTP lain).
 - [ ] Uji di folder `_locktest/` (timpa harus gagal) — menunggu persetujuan pengguna
 - [ ] `./deploy.sh --lock-only` di produksi — menunggu persetujuan pengguna
 - [ ] Cek situs: halaman 302→login, login.php 200, API 401; login OTP tetap jalan
+
+## HASIL UJI (2026-10-20 09:15) — GAGAL, kunci DIBATALKAN
+Pure-FTPd Hostinger menjawab `200 Permissions changed` untuk `SITE CHMOD 444/555`, tetapi
+izin di listing tetap `-rw-r--r--` / `drwxr-xr-x`, dan penimpaan file + file baru di folder
+"terkunci" tetap berhasil. Hostinger memaksa izin 644/755 → kunci lewat chmod TIDAK mungkin.
+Folder uji `_locktest/` sudah dihapus. Situs dicek: / 302, login.php 200, iqdash/ 302.
+Perubahan deploy.sh dikembalikan ke versi sebelumnya (tidak boleh memberi rasa aman palsu).
+
+## Satu-satunya pencegahan nyata
+Ganti password FTP `salesconnect@salesconnect.tapworkspace.com` di hPanel (pemilik hosting),
+hapus akun FTP lain yang tak dikenal, cek Git auto-deploy & Cron Jobs; simpan password baru
+hanya di komputer ini (`git config git-ftp.password`).
