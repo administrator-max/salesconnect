@@ -34,3 +34,22 @@ ukuran `lib/*` di server = repo.
   bertanggal Juli ada di folder repo — kandidat kuat).
 - `lib/costcore_gate.php` usang masih di server (tidak dipakai) — hapus bila disetujui.
 - Deploy HANYA lewat `./deploy.sh` dari repo; jangan upload folder/zip manual.
+
+## Terulang — 2026-10-20 08:25
+
+File yang sama persis ditimpa lagi (auth.php 1.271, GoogleSheets.php 13.912, folder
+yang sama). Dipulihkan lagi dengan perintah yang sama (61 file); semua halaman 302 ke
+login, login.php 200, API 401.
+
+Penelusuran sumber:
+- Ukuran file cocok dengan commit sekitar 20–21 Juli (auth.php 1.271 di 7509369 /
+  f4cc7e5; GoogleSheets.php 13.912 di 17200ec) — salinan repo era itu.
+- BUKAN zip deploy lama di folder repo (isinya beda).
+- BUKAN GitHub Action repo ini: workflow git-ftp dihapus 23-Jul (8dbfd8e); remote
+  hanya punya `main`.
+- Tidak ada salinan lama di komputer ini. Sumbernya di luar: komputer/sesi lain
+  (mis. sesi Claude/Cowork dengan checkout Juli), atau tugas otomatis di hosting.
+
+Rekomendasi: GANTI PASSWORD FTP akun salesconnect@ (juga TODO lama di CLAUDE.md —
+pernah terkirim plaintext), lalu perbarui `git config git-ftp.password` di komputer
+yang sah; cek hPanel → Git (auto-deploy), Cron Jobs, dan daftar akun FTP.
