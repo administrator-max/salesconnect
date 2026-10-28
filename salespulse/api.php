@@ -10,10 +10,12 @@
  *   project-sheet             POST
  *   project-sheet/:psNumber   DELETE
  *   health                   GET
+ *   activity                 GET (?q= ) — riwayat input + cari PS
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/salespulse_util.php';
 require_once __DIR__ . '/consolidation.php';
+require_once __DIR__ . '/salespulse_activity.php';
 require_once __DIR__ . '/../lib/tool_guard.php';
 sc_require_tool_api('salespulse');
 
@@ -35,7 +37,19 @@ function sp_lenient_int($v): ?int {
 }
 
 try {
+    // Riwayat Input: setiap upload/hapus PS & simpan plan/budget dicatat (salespulse_activity.php).
+    if ($method !== 'GET') sp_akt_mulai($gs, $SID, $method, $parts);
+
     switch ($res) {
+        // ====================================================================
+        // GET /api/activity?q=arsen 66 — riwayat input + cek PS sudah ada atau belum
+        // ====================================================================
+        case 'activity':
+            if ($method === 'GET') {
+                json_out(sp_akt_cari($gs, $SID, (string) ($_GET['q'] ?? ''), (int) ($_GET['limit'] ?? 200)));
+            }
+            break;
+
         // ====================================================================
         // 1 & 5. GET/POST /api/data
         // ====================================================================
