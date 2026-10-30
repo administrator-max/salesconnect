@@ -36,6 +36,44 @@ const PIB_HEADER_MAP = {
   'Tanggal Pengajuan':   'pengajuanDate',
 };
 
+/* Judul kolom -> field, TOLERAN terhadap huruf besar/kecil, spasi ganda, titik,
+   dan baris baru di dalam sel judul. Dulu dicocokkan persis ('Uraian Barang'),
+   sehingga satu spasi atau ejaan berbeda membuat seluruh kolom itu diam-diam
+   dibuang — angka tetap masuk, uraiannya hilang. BHG PIB 717444 (30-Okt-2026,
+   "70. REALISASI BHG - ARSEN…"): Excel-nya berisi uraian di kolom B, tapi
+   Existing Records menulis "—".
+
+   Cadangan untuk Uraian Barang: kalau tidak ada judul yang dikenali (judulnya
+   kosong — persis bentuk file BHG itu), kolom TEKS yang belum terpetakan dengan
+   isi rata-rata terpanjang dianggap uraian barang. Hanya bila rata-ratanya
+   cukup panjang (>= 15 huruf), supaya kode pendek tidak salah terambil. */
+const _realizNormJudul = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+const PIB_HEADER_NORM = (() => {
+  const m = {};
+  Object.entries(PIB_HEADER_MAP).forEach(([h, k]) => { m[_realizNormJudul(h)] = k; });
+  ['uraian', 'uraianbrg', 'deskripsi', 'deskripsibarang', 'description', 'namabarang', 'jenisbarang']
+    .forEach(h => { m[h] = 'description'; });
+  m['postarif'] = m['hscode'] = m['hs'] = m['kodehs'] = 'hsCode';
+  return m;
+})();
+
+function realizPetaKolom(headers, dataRows) {
+  const kolom = headers.map(h => PIB_HEADER_NORM[_realizNormJudul(h)] || null);
+  if (!kolom.includes('description')) {
+    let terbaik = -1, panjang = 0;
+    headers.forEach((h, idx) => {
+      if (kolom[idx]) return;
+      const teks = dataRows.map(r => (r || [])[idx])
+        .filter(v => typeof v === 'string' && v.trim() && Number.isNaN(Number(v)));
+      if (!teks.length) return;
+      const rata = teks.reduce((s, v) => s + v.trim().length, 0) / teks.length;
+      if (rata > panjang) { panjang = rata; terbaik = idx; }
+    });
+    if (terbaik >= 0 && panjang >= 15) kolom[terbaik] = 'description';
+  }
+  return kolom;
+}
+
 /* ── Modal open/close ────────────────────────────────────────────── */
 function openRealizationImport() {
   populateRealizCompanyPicker();
@@ -161,16 +199,14 @@ async function parseRealizFile(file) {
       const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
       if (!aoa.length) throw new Error('Empty sheet');
       const headers = aoa[0].map(h => String(h).trim());
+      const kolom = realizPetaKolom(headers, aoa.slice(1));
       const rows = [];
       const dilewati = [];
       for (let i = 1; i < aoa.length; i++) {
         const r = aoa[i];
         if (!r || r.every(v => v === '' || v == null)) continue;
         const obj = {};
-        headers.forEach((h, idx) => {
-          const key = PIB_HEADER_MAP[h];
-          if (key) obj[key] = r[idx];
-        });
+        kolom.forEach((key, idx) => { if (key) obj[key] = r[idx]; });
         // Normalize numeric fields
         ['lineNo','volume','valueUSD','unitPrice','kurs'].forEach(k => {
           if (obj[k] !== undefined && obj[k] !== '') {

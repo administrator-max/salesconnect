@@ -33,17 +33,19 @@ const akhir = src.indexOf("      if (!rows.length) throw new Error('No data rows
 if (awal < 0 || akhir < 0) throw new Error('potongan loop parser tidak ketemu di sumber');
 const potongan = src.slice(awal, akhir);
 
-/* PIB_HEADER_MAP juga diambil dari sumber, bukan ditulis ulang. */
+/* PIB_HEADER_MAP + pemetaan kolom (realizPetaKolom) juga diambil dari sumber,
+   bukan ditulis ulang — dari deklarasi peta sampai blok "Modal open/close". */
 const iMap = src.indexOf('const PIB_HEADER_MAP');
-const jMap = src.indexOf('};', iMap) + 2;
-if (iMap < 0) throw new Error('PIB_HEADER_MAP tidak ketemu di sumber');
+const jMap = src.indexOf('/* ── Modal open/close', iMap);
+if (iMap < 0 || jMap < 0) throw new Error('PIB_HEADER_MAP / realizPetaKolom tidak ketemu di sumber');
 
 function jalankan(aoa) {
   const ctx = { console, aoa, realizProductFromHS: hs => (hs ? 'GL ALLOY' : null) };
   vm.createContext(ctx);
-  vm.runInContext(src.slice(iMap, jMap), ctx);
+  vm.runInContext(src.slice(iMap, jMap) + ';globalThis.realizPetaKolom = realizPetaKolom;', ctx);
   vm.runInContext(`
     const headers = aoa[0].map(h => String(h).trim());
+    const kolom = realizPetaKolom(headers, aoa.slice(1));
     ${potongan}
     globalThis.__rows = rows;
     globalThis.__dilewati = dilewati;
@@ -116,6 +118,28 @@ const eq = (dapat, harus, nama) => {
   ]);
   eq(rows.length, 2, 'multi-PIB: 2 line item tersimpan');
   eq(dilewati.length, 2, 'multi-PIB: 2 baris rekap dilewati');
+}
+
+/* ── BHG 30-Okt-2026 ("70. REALISASI BHG - ARSEN…"): judul kolom Uraian Barang
+   KOSONG. Dulu uraiannya dibuang diam-diam (Existing Records menulis "—"). */
+{
+  const desc = 'FLAT ROLLED PRODUCTS OF ALLOY STEEL COATED WITH ZINC AND OTHERS, SGCH\nBMT 0.20 MM X 914 MM';
+  const { rows } = jalankan([
+    ['No', '', 'Pos Tarif/HS 10 Digit', 'Volume', 'Satuan', 'Nilai', 'No. PIB'],
+    [1, desc, '7225.92.90', 145.842, 'TNE', 105297.924, '717444'],
+  ]);
+  eq(rows.length, 1, 'BHG: satu line item');
+  eq(rows[0] && rows[0].description, desc, 'BHG: uraian dari kolom tanpa judul tetap terbaca');
+  eq(rows[0] && rows[0].unit, 'TNE', 'BHG: kolom pendek (Satuan) tidak tertukar jadi uraian');
+}
+/* Judul berejaan lain tetap dikenali. */
+{
+  const { rows } = jalankan([
+    ['No.', 'URAIAN  BARANG ', 'Pos Tarif / HS 10 Digit', 'Volume', 'No. PIB'],
+    [1, 'FLAT ROLLED ... BMT 0.29 MM', '7225.99.90', 10, '1'],
+  ]);
+  eq(rows[0] && rows[0].description, 'FLAT ROLLED ... BMT 0.29 MM', 'judul "URAIAN  BARANG " dikenali');
+  eq(rows[0] && rows[0].hsCode, '7225.99.90', 'judul "Pos Tarif / HS 10 Digit" dikenali');
 }
 
 console.log(`\n${pass} lulus, ${fail} gagal`);
