@@ -39,3 +39,10 @@ tools/pulihkan_submit1_2026-11-02.php --apply (sel per sel, ID baris dicek):
   15-Oct-26→15/10/2025; BBB id 53255 3000→6000, 13-Oct-26→21/10/2025. Status tidak diubah.
 - cycle_products: EMS SHEET PILE 2000→8000 + baris GL ALLOY 4000 dihapus; KJK & BBB GL ALLOY 3000→6000.
 Dibaca ulang + payload dibangun ulang: Submit #1 2026 kembali, Submit #4 2027 utuh.
+
+## Lot BBB GL ALLOY #1 dipulihkan (02-Nov-2026, disetujui "pulihkan lot BBB")
+David 01:33 UTC: util 0→100 MT, tgl 30 October 2026, ETA 31 December 2026 (Arsen 69C).
+Putri 02:50 UTC: form lama tersimpan → util 100→0, tanggal & ETA kosong (stale form menimpa input
+orang lain — bug terpisah: belum ada cek versi saat simpan).
+tools/pulihkan_lot_bbb_2026-11-02.php: baris id 45 dikembalikan. GL ALLOY: used 11.785→11.885,
+available 305→205. KARA 80 & LCP 50 (69D/69E) belum diinput tim.
