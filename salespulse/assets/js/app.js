@@ -304,6 +304,21 @@ function renderUploadPreview(errors) {
 async function submitUploadToDb() {
   if (!_uploadParsedFiles.length) return;
 
+  /* PS tanpa satu pun item tidak boleh lewat diam-diam: margin-nya terhitung tapi
+     revenue, volume dan produknya NOL. Dulu cuma toast sesudah tersimpan — mudah
+     terlewat, dan David menghapus-lalu-mengunggah Arsen 68 dua kali dengan hasil
+     sama (02-Nov-2026). Sekarang ditanya SEBELUM menyimpan. */
+  const tanpaItem = _uploadParsedFiles.filter(p => !(p.items && p.items.length));
+  if (tanpaItem.length) {
+    const daftar = tanpaItem.map(p => `• ${p.header.psNumber} — ${p.header.projectName || p._fileName || ''}`).join('\n');
+    const lanjut = confirm(
+      `⚠ ${tanpaItem.length} PS terbaca TANPA tabel item:\n\n${daftar}\n\n` +
+      `Kalau disimpan, margin-nya terhitung tapi REVENUE, VOLUME (MT) dan PRODUK-nya = 0.\n` +
+      `Biasanya karena file-nya bukan template PS standar (mis. tabel item bergeser atau kosong).\n\n` +
+      `Klik "Cancel" untuk batal dan cek file-nya (disarankan), atau "OK" untuk tetap menyimpan.`);
+    if (!lanjut) return;
+  }
+
   const btn = document.getElementById('upload-btn-submit');
   btn.disabled = true;
   btn.className = 'upload-submit-btn loading';
@@ -377,6 +392,15 @@ function parseXmlSpreadsheet(xmlText) {
   const rows   = [];
 
   doc.querySelectorAll('Row').forEach(rowEl => {
+    /* ss:Index = nomor baris sebenarnya (1-based). Ekspor XML boleh MELOMPATI baris
+       kosong; dulu atribut ini diabaikan sehingga semua baris di bawahnya "naik",
+       tabel item jatuh di atas baris 23 tempat pencarian item dimulai, dan PS tersimpan
+       dengan 0 item tanpa error (Arsen 68 / PSF26-IKM-000011.R1, 02-Nov-2026). */
+    const rowIdxAttr = rowEl.getAttribute('Index');
+    if (rowIdxAttr) {
+      const target = parseInt(rowIdxAttr) - 1;
+      while (rows.length < target) rows.push([]);
+    }
     const cells = [];
     let colIdx  = 0;
     rowEl.querySelectorAll('Cell').forEach(cellEl => {
@@ -502,25 +526,41 @@ function parseProjectSheetData(lines) {
   }
 
   // ── Items ──
-  let rowIndex = 22;
+  /* Awal tabel item DICARI, tidak dipatok di baris 23 / kolom B. Jangkar = baris
+     pertama dengan nomor item 1 di kolom k, teks material di k+1, dan berat > 0 di
+     k+10 (susunan template: No | Material | … | Size k+5 | … | Qty k+8 | … | Total
+     Weight k+10). Template standar -> baris 23, k = 1, sama persis dengan perilaku
+     lama. Kalau baris/kolom bergeser (file revisi, ekspor XML yang melompati baris
+     kosong), item tetap terbaca alih-alih hilang diam-diam. */
+  let start = 22, off = 0;
+  anchor: for (let r = 8; r < Math.min(lines.length, 80); r++) {
+    const row = lines[r];
+    if (!row) continue;
+    for (let k = 0; k <= 3; k++) {
+      if (String(get(row, k)).trim() === '1' && String(get(row, k + 1)).trim() !== ''
+          && cleanNum(get(row, k + 10)) > 0) { start = r; off = k - 1; break anchor; }
+    }
+  }
+  header.itemStartRow = start + 1;            // 1-based, untuk pesan ke pengguna
+  let rowIndex = start;
   while (rowIndex < lines.length) {
     const row  = lines[rowIndex];
     if (!row || row.length === 0) { rowIndex++; continue; }
-    const col1 = String(get(row, 1)).trim();
-    const col2 = String(get(row, 2)).trim();
-    if (col2 === 'TOTAL') break;
+    const col1 = String(get(row, 1 + off)).trim();
+    const col2 = String(get(row, 2 + off)).trim();
+    if (col2 === 'TOTAL' || col1 === 'TOTAL') break;
     if (col1 === '' && col2 !== '') { rowIndex++; continue; }
     const itemNo = parseInt(col1);
     if (!isNaN(itemNo) && itemNo > 0) {
       items.push({
         no:            itemNo,
-        material:      String(get(row, 2)).trim(),
-        size:          String(get(row, 6)).trim(),
-        length:        String(get(row, 8)).trim(),
-        qtyVal:        cleanNum(get(row, 9)),
+        material:      String(get(row, 2 + off)).trim(),
+        size:          String(get(row, 6 + off)).trim(),
+        length:        String(get(row, 8 + off)).trim(),
+        qtyVal:        cleanNum(get(row, 9 + off)),
         qtyUnit:       'PCS',
-        totalWeight:   cleanNum(get(row, 11)),
-        purchasePrice: cleanNum(get(row, 14)) || cleanNum(get(row, 12))
+        totalWeight:   cleanNum(get(row, 11 + off)),
+        purchasePrice: cleanNum(get(row, 14 + off)) || cleanNum(get(row, 12 + off))
       });
     }
     rowIndex++;

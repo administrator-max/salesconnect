@@ -28,3 +28,22 @@
 ## Data
 - ps_headers.product PSF26-IKM-000016 → Galvalume: DITAHAN (penulisan ke sheet perlu
   persetujuan pengguna).
+
+## Lanjutan: Arsen 68 tetap 0 item setelah dihapus & diupload ulang (02-Nov-2026 15:xx)
+Riwayat Input SalesPulse: 08:04 UTC "Hapus PS" PSF26-IKM-000011.R1 → 08:05 "Upload PS baru · 0 item".
+Server menyimpan apa yang dikirim; yang gagal adalah PEMBACA FILE di browser (app.js):
+tabel item dicari di posisi TETAP (mulai baris 23, No di kolom B, berat di kolom L).
+Header & margin tetap terbaca (dicari lewat label) → item hilang tanpa error.
+
+Perbaikan (app.js):
+- parseXmlSpreadsheet menghormati ss:Index baris (dulu baris kosong yang dilompati ekspor XML
+  membuat seluruh tabel "naik").
+- Awal tabel item dicari: baris 9–80, kolom No 0–3, jangkar No=1 + material + berat di No+10.
+  Template standar → baris 23/kolom B, identik dengan perilaku lama.
+- Upload dengan 0 item kini DIKONFIRMASI sebelum disimpan (dulu hanya toast sesudahnya).
+Diuji: standar, tabel naik (b15), turun (b30), geser 1 kolom → semua 2 item/80.000 kg.
+Belum terverifikasi dengan file Arsen 68 asli (ada di David) — minta file / upload ulang.
+
+PS 2026 tanpa item (19): mayoritas leg intercompany (revenue memang tak dihitung). Yang
+eksternal: Arsen 68 (IKM→BJM, rev 8,74 M) dan Hanwa 02 Phase 1 (SPA-000005→Artha Mas Graha,
+rev 5,95 M) — revenue/volume-nya hilang dari dashboard.
