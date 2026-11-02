@@ -790,7 +790,11 @@ function snapZero(v) {
    Negative values handled gracefully: snapZero first, then ceil. */
 function ceilMt(v) {
   if (typeof v !== 'number' || isNaN(v)) return v;
-  const snapped = snapZero(v);
+  /* Rapikan dulu ke 3 desimal (= kg) sebelum dibulatkan ke atas: sisa pecahan
+     komputer seperti 1000 − 999,999… = 0,0000000000002 dulu tampil sebagai
+     "1 MT" (BTS Seamless Pipe, Available Quota Okt-2026), sehingga dashboard
+     dan laporan bulanan berbeda 1 MT. */
+  const snapped = snapZero(Math.round(v * 1000) / 1000);
   return Math.ceil(snapped);
 }
 /* fmtMt — shorthand: ceilMt → toLocaleString. Use everywhere MT is shown
