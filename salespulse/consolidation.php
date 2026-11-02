@@ -91,6 +91,14 @@ function sp_end_customer_from_name($projectName) {
     return preg_match('/[a-z]/i', $tail) ? $tail : '';
 }
 
+/** Kunci penggabung leg satu rantai PS: "Arsen 69A - Del. December 2026 -NIM" dan
+    "Arsen 69A - Del.  December 2026 - NIM (Okaya)" -> "arsen69adeldecember2026nim". */
+function sp_chain_key($projectName): string {
+    $s = strtolower(trim((string) ($projectName ?? '')));
+    $s = preg_replace('/\s*\([^()]*\)\s*$/', '', $s);   // keterangan dalam kurung di akhir
+    return preg_replace('/[^a-z0-9]+/', '', $s);
+}
+
 /** Port of server.js projectFamilyKey (:168-170). */
 function sp_project_family_key($projectName) {
     $parts = preg_split('/\s-\s*del\b/i', (string) ($projectName ?? ''));
@@ -409,7 +417,14 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
         if (!is_int($mIdx) || $mIdx < 0 || $mIdx > 11) continue;
         $pname = $header['project_name'] ?? null;
         $nameOrPs = ($pname !== null && $pname !== '') ? $pname : ($header['ps_number'] ?? '');
-        $groupKey = $nameOrPs . '__' . $mIdx;
+        /* Kunci rantai = nama project yang DIRAPIKAN: huruf kecil, keterangan dalam
+           kurung di akhir dibuang, spasi & tanda baca diabaikan. Dulu harus persis
+           sama, sehingga leg ATL "Arsen 69A - Del. December 2026 -NIM" dan leg GP
+           "Arsen 69A - Del. December 2026 - NIM (Okaya)" jadi dua rantai: margin ATL
+           tidak pernah sampai ke end customer Okaya. Diminta tim 02-Nov-2026:
+           "jadikan 1 rantai saja ATL dan GP". */
+        $kunci = sp_chain_key($nameOrPs);
+        $groupKey = ($kunci !== '' ? $kunci : (string) ($header['ps_number'] ?? '')) . '__' . $mIdx;
         if (!isset($projectGroups[$groupKey])) {
             $projectGroups[$groupKey] = [
                 'mKey' => SP_MONTH_KEYS[$mIdx],

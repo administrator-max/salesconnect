@@ -83,4 +83,10 @@ chk('id_number integer', sp_id_number(1000) === '1.000');
 chk('id_number trailing zero', sp_id_number(1234.5) === '1.234,5');
 chk('id_number small int', sp_id_number(10) === '10');
 
+// sp_chain_key — leg ATL & GP satu rantai walau nama beda tipis (Arsen 69, 02-Nov-2026)
+chk('chain key ATL "-NIM" = GP "- NIM (Okaya)"', sp_chain_key('Arsen 69A - Del. December 2026 -NIM') === sp_chain_key('Arsen 69A - Del. December 2026 - NIM (Okaya)'));
+chk('chain key spasi ganda diabaikan', sp_chain_key('Arsen 69B - Del.  December 2026 - NIM (Okaya)') === sp_chain_key('Arsen 69B - Del. December 2026 -NIM'));
+chk('chain key sub-project beda tetap beda', sp_chain_key('Arsen 69A - Del. December 2026 -NIM') !== sp_chain_key('Arsen 69B - Del. December 2026 -NIM'));
+chk('chain key end customer beda tetap beda', sp_chain_key('Lantian 05 - Del. December 2026 - PTJ') !== sp_chain_key('Lantian 05 - Del. December 2026 - Optima Delta Internusa'));
+
 echo $fail?"\n$fail FAILURES\n":"\nALL PASS\n"; exit($fail?1:0);

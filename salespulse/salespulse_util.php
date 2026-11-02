@@ -88,6 +88,44 @@ function sp_prod_key($v): string {
     return $s === '' ? SP_PRODUK_BELUM_DIISI : $s;
 }
 
+/**
+ * Produk kanonik sebuah PS dari tab `product_aliases`, dicari BERTINGKAT:
+ *   1. kode material item (mis. "GL-AZ20 G550", "PPGL-AZ20", "GI-Z40") — paling pasti;
+ *   2. nama project + deskripsi ukuran item, digabung (perilaku lama).
+ * Di tiap tingkat alias terpanjang menang; tingkat 1 menang atas tingkat 2. Dulu
+ * semuanya digabung jadi satu teks, sehingga alias panjang di
+ * deskripsi ("Cutting Plate" -> Galvanized) mengalahkan kode materialnya. Arsen 69A
+ * (PSF26-IKM-000016, material GL-AZ20) dan 69B (PPGL-AZ20) tercatat Galvanized karena
+ * itu; dikoreksi tim 02-Nov-2026: 69A = Galvalume.
+ *
+ * @param array $items baris item dengan kunci 'material' & 'size' (5 baris pertama dipakai)
+ */
+function sp_detect_product(string $projectName, array $items, array $aliasRows): ?string {
+    $aliases = [];
+    foreach ($aliasRows as $r) {
+        $a = strtolower(trim((string) ($r['alias'] ?? '')));
+        if ($a !== '') $aliases[] = ['alias' => $a, 'canonical' => $r['canonical_name'] ?? null];
+    }
+    usort($aliases, fn($a, $b) => strlen($b['alias']) <=> strlen($a['alias'])); // longest alias first
+    $lima = array_slice($items, 0, 5);
+    /* Tingkat 2 = nama project + deskripsi DIGABUNG (perilaku lama), bukan dua
+       tingkat terpisah: "Fine Steel #01 - WR Plate" hanya cocok alias pendek
+       "Plate", sedangkan deskripsinya memuat "WEAR PLATE" — gabungan membiarkan
+       alias terpanjang (Wear Plate) yang menang. Diukur atas 175 PS. */
+    $tingkat = [
+        implode(' ', array_map(fn($it) => (string) ($it['material'] ?? ''), $lima)),
+        $projectName . ' ' . implode(' ', array_map(fn($it) => (string) ($it['size'] ?? ''), $lima)),
+    ];
+    foreach ($tingkat as $teks) {
+        $h = strtolower($teks);
+        if (trim($h) === '') continue;
+        foreach ($aliases as $al) {
+            if (strpos($h, $al['alias']) !== false) return $al['canonical'];
+        }
+    }
+    return null;
+}
+
 /** Segment untuk sebuah produk kanonik; null kalau produknya tidak dikenal.
     Dipakai jalur upload PS (api.php) DAN tool perbaikan data, supaya keduanya
     tidak bisa memberi segment berbeda untuk produk yang sama. */

@@ -301,25 +301,8 @@ try {
                     $detectedProduct = null;
                     $detectedSegment = null;
                     $aliasRows = sp_get_table($gs, $SID, 'product_aliases');
-                    $aliases = [];
-                    foreach ($aliasRows as $r) {
-                        if (!empty($r['alias'])) {
-                            $aliases[] = ['alias' => strtolower((string) $r['alias']), 'canonical' => $r['canonical_name']];
-                        }
-                    }
-                    usort($aliases, fn($a, $b) => strlen($b['alias']) <=> strlen($a['alias'])); // longest alias first
-
-                    $matStr = '';
-                    foreach (array_slice($items, 0, 5) as $it) {
-                        $matStr .= ' ' . ($it['material'] ?? '') . ' ' . ($it['size'] ?? '');
-                    }
-                    $haystack = strtolower(($header['projectName'] ?? '') . ' ' . $matStr);
-                    foreach ($aliases as $al) {
-                        if ($al['alias'] !== '' && strpos($haystack, $al['alias']) !== false) {
-                            $detectedProduct = $al['canonical'];
-                            break;
-                        }
-                    }
+                    // Bertingkat: kode material dulu, baru nama + deskripsi — lihat sp_detect_product().
+                    $detectedProduct = sp_detect_product((string) ($header['projectName'] ?? ''), $items, $aliasRows);
                     if ($detectedProduct) {
                         $detectedSegment = sp_segment_for_product($detectedProduct);
                     }
