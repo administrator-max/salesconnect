@@ -89,4 +89,20 @@ chk('chain key spasi ganda diabaikan', sp_chain_key('Arsen 69B - Del.  December 
 chk('chain key sub-project beda tetap beda', sp_chain_key('Arsen 69A - Del. December 2026 -NIM') !== sp_chain_key('Arsen 69B - Del. December 2026 -NIM'));
 chk('chain key end customer beda tetap beda', sp_chain_key('Lantian 05 - Del. December 2026 - PTJ') !== sp_chain_key('Lantian 05 - Del. December 2026 - Optima Delta Internusa'));
 
+// Gabung menurut ALUR BARANG (Lantian 05, 02-Nov-2026): leg intercompany ATL -> GIS
+// bernama "... - PTJ" ikut rantai leg GIS -> customer luar karena PO & berat sama persis.
+$h = fn($ps, $name, $sub, $cust, $mar, $rev, $po) => ['ps_number'=>$ps,'dashboard_year'=>2026,'dashboard_month_idx'=>9,'project_name'=>$name,'customer_name'=>$cust,'subsidiary'=>$sub,'margin'=>$mar,'sales_revenue'=>$rev,'product'=>'PPGL','segment'=>'Coated','po_date'=>$po,'notes'=>'','currency'=>'IDR','fx_rate'=>1,'net_margin_native'=>$mar,'margin_percentage'=>1];
+$it = fn($ps, $kg) => ['ps_number'=>$ps,'total_weight_kg'=>$kg,'qty_val'=>1,'qty_unit'=>'PCS','material'=>'PPGL-AZ20','size'=>''];
+$o2 = sp_build_data(2026, [], [], [], [
+  $h('X1', 'L05 - Del. December 2026 - PTJ', 'GROUP : Amber Tradelink', 'PT Gunung Inti Sempurna', 270000000, 3900000000, '2026-10-15'),
+  $h('X2', 'L05 - Del. December 2026 - Optima', 'GROUP : GP : PT. GUNUNG INTI SEMPURNA', 'PT Andalan Maju', 116000000, 4500000000, '2026-10-15'),
+  $h('X3', 'L06 - Del. December 2026 - PTJ', 'GROUP : Amber Tradelink', 'PT Gunung Inti Sempurna', 10000000, 100000000, '2026-10-15'),
+], [$it('X1', 300000), $it('X2', 300000), $it('X3', 5000)]);
+$okt = $o2['PS_CHAINS']['oct'];
+$gab = array_values(array_filter($okt, fn($c) => strpos($c['ps'], 'X1') !== false));
+chk('alur barang: leg ATL ikut rantai X2', count($gab) === 1 && strpos($gab[0]['ps'], 'X2') !== false);
+chk('alur barang: customer rantai = customer luar', ($gab[0]['customer'] ?? '') === 'PT Andalan Maju');
+chk('alur barang: margin gabungan 386 jt, revenue tetap 4,5 M', abs($gab[0]['margin'] - 386) < 1e-6 && abs($gab[0]['revenue'] - 4500) < 1e-6);
+chk('alur barang: berat beda (X3) TIDAK digabung', count(array_filter($okt, fn($c) => $c['ps'] === 'X3')) === 1);
+
 echo $fail?"\n$fail FAILURES\n":"\nALL PASS\n"; exit($fail?1:0);

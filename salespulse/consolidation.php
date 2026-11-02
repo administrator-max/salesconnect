@@ -436,6 +436,42 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
         $projectGroups[$groupKey]['headers'][] = $header;
     }
 
+    /* Gabung menurut ALUR BARANG, bukan nama. Rantai yang SELURUH leg-nya intercompany
+       (mis. ATL -> IKM) digabung ke rantai bulan yang sama yang punya leg milik
+       customer itu (subsidiary = IKM) dengan tanggal PO dan total berat PERSIS sama —
+       dan hanya kalau kandidatnya TUNGGAL. Lantian 05 (02-Nov-2026): leg ATL bernama
+       "... - PTJ", leg IKM "... - Optima Delta Internusa"; barangnya identik (7 item,
+       300.000 kg, PO 15/10/2026) tapi tampil sebagai dua rantai, yang ATL berrevenue 0. */
+    $kgPs = function (array $h) use ($itemsByPs): float {
+        $kg = 0.0;
+        foreach (($itemsByPs[(string) ($h['ps_number'] ?? '')] ?? []) as $it) $kg += sp_num($it['total_weight_kg'] ?? null);
+        return $kg;
+    };
+    $subNorm = fn(array $h) => sp_norm_company(preg_replace('/^.*:\s*/', '', (string) ($h['subsidiary'] ?? '')));
+    foreach ($groupOrder as $gk) {
+        if (!isset($projectGroups[$gk])) continue;
+        $g = $projectGroups[$gk];
+        $semuaInternal = true;
+        foreach ($g['headers'] as $h) if (!sp_is_internal_company($h['customer_name'] ?? '')) { $semuaInternal = false; break; }
+        if (!$semuaInternal || count($g['headers']) !== 1) continue;
+        $leg = $g['headers'][0];
+        $kg = $kgPs($leg);
+        $po = (string) ($leg['po_date'] ?? '');
+        $tujuan = sp_norm_company($leg['customer_name'] ?? '');
+        if ($kg <= 0 || $po === '' || $tujuan === '') continue;
+        $kandidat = [];
+        foreach ($groupOrder as $hk) {
+            if ($hk === $gk || !isset($projectGroups[$hk]) || $projectGroups[$hk]['mKey'] !== $g['mKey']) continue;
+            foreach ($projectGroups[$hk]['headers'] as $h) {
+                if ($subNorm($h) === $tujuan && (string) ($h['po_date'] ?? '') === $po && abs($kgPs($h) - $kg) < 1.0) { $kandidat[] = $hk; break; }
+            }
+        }
+        if (count($kandidat) !== 1) continue;
+        $projectGroups[$kandidat[0]]['headers'][] = $leg;
+        unset($projectGroups[$gk]);
+    }
+    $groupOrder = array_values(array_filter($groupOrder, fn($k) => isset($projectGroups[$k])));
+
     // Family -> { customerNoSpace: {name, volumeMT} } for external "child" legs.
     $familyChildren = [];
     foreach ($headerRows as $h) {

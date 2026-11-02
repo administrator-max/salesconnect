@@ -47,3 +47,15 @@ Belum terverifikasi dengan file Arsen 68 asli (ada di David) — minta file / up
 PS 2026 tanpa item (19): mayoritas leg intercompany (revenue memang tak dihitung). Yang
 eksternal: Arsen 68 (IKM→BJM, rev 8,74 M) dan Hanwa 02 Phase 1 (SPA-000005→Artha Mas Graha,
 rev 5,95 M) — revenue/volume-nya hilang dari dashboard.
+
+## Lanjutan: Lantian 05 "masih 0" (02-Nov-2026)
+PSF26-ATL-000086 "Lantian 05 - Del. December 2026 - PTJ" (ATL → IKM, intercompany, margin 270,3 jt)
+dan PSF26-IKM-000015 "... - Optima Delta Internusa" (IKM → Optima, rev 4.567,3 jt) = barang
+yang sama (7 item, 300.000 kg, PPGL-AZ20 G550-0004, PO 15/10/2026), tapi ujung namanya beda
+sehingga tidak tergabung; leg ATL tampil sendiri dengan revenue 0 (benar untuk intercompany,
+tapi membingungkan dan margin-nya tak sampai ke end customer).
+Perbaikan (consolidation.php): rantai yang seluruh leg-nya intercompany (1 leg) digabung ke
+rantai bulan sama yang punya leg dengan subsidiary = customer leg itu, PO date & total berat
+sama persis, kandidat TUNGGAL. Radius (kode HEAD vs baru, data sama): 93 → 92 rantai, tepat
+1 penggabungan = Lantian 05 (rev 4.567,3, margin 386,3 jt, customer Optima). Total & ACTUAL
+bulanan identik. Uji +4 (consolidation_test).
