@@ -32,3 +32,10 @@ Pulihkan Submit #1 2026 dari snapshot 20-Okt:
 - EMS 8.000 {SHEET PILE 8.000} submit 15/10/2025
 - KJK 6.000 {GL ALLOY 6.000} submit 15/10/2025
 - BBB 6.000 {GL ALLOY 6.000} submit 21/10/2025
+
+## Data DIPULIHKAN (02-Nov-2026, disetujui pengguna "pulihkan")
+tools/pulihkan_submit1_2026-11-02.php --apply (sel per sel, ID baris dicek):
+- cycles: EMS id 53294 mt 6000→8000, submit 09-Oct-26→15/10/2025; KJK id 53353 3000→6000,
+  15-Oct-26→15/10/2025; BBB id 53255 3000→6000, 13-Oct-26→21/10/2025. Status tidak diubah.
+- cycle_products: EMS SHEET PILE 2000→8000 + baris GL ALLOY 4000 dihapus; KJK & BBB GL ALLOY 3000→6000.
+Dibaca ulang + payload dibangun ulang: Submit #1 2026 kembali, Submit #4 2027 utuh.
