@@ -2196,6 +2196,17 @@ function saveEdit() {
   const c = gv('editCo');
   if (!c) return;
 
+  /* Isi form harus milik company DAN tahun kuota yang sedang tampil. Kalau
+     tidak (tahun diganti sementara form terbuka), menulis sekarang menimpa
+     siklus tahun ini dengan isi tahun lain — persis kerusakan Submit #1
+     EMS/KJK/BBB (Okt-Nov 2026). Muat ulang, jangan simpan. */
+  const dimuat = window._editLoaded || {};
+  if (dimuat.code !== c || (typeof QUOTA_YEAR !== 'undefined' && dimuat.year !== QUOTA_YEAR)) {
+    if (typeof loadEdit === 'function') loadEdit();
+    if (typeof showToast === 'function') showToast(`Form belum dimuat untuk ${c} · Quota Year ${QUOTA_YEAR}. Sudah dimuat ulang — periksa isinya lalu Save lagi.`, 'error');
+    return;
+  }
+
   // ── Role guard: must have a role selected ──
   if (!currentRole) {
     alert('Please select your role before saving.');

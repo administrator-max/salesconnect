@@ -29,7 +29,14 @@ const LS_DRAFT_KEY  = 'quotaDashboard_v1_drafts';
    bloat indefinitely.
 ══════════════════════════════════════════════════════════════════ */
 const _DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-function _draftKey(code, role) { return `${role||'_'}::${code||'_'}`; }
+/* Kunci draft MEMUAT TAHUN KUOTA. Dulu hanya (peran, company): draft yang
+   ditinggal di tampilan 2027 dipulihkan ke form 2026 company yang sama, dan
+   Save menulis Submit 2027 ke "Submit #1" 2026. Terjadi pada KJK (30-Okt),
+   EMS & BBB (02-Nov-2026) — semuanya company yang punya pengajuan 2027. */
+function _draftKey(code, role) {
+  const y = (typeof QUOTA_YEAR !== 'undefined') ? QUOTA_YEAR : '_';
+  return `${role||'_'}::${code||'_'}::${y}`;
+}
 function _readAllDrafts() {
   try {
     const drafts = JSON.parse(localStorage.getItem(LS_DRAFT_KEY)) || {};
@@ -38,7 +45,8 @@ function _readAllDrafts() {
     let pruned = false;
     Object.keys(drafts).forEach(k => {
       const ts = drafts[k] && drafts[k].ts ? new Date(drafts[k].ts).getTime() : 0;
-      if (!ts || ts < cutoff) { delete drafts[k]; pruned = true; }
+      // Draft format lama (tanpa tahun) dibuang: tidak bisa dipastikan milik tahun mana.
+      if (!ts || ts < cutoff || k.split('::').length < 3) { delete drafts[k]; pruned = true; }
     });
     if (pruned) {
       try { localStorage.setItem(LS_DRAFT_KEY, JSON.stringify(drafts)); }
@@ -102,7 +110,8 @@ function clearFormDraft(code, role) {
 function listDraftCompanyCodes() {
   const drafts = _readAllDrafts();
   const codes = new Set();
-  Object.values(drafts).forEach(d => { if (d && d.code) codes.add(d.code); });
+  const akhiran = '::' + (typeof QUOTA_YEAR !== 'undefined' ? QUOTA_YEAR : '_');
+  Object.entries(drafts).forEach(([k, d]) => { if (d && d.code && k.endsWith(akhiran)) codes.add(d.code); });
   return codes;
 }
 

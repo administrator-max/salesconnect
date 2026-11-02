@@ -419,12 +419,28 @@ function setQuotaYear(year, opts) {
   const y = parseQuotaYear(year);
   if (!y || !QUOTA_YEARS.includes(y)) return;
   if (y === QUOTA_YEAR && !(opts && opts.force)) return;
+  /* Form Input Data yang sedang terbuka berisi data tahun LAMA. Simpan dulu
+     sebagai draft tahun lama, lalu muat ulang untuk tahun baru — kalau tidak,
+     Save menulis isi tahun lama ke siklus tahun baru (EMS/KJK/BBB, Okt-Nov 2026). */
+  const modal = document.getElementById('importModal');
+  const formTerbuka = !!(modal && modal.classList.contains('open')
+    && document.getElementById('editCo') && document.getElementById('editCo').value);
+  if (formTerbuka) {
+    try {
+      const s = (typeof captureModalState === 'function') ? captureModalState() : null;
+      if (s && s.code && s.role && typeof saveFormDraft === 'function') saveFormDraft(s.code, s.role, s.data);
+    } catch (e) { /* draft gagal disimpan tidak boleh menghalangi ganti tahun */ }
+  }
   QUOTA_YEAR = y;
   try { localStorage.setItem(QUOTA_YEAR_LS_KEY, String(y)); } catch (e) { /* diamkan */ }
   applyQuotaYearSlice();
   renderQuotaYearUI();
   if (typeof refreshAllSurfaces === 'function') refreshAllSurfaces();
   else if (typeof applyPeriodFilter === 'function') applyPeriodFilter();
+  if (formTerbuka && typeof loadEdit === 'function') {
+    loadEdit();
+    if (typeof showToast === 'function') showToast(`Form dimuat ulang untuk Quota Year ${y}`, 'info');
+  }
 }
 
 /** Perbarui pemilih tahun + spanduk "tahun kosong". */

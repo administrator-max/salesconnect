@@ -238,8 +238,13 @@ if (!fs.existsSync(cachePath)) {
   set('REALIZATIONS_ALL', []);
   call(`QUOTA_YEAR = 2026; applyQuotaYearSlice();`);
 
-  ok(call(`SPI.length`) === real.spi.length,
-    `seluruh ${real.spi.length} company SPI tetap tampil di 2026`, String(call(`SPI.length`)));
+  /* Yang tampil di 2026 = SEMUA company SPI yang punya siklus 2026 (siklus tanpa
+     tahun dihitung 2026). Company yang hanya berkuota 2027 (SUJU sejak 29-Okt-2026)
+     memang tidak ikut — dulu uji ini memaku "semua company" dan jadi gagal palsu. */
+  const tahunSiklus = cy => (cy.quotaYear == null || cy.quotaYear === '') ? 2026 : +cy.quotaYear;
+  const punya2026 = real.spi.filter(c => !(c.cycles || []).length || (c.cycles || []).some(cy => tahunSiklus(cy) === 2026)).length;
+  ok(call(`SPI.length`) === punya2026,
+    `seluruh ${punya2026} company SPI bersiklus 2026 tampil di 2026`, String(call(`SPI.length`)));
   ok(call(`PENDING.length`) === real.pending.length,
     `seluruh ${real.pending.length} company PENDING tetap tampil`);
 

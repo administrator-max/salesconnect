@@ -574,6 +574,8 @@ function loadEdit() {
 
   const c  = gv('editCo');
   const ef = g('editFields');
+  // Tahun & company yang isinya dimuat ke form — dicek saveEdit() sebelum menulis.
+  window._editLoaded = { code: c, year: (typeof QUOTA_YEAR !== 'undefined' ? QUOTA_YEAR : null) };
   const pesanTahun = g('editQyNotice');
   if (pesanTahun) pesanTahun.remove();
   if (!c) { ef.style.display = 'none'; return; }
