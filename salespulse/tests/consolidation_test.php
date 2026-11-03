@@ -105,4 +105,14 @@ chk('alur barang: customer rantai = customer luar', ($gab[0]['customer'] ?? '') 
 chk('alur barang: margin gabungan 386 jt, revenue tetap 4,5 M', abs($gab[0]['margin'] - 386) < 1e-6 && abs($gab[0]['revenue'] - 4500) < 1e-6);
 chk('alur barang: berat beda (X3) TIDAK digabung', count(array_filter($okt, fn($c) => $c['ps'] === 'X3')) === 1);
 
+// Satu customer, satu ejaan (Mlion Intl / International, 03-Nov-2026)
+$o3 = sp_build_data(2026, [], [], [], [
+  $h('M1', 'Mlion 09A - Del. March 2026 - Mlion', 'GP', 'PT. Mlion Intl Indonesia', 100, 1000, '2026-10-01'),
+  $h('M2', 'Mlion 09B - Del. March 2026 - Mlion', 'GP', 'PT. Mlion Intl Indonesia', 100, 1000, '2026-10-01'),
+  $h('M3', 'Mlion 10 - Del. April 2026 - Mlion', 'GP', 'PT. Mlion International Indonesia', 100, 1000, '2026-10-01'),
+], [$it('M1', 10), $it('M2', 10), $it('M3', 10)]);
+$cs = array_values(array_unique(array_map(fn($c) => $c['customer'], $o3['PS_CHAINS']['oct'])));
+chk('ejaan customer disatukan ke yang paling sering', $cs === ['PT. Mlion Intl Indonesia']);
+chk('sp_customer_key Intl = International', sp_customer_key('PT. Mlion Intl Indonesia') === sp_customer_key('PT Mlion International Indonesia'));
+
 echo $fail?"\n$fail FAILURES\n":"\nALL PASS\n"; exit($fail?1:0);

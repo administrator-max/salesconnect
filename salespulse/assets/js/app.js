@@ -5,6 +5,7 @@ const DEFAULT_FX_RATE = 17000; // Fallback kurs USD→IDR jika template belum di
 
 let _uploadParsedFiles   = [];   // array of parsed payloads (satu per file)
 let _uploadGrouped       = {};   // grouped by (projectName + poDate)
+let _cekInput            = null; // hasil POST api/cek-input untuk set file yang sedang dipreview
 
 // ── Buka / Tutup Modal ───────────────────────────────────────────────────────
 function openUploadModal() {
@@ -20,6 +21,7 @@ function closeUploadModal(event, force) {
 function resetUploadModal() {
   _uploadParsedFiles = [];
   _uploadGrouped     = {};
+  _cekInput          = null;
   document.getElementById('upload-dropzone').style.display         = 'block';
   document.getElementById('upload-preview-section').style.display  = 'none';
   document.getElementById('upload-modal-badge').style.display      = 'none';
@@ -76,6 +78,7 @@ async function processUploadFiles(files) {
   }
 
   _uploadParsedFiles = results;
+  _cekInput = null;
 
   if (results.length === 0) {
     showUploadError('Tidak ada file valid: ' + errors.join('; '));
@@ -300,15 +303,88 @@ function renderUploadPreview(errors) {
   _setSubmitBtn(true);
 }
 
+// ── Cek format sebelum simpan (api/cek-input) ────────────────────────────────
+/* Laporan Oktober 2026 harus ditarik ulang berkali-kali karena format input:
+   nama project beda antar-leg, leg ke customer luar tanpa barang, barang tanpa
+   berat, PS dobel, tahun kirim salah, PS masuk sesudah bulannya tutup. Sekarang
+   semua itu diperiksa server SEBELUM disimpan. 'blok' mengunci tombol simpan;
+   'cek' harus dibaca dulu (klik simpan kedua kali = "sudah saya cek"). */
+const _kunciUpload = () => _uploadParsedFiles.map(p => `${p.header.psNumber}|${p._fileName || ''}`).join(';');
+
+async function _jalankanCekInput() {
+  const res = await fetch('api/cek-input', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payloads: _uploadParsedFiles.map(p => ({ header: p.header, items: p.items })) })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function _tampilkanCekInput(hasil) {
+  const blok = hasil.masalah.filter(m => m.level === 'blok');
+  const cek  = hasil.masalah.filter(m => m.level === 'cek');
+  const saran = hasil.saran || {};
+  const nSaran = Object.keys(saran).length;
+  const perPs = {};
+  hasil.masalah.forEach(m => (perPs[m.ps] = perPs[m.ps] || []).push(m));
+  const baris = Object.entries(perPs).map(([ps, ms]) => `
+    <div style="margin-top:8px;"><b>${escapeHtml(ps)}</b>
+      ${ms.map(m => `<div style="margin:3px 0 0 10px;color:${m.level === 'blok' ? '#b91c1c' : '#b45309'};">
+        ${m.level === 'blok' ? '⛔ Harus dibetulkan' : '⚠️ Perlu dicek'} · <b>${escapeHtml(m.jenis)}</b> — ${escapeHtml(m.pesan)}</div>`).join('')}
+    </div>`).join('');
+  const warn = document.getElementById('upload-warning');
+  warn.innerHTML = `
+    <div style="font-weight:700;">Pemeriksaan format: ${blok.length} harus dibetulkan, ${cek.length} perlu dicek</div>
+    ${baris}
+    ${nSaran && !blok.length ? `<label style="display:flex;gap:6px;align-items:flex-start;margin-top:10px;cursor:pointer;">
+      <input type="checkbox" id="cek-pakai-saran" checked>
+      <span>Betulkan otomatis nama project / ejaan customer sesuai saran di atas (${nSaran} PS)</span></label>` : ''}
+    <div style="margin-top:8px;color:var(--muted2);">${blok.length
+      ? 'Betulkan file PS-nya lalu upload ulang. Lihat Panduan Input PS SalesPulse.'
+      : 'Kalau sudah dicek dan memang benar, klik tombol simpan sekali lagi.'}</div>`;
+  warn.style.display = 'block';
+  return { blok: blok.length, cek: cek.length };
+}
+
 // ── Submit ke Database ────────────────────────────────────────────────────────
 async function submitUploadToDb() {
   if (!_uploadParsedFiles.length) return;
 
+  if (!_cekInput || _cekInput.kunci !== _kunciUpload()) {
+    _setSubmitBtn(false, '⏳ Memeriksa format...');
+    let hasil = null;
+    try { hasil = await _jalankanCekInput(); }
+    catch (e) { showToast(`Pemeriksaan format tidak bisa dijalankan (${e.message}) — periksa manual sebelum menyimpan.`, true); }
+    _cekInput = { kunci: _kunciUpload(), hasil };
+    if (hasil && hasil.masalah && hasil.masalah.length) {
+      const n = _tampilkanCekInput(hasil);
+      if (n.blok) { _setSubmitBtn(false, '✕ Betulkan file dulu'); return; }
+      _setSubmitBtn(true, '✓ Sudah saya cek — Simpan');
+      return;
+    }
+    _setSubmitBtn(true);
+  }
+  if (_cekInput.hasil && _cekInput.hasil.masalah.some(m => m.level === 'blok')) return;
+
+  // Saran perbaikan (nama project baku, ejaan customer lama) dipakai kalau dicentang.
+  const pakaiSaran = document.getElementById('cek-pakai-saran');
+  if (_cekInput.hasil && pakaiSaran && pakaiSaran.checked) {
+    const saran = _cekInput.hasil.saran || {};
+    _uploadParsedFiles.forEach(p => {
+      const s = saran[p.header.psNumber];
+      if (!s) return;
+      if (s.projectName)  p.header.projectName  = s.projectName;
+      if (s.customerName) p.header.customerName = s.customerName;
+    });
+  }
+
   /* PS tanpa satu pun item tidak boleh lewat diam-diam: margin-nya terhitung tapi
      revenue, volume dan produknya NOL. Dulu cuma toast sesudah tersimpan — mudah
      terlewat, dan David menghapus-lalu-mengunggah Arsen 68 dua kali dengan hasil
-     sama (02-Nov-2026). Sekarang ditanya SEBELUM menyimpan. */
-  const tanpaItem = _uploadParsedFiles.filter(p => !(p.items && p.items.length));
+     sama (02-Nov-2026). Sekarang ditanya SEBELUM menyimpan. Kalau cek-input jalan,
+     kasus ini sudah dinilai di sana (leg ke customer luar = blok). */
+  const tanpaItem = _cekInput.hasil ? [] : _uploadParsedFiles.filter(p => !(p.items && p.items.length));
   if (tanpaItem.length) {
     const daftar = tanpaItem.map(p => `• ${p.header.psNumber} — ${p.header.projectName || p._fileName || ''}`).join('\n');
     const lanjut = confirm(

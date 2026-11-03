@@ -22,6 +22,17 @@ function sp_norm_company($s) {
     return trim($s);
 }
 
+/** Kunci customer untuk menyatukan ejaan: "PT. Mlion Intl Indonesia" = "PT Mlion International Indonesia".
+    Lebih longgar dari sp_norm_company (yang dipakai untuk deteksi perusahaan grup) — sengaja dipisah. */
+function sp_customer_key($s): string {
+    $s = strtolower((string) ($s ?? ''));
+    $s = preg_replace('/\b(pt|tbk|persero|cv)\b\.?/', ' ', $s);
+    $s = preg_replace('/\bintl\b\.?/', 'international', $s);
+    $s = preg_replace('/[^a-z0-9]+/', ' ', $s);
+    $s = preg_replace('/\s+indonesia$/', '', trim($s));
+    return trim($s);
+}
+
 /**
  * Port of server.js INTERNAL_COMPANIES loader (:126-136). Loads
  * company-rank-exclusions.json, normalizes each companyName, caches in a
@@ -487,6 +498,23 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
         $familyChildren[$fk][$key]['volumeMT'] += $vol;
     }
 
+    /* Satu customer, satu ejaan. "PT. Mlion Intl Indonesia" dan "PT. Mlion International
+       Indonesia" dulu jadi dua customer di ranking (Agustus: "Mlion International" di
+       ranking bulanan, "Mlion" di YTD). Ejaan yang tampil = yang paling sering dipakai. */
+    $ejaanCust = [];
+    foreach ($headerRows as $h) {
+        $c = trim((string) ($h['customer_name'] ?? ''));
+        if ($c !== '') $ejaanCust[sp_customer_key($c)][$c] = ($ejaanCust[sp_customer_key($c)][$c] ?? 0) + 1;
+    }
+    $canonCust = function (string $c) use ($ejaanCust): string {
+        $v = $ejaanCust[sp_customer_key($c)] ?? null;
+        if (!$v) return $c;
+        uksort($v, fn($a, $b) => ($v[$b] <=> $v[$a]) ?: (strlen($b) <=> strlen($a)));
+        return array_key_first($v);
+    };
+    foreach ($familyChildren as &$anak) foreach ($anak as &$ch) $ch['name'] = $canonCust($ch['name']);
+    unset($anak, $ch);
+
     $colorIdx = 0;
     foreach ($groupOrder as $gk) {
         $group = $projectGroups[$gk];
@@ -495,7 +523,7 @@ function sp_build_data(int $year, array $actualsAll, array $plansAll, array $bud
         $headers = $group['headers'];
 
         // Customer = external end-customer (intercompany roll-up).
-        $customer = sp_pick_end_customer($headers);
+        $customer = $canonCust(sp_pick_end_customer($headers));
         $customerInternal = sp_is_internal_company($customer);
 
         // Parallel-parent: internal leg whose name names >=2 end-customers ("A dan B").

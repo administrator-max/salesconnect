@@ -11,11 +11,13 @@
  *   project-sheet/:psNumber   DELETE
  *   health                   GET
  *   activity                 GET (?q= ) — riwayat input + cari PS
+ *   cek-input                POST — cek format PS sebelum disimpan (tidak menulis)
  */
 require_once __DIR__ . '/../lib/sheet_util.php';
 require_once __DIR__ . '/salespulse_util.php';
 require_once __DIR__ . '/consolidation.php';
 require_once __DIR__ . '/salespulse_activity.php';
+require_once __DIR__ . '/salespulse_cekinput.php';
 require_once __DIR__ . '/../lib/tool_guard.php';
 sc_require_tool_api('salespulse');
 
@@ -44,6 +46,15 @@ try {
         // ====================================================================
         // GET /api/activity?q=arsen 66 — riwayat input + cek PS sudah ada atau belum
         // ====================================================================
+        // POST /api/cek-input — periksa format PS sebelum disimpan (salespulse_cekinput.php)
+        case 'cek-input':
+            if ($method === 'POST') {
+                $b = json_body();
+                json_out(sp_cek_input((array) ($b['payloads'] ?? []), sp_get_table($gs, $SID, 'ps_headers'),
+                    sp_get_table($gs, $SID, 'ps_items'), sp_get_table($gs, $SID, 'product_aliases')));
+            }
+            break;
+
         case 'activity':
             if ($method === 'GET') {
                 json_out(sp_akt_cari($gs, $SID, (string) ($_GET['q'] ?? ''), (int) ($_GET['limit'] ?? 200)));
