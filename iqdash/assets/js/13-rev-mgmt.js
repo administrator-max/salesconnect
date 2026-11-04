@@ -2662,7 +2662,7 @@ function saveEdit() {
   }
 
   /* ── 4. Persist to server + localStorage, then refresh ── */
-  saveToStorage(); // localStorage backup
+  saveToStorage(c); // buffer HANYA company ini (lihat 16-storage.js)
   updateStorageStatus();
 
   // Sync per-product Obtained into company_product_stats so the cycles-based KPI

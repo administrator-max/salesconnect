@@ -520,7 +520,7 @@ async function patchShipmentsToServer(co) {
     if (!resp.ok) {
       console.error(`PATCH /api/company/${co.code} failed`, resp.status);
       // Keep the user's edit in localStorage so it can retry next boot
-      if (typeof saveToStorage === 'function') saveToStorage();
+      if (typeof saveToStorage === 'function') saveToStorage(co && co.code);
       return;
     }
     // Refresh concurrency token from server response
@@ -530,7 +530,7 @@ async function patchShipmentsToServer(co) {
     console.error('patchShipmentsToServer error:', err);
     // Network error — keep snapshot in localStorage; migrateLocalToServer
     // will retry on next boot.
-    if (typeof saveToStorage === 'function') saveToStorage();
+    if (typeof saveToStorage === 'function') saveToStorage(co && co.code);
   }
 }
 
@@ -546,7 +546,7 @@ function scheduleShipmentsPersist() {
   _shipDebounceTimer = setTimeout(() => {
     const co = getCurrentEditCo();
     if (!co) return;
-    if (typeof saveToStorage === 'function') saveToStorage();
+    if (typeof saveToStorage === 'function') saveToStorage(co && co.code);
     patchShipmentsToServer(co);
   }, 600);
 }
@@ -722,7 +722,7 @@ function saveSalesUtil(prod, idx) {
   if (typeof refreshAllSurfaces === 'function') refreshAllSurfaces();
 
   // Persist to localStorage + server DB
-  if (typeof saveToStorage === 'function') saveToStorage();
+  if (typeof saveToStorage === 'function') saveToStorage(co && co.code);
   patchShipmentsToServer(co);
 }
 

@@ -127,170 +127,143 @@ const SPI_MUTABLE = ['spiRef','remarks','revType','revStatus','revNote','statusU
                      'salesRevRequest','spiNo','pertekNo','spiDate','pertekDate','updatedBy','updatedDate',
                      'shipments','reapplyTargets'];
 
-/** Serialize current state → localStorage (offline-resilient buffer between
-    user input and server sync — NOT a display source). */
-function saveToStorage() {
-  const snap = {
-    ts: new Date().toISOString(),
-    ra: {},
-    spi: {}
-  };
-  RA.forEach(r => {
-    const obj = {};
-    RA_MUTABLE.forEach(k => { if (r[k] !== undefined) obj[k] = r[k]; });
-    snap.ra[r.code] = obj;
-  });
-  SPI.forEach(s => {
-    const obj = {};
-    SPI_MUTABLE.forEach(k => { if (s[k] !== undefined) obj[k] = s[k]; });
-    snap.spi[s.code] = obj;
-  });
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(snap));
-    return snap.ts;
-  } catch(e) {
-    console.warn('localStorage save failed:', e);
-    return null;
-  }
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   BUFFER SIMPAN-GAGAL — per company, berjangkar token versi (04-Nov-2026)
+   ──────────────────────────────────────────────────────────────────────────
+   INSIDEN "data kelempar saat utilization" (David, 02 & 04-Nov-2026):
+   Versi lama saveToStorage() memotret SELURUH 40 company setiap kali satu
+   company disimpan, dengan cap waktu "sekarang". Saat halaman dibuka lagi,
+   migrateLocalToServer() melihat potret itu "lebih baru" dari DB lalu
+   MENGIRIM ULANG ke-40 company — urut abjad, tiap ~3 detik — memakai token
+   versi SEGAR dari server, jadi penjaga 409 tidak pernah menolak.
+   Akibatnya isi browser yang sudah basi menimpa input orang lain:
+     · 29-Okt  No. PERTEK/SPI, Remarks, Status 2026 di 18 company diganti
+               nilai irisan 2027 (potret diambil saat tampilan 2027);
+     · 02-Nov  lot BBB 100, BTS 105, KARA 80, LCP 50 MT kembali ke 0;
+     · 04-Nov  lot BBB 100 MT kembali ke 0 (lagi).
 
-/** Read raw snapshot WITHOUT merging into globals. Returns null if empty. */
-function readStorageSnapshot() {
+   ATURAN BARU
+   1. Hanya company YANG SEDANG DISIMPAN yang dibuffer — bukan semuanya.
+   2. Setiap entri menyimpan `base` = token versi (updated_at) saat diedit.
+      Dikirim ulang HANYA bila DB masih persis di versi itu (tidak ada yang
+      menulis sesudahnya, dan simpanan aslinya memang belum masuk). Token
+      yang dikirim adalah `base`, jadi server pun ikut menolak (409).
+   3. Irisan tahun kuota tidak pernah dibuffer — nilainya bukan kolom asli.
+   4. Buffer format lama (tanpa `v:2`) DIBUANG tanpa dikirim.
+   Uji: iqdash/tests/test_buffer_tidak_menimpa.cjs
+══════════════════════════════════════════════════════════════════════════ */
+const LS_VERSI = 2;
+
+function _bacaBuffer() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch(e) {
-    console.warn('localStorage read failed:', e);
-    return null;
+    if (!raw) return { v: LS_VERSI, entries: {} };
+    const j = JSON.parse(raw);
+    if (!j || j.v !== LS_VERSI || !j.entries) {
+      localStorage.removeItem(LS_KEY);           // format lama: buang, jangan kirim
+      return { v: LS_VERSI, entries: {} };
+    }
+    return j;
+  } catch (e) {
+    try { localStorage.removeItem(LS_KEY); } catch (_) {}
+    return { v: LS_VERSI, entries: {} };
   }
 }
+function _tulisBuffer(buf) {
+  try {
+    if (!buf.entries || !Object.keys(buf.entries).length) localStorage.removeItem(LS_KEY);
+    else localStorage.setItem(LS_KEY, JSON.stringify(buf));
+  } catch (e) { console.warn('buffer write failed:', e); }
+}
 
-/** Backward-compat alias: legacy callers may still invoke loadFromStorage().
-    It is now a NO-OP that does NOT touch SPI/RA. The display always comes
-    from /api/data; pending local edits are only pushed via
-    migrateLocalToServer() on boot, never merged into globals. */
+/** Buffer SATU company yang sedang disimpan. Tanpa kode → tidak melakukan apa-apa
+    (dulu memotret seluruh company — sumber insiden 02/04-Nov-2026). */
+function saveToStorage(code) {
+  const ts = new Date().toISOString();
+  if (!code) return ts;
+  const co = (typeof getSPI === 'function' ? getSPI(code) : null) ||
+             (typeof PENDING !== 'undefined' ? PENDING.find(p => p.code === code) : null);
+  if (!co || co._quotaYearSliced || !co._updatedAt) return ts;
+  const spi = {};
+  SPI_MUTABLE.forEach(k => { if (co[k] !== undefined) spi[k] = co[k]; });
+  const mine = (typeof RA !== 'undefined') ? RA.filter(x => x.code === code) : [];
+  const ra = {};
+  if (mine.length === 1) RA_MUTABLE.forEach(k => { if (mine[0][k] !== undefined) ra[k] = mine[0][k]; });
+  const buf = _bacaBuffer();
+  const lama = buf.entries[code];
+  /* base dipertahankan dari entri pertama: kalau simpanan berturut-turut
+     semuanya gagal, versi dasar tetap versi yang dilihat pengguna di awal. */
+  buf.entries[code] = { ts, base: (lama && lama.base) || co._updatedAt, spi, ra };
+  _tulisBuffer(buf);
+  return ts;
+}
+
+/** Bentuk lama dipertahankan untuk pemanggil lama: { ts, spi:{code}, ra:{code} }. */
+function readStorageSnapshot() {
+  const buf = _bacaBuffer();
+  const codes = Object.keys(buf.entries);
+  if (!codes.length) return null;
+  const snap = { ts: null, spi: {}, ra: {} };
+  codes.forEach(c => {
+    const e = buf.entries[c];
+    snap.spi[c] = e.spi || {};
+    if (e.ra && Object.keys(e.ra).length) snap.ra[c] = e.ra;
+    if (!snap.ts || e.ts > snap.ts) snap.ts = e.ts;
+  });
+  return snap;
+}
+
 function loadFromStorage() {
   const snap = readStorageSnapshot();
   return snap && snap.ts ? snap.ts : null;
 }
 
-/** Clear all saved data */
 function clearStorage() {
   try { localStorage.removeItem(LS_KEY); } catch(e) {}
 }
 
-/** Remove a single company's buffered entry (called after a successful
-    patch so we don't accidentally re-push stale data on next boot). */
 function clearStorageForCode(code) {
   if (!code) return;
-  try {
-    const snap = readStorageSnapshot();
-    if (!snap) return;
-    let touched = false;
-    if (snap.ra && snap.ra[code]) { delete snap.ra[code]; touched = true; }
-    if (snap.spi && snap.spi[code]) { delete snap.spi[code]; touched = true; }
-    if (!touched) return;
-    const empty = (!snap.ra || !Object.keys(snap.ra).length) &&
-                  (!snap.spi || !Object.keys(snap.spi).length);
-    if (empty) {
-      localStorage.removeItem(LS_KEY);
-    } else {
-      snap.ts = new Date().toISOString();
-      localStorage.setItem(LS_KEY, JSON.stringify(snap));
-    }
-  } catch(e) {
-    console.warn('clearStorageForCode failed:', e);
-  }
+  const buf = _bacaBuffer();
+  if (buf.entries[code]) { delete buf.entries[code]; _tulisBuffer(buf); }
 }
 
-/** migrateLocalToServer — boot-time push of buffered local changes to DB.
-    Logic:
-      1. Read localStorage snapshot
-      2. For each company entry, COMPARE local snap.ts vs the company's
-         _updatedAt token from the freshly-fetched server data
-         - If DB ≥ local → discard local (DB wins; data is stale)
-         - If local > DB → apply onto in-memory co + push via patchToServer
-      3. Clear pushed/stale entries; keep only entries that hit a network
-         error so they retry on the next boot.
-    Returns { pushed, discardedStale, conflicts, failed }. */
+function _tokenSama(a, b) {
+  const ta = a ? new Date(a).getTime() : NaN, tb = b ? new Date(b).getTime() : NaN;
+  return Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(ta - tb) <= 1000;
+}
+
+/** Saat halaman dibuka: kirim ulang simpanan yang GAGAL, hanya bila DB belum
+    berubah sejak pengguna mengedit. Selain itu entri dibuang. */
 async function migrateLocalToServer() {
-  const snap = readStorageSnapshot();
-  if (!snap || (!snap.ra && !snap.spi)) {
-    return { pushed: 0, discardedStale: 0, conflicts: 0, failed: 0 };
-  }
-
-  const codes = new Set([
-    ...Object.keys(snap.spi || {}),
-    ...Object.keys(snap.ra  || {}),
-  ]);
-  const localTs = snap.ts ? new Date(snap.ts).getTime() : 0;
+  const buf = _bacaBuffer();
+  const codes = Object.keys(buf.entries);
   let pushed = 0, discardedStale = 0, conflicts = 0, failed = 0;
-  const failedCodes = new Set();
-
   for (const code of codes) {
+    const e = buf.entries[code];
     const co = (typeof getSPI === 'function' ? getSPI(code) : null) ||
                (typeof PENDING !== 'undefined' ? PENDING.find(p => p.code === code) : null);
-    if (!co) { discardedStale++; continue; }
-
-    // Only push if user's local snapshot is strictly newer than DB.
-    // 1-second tolerance for clock drift.
-    const dbTs = co._updatedAt ? new Date(co._updatedAt).getTime() : 0;
-    if (localTs - dbTs <= 1000) {
-      discardedStale++;
-      continue;
+    if (!co || co._quotaYearSliced || !e || !e.base || !_tokenSama(co._updatedAt, e.base)) {
+      delete buf.entries[code]; discardedStale++; continue;
     }
-
-    // Apply localStorage fields onto the in-memory company so
-    // patchToServer sends the user's pending edits.
-    const savedSpi = snap.spi && snap.spi[code];
-    if (savedSpi) {
-      SPI_MUTABLE.forEach(k => {
-        if (savedSpi[k] !== undefined) co[k] = savedSpi[k];
-      });
-    }
-    const savedRa = snap.ra && snap.ra[code];
-    if (savedRa && typeof RA !== 'undefined') {
-      // snap.ra is keyed by company code, so it cannot represent a company
-      // that owns one ra_records row per arrival — replaying it would push a
-      // company-wide berat/realPct onto a single wave. Skip those; their
-      // per-wave weights come from the source documents anyway.
-      const mine = RA.filter(x => x.code === code);
-      const r = mine.length > 1 ? null : mine[0];
-      if (r) RA_MUTABLE.forEach(k => {
-        if (savedRa[k] !== undefined) r[k] = savedRa[k];
-      });
-    }
-
+    SPI_MUTABLE.forEach(k => { if (e.spi && e.spi[k] !== undefined) co[k] = e.spi[k]; });
+    const mine = (typeof RA !== 'undefined') ? RA.filter(x => x.code === code) : [];
+    if (mine.length === 1 && e.ra) RA_MUTABLE.forEach(k => { if (e.ra[k] !== undefined) mine[0][k] = e.ra[k]; });
+    co._updatedAt = e.base;                      // server menolak bila DB sudah bergeser
     try {
       await patchToServer(co);
-      pushed++;
-    } catch (e) {
-      const msg = (e && e.message) || String(e);
-      if (/HTTP\s*409|conflict|diubah pengguna lain/i.test(msg)) {
-        conflicts++;
-      } else {
-        failed++;
-        failedCodes.add(code);
-      }
+      delete buf.entries[code]; pushed++;
+    } catch (err) {
+      const msg = (err && err.message) || String(err);
+      if ((err && err.status === 409) || /HTTP\s*409|conflict|diubah pengguna lain/i.test(msg)) {
+        delete buf.entries[code]; conflicts++;
+      } else { failed++; }
     }
   }
-
-  // Clear localStorage for pushed + discarded + conflict entries.
-  // Keep only entries with a real network failure so they retry.
-  if (failedCodes.size === 0) {
-    clearStorage();
-  } else {
-    const filtered = { ts: new Date().toISOString(), ra: {}, spi: {} };
-    failedCodes.forEach(c => {
-      if (snap.ra && snap.ra[c])  filtered.ra[c]  = snap.ra[c];
-      if (snap.spi && snap.spi[c]) filtered.spi[c] = snap.spi[c];
-    });
-    try { localStorage.setItem(LS_KEY, JSON.stringify(filtered)); } catch (_) {}
-  }
-
+  _tulisBuffer(buf);
   return { pushed, discardedStale, conflicts, failed };
 }
+
 
 /** Show a brief save confirmation toast */
 function showSaveToast(ts) {
@@ -329,14 +302,13 @@ function updateStorageStatus() {
   const el = document.getElementById('storageStatus');
   if (!el) return;
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) {
+    const snap = readStorageSnapshot();
+    if (!snap) {
       el.innerHTML = '<span style="color:var(--txt3)">⚪ No saved data yet — changes will be lost on refresh until you save.</span>';
       return;
     }
-    const snap = JSON.parse(raw);
     const ts = snap.ts ? new Date(snap.ts).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'unknown';
-    const raCodes = Object.keys(snap.ra || {}).join(', ') || '—';
+    const raCodes = Object.keys(snap.spi || {}).join(', ') || '—';
     el.innerHTML = `<span style="color:var(--green);font-weight:700">💾 Data saved</span> · Last saved: <strong>${ts}</strong><br>
       <span style="color:var(--txt3);font-size:10.5px">Companies with saved state: ${raCodes}</span>`;
   } catch(e) {
