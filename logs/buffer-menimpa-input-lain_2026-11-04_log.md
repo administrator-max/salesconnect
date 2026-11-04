@@ -38,3 +38,15 @@ Lihat bagian "Pemulihan data" di bawah (ditambahkan setelah deploy).
 - `tools/lihat_activity_log.php` — cetak tab activity_log.
 - `tools/revisi_sheet_iqdash.php` — daftar/ambil versi spreadsheet lewat Drive API (versi tertua yang
   tersedia: 29-Okt 00:37 UTC; Drive memangkas versi lama).
+
+## Pemulihan data — MENUNGGU persetujuan pengguna
+`tools/pulihkan_sapuan_buffer_2026-11-04.php` (tanpa --apply = rencana): 79 sel, 18 company +
+lot BBB GL ALLOY #1. Nilai pulih = snapshot payload 20-Okt (tak ada perubahan kolom company tercatat
+antara snapshot dan sapuan 29-Okt) dan, untuk KJK, input sah Putri 30-Okt (versi Drive 24848).
+Sel yang sudah diubah tim sesudah sapuan dibiarkan (ADP/BBB/MSN/SPA status & rev, BBB/ADP PERTEK).
+Ditulis hanya bila isi sel masih nilai rusak; updated_at dinaikkan; backup ke backups/.
+Diblokir mode otomatis saat dijalankan 04-Nov — perlu izin eksplisit.
+
+## Ikut dideploy hari ini
+SalesPulse cek format input (commit 75d7e18, dibuat 03-Nov, belum tayang sampai hari ini).
+Panduan tim: docs/panduan_input_tim.html (+ PDF docs/Panduan_Input_SalesConnect.pdf).

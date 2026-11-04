@@ -1,0 +1,152 @@
+<title>Aturan Input SalesConnect</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: lembar kerja satu kolom, tiap aturan = baris "Benar / Salah"; format baku ditampilkan sebagai label yang dibedah. */
+:root{
+  --bg:#f3f4f2; --paper:#ffffff; --ink:#1b2126; --ink2:#4d5761; --line:#d9ddd8;
+  --steel:#2f5d7c; --steel-soft:#e3ecf2;
+  --blok:#b42318; --blok-soft:#fde8e6; --cek:#9a6200; --cek-soft:#fdf1d8; --ok:#1d7a46; --ok-soft:#e2f3e8;
+  --f-display:"Archivo","Arial Narrow",Arial,sans-serif; --f-body:"Source Sans 3","Segoe UI",Arial,sans-serif; --f-mono:"JetBrains Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14181b; --paper:#1c2226; --ink:#e7eaec; --ink2:#a5afb7; --line:#313a40;
+  --steel:#7fb0d2; --steel-soft:#203440;
+  --blok:#ff8a7d; --blok-soft:#3b1f1c; --cek:#f0b54a; --cek-soft:#3a2e15; --ok:#6fd39a; --ok-soft:#173527; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14181b; --paper:#1c2226; --ink:#e7eaec; --ink2:#a5afb7; --line:#313a40;
+  --steel:#7fb0d2; --steel-soft:#203440;
+  --blok:#ff8a7d; --blok-soft:#3b1f1c; --cek:#f0b54a; --cek-soft:#3a2e15; --ok:#6fd39a; --ok-soft:#173527; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.55 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+.wrap{max-width:860px;margin:0 auto;display:grid;gap:28px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,5vw,40px);font-weight:800;letter-spacing:-.01em}
+h2{font-size:22px;font-weight:800;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+h3{font-size:16px;font-weight:600}
+p{margin:0}
+.lead{color:var(--ink2);max-width:62ch}
+.kicker{font:600 12px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--steel)}
+header{display:grid;gap:10px;border-bottom:3px solid var(--ink);padding-bottom:18px}
+.tag{font:600 12px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:5px 8px;border-radius:4px;background:var(--steel-soft);color:var(--steel)}
+section{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:22px clamp(16px,3vw,28px);display:grid;gap:18px}
+.rules{display:grid;gap:0;margin:0;padding:0;list-style:none;counter-reset:r}
+.rules>li{display:grid;grid-template-columns:2.2em 1fr;gap:4px 10px;padding:14px 0;border-top:1px solid var(--line);counter-increment:r}
+.rules>li:first-child{border-top:0;padding-top:0}
+.rules>li::before{content:counter(r);font:800 18px/1.3 var(--f-display);color:var(--steel)}
+.rules>li>*{grid-column:2;min-width:0}
+.rules b{font-weight:700}
+.why{color:var(--ink2);font-size:14.5px}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.pair>div{border-radius:6px;padding:8px 10px;font-size:14.5px;min-width:0;overflow-wrap:anywhere}
+.yes{background:var(--ok-soft)} .no{background:var(--blok-soft)}
+.yes::before{content:"Benar";display:block;font:700 11px/1.4 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ok)}
+.no::before{content:"Salah";display:block;font:700 11px/1.4 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--blok)}
+/* label format baku yang dibedah */
+.anatomy{overflow-x:auto}
+.label{display:inline-flex;flex-wrap:nowrap;font:600 15px/1 var(--f-mono);border:2px solid var(--ink);border-radius:6px;overflow:hidden;white-space:nowrap}
+.label span{padding:10px 10px;border-left:1px dashed var(--line)}
+.label span:first-child{border-left:0}
+.label .sep{color:var(--ink2);padding-inline:4px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:var(--ink2);margin-top:10px}
+.legend b{color:var(--ink);font-family:var(--f-mono);font-size:13px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:8px 10px;border-top:1px solid var(--line);vertical-align:top}
+th{font:700 12px/1.3 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);border-top:0}
+.pill{display:inline-block;font:700 11px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:999px;white-space:nowrap}
+.p-blok{background:var(--blok-soft);color:var(--blok)} .p-cek{background:var(--cek-soft);color:var(--cek)} .p-ok{background:var(--ok-soft);color:var(--ok)}
+.status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.status>div{border:1px solid var(--line);border-radius:6px;padding:12px;display:grid;gap:6px;align-content:start;font-size:14.5px}
+.deadline{display:flex;gap:16px;align-items:center;flex-wrap:wrap;border:2px solid var(--steel);border-radius:8px;padding:14px 16px}
+.deadline .big{font:800 30px/1 var(--f-display);color:var(--steel);font-variant-numeric:tabular-nums}
+footer{color:var(--ink2);font-size:14px;display:grid;gap:4px}
+@media (max-width:620px){.pair,.status{grid-template-columns:1fr}}
+@media print{body{background:#fff;padding:0}section{break-inside:avoid;border-color:#ccc}}
+</style>
+
+<div class="wrap">
+<header>
+  <span class="kicker">SalesConnect · berlaku mulai 4 November 2026</span>
+  <h1>Aturan Input SalesConnect</h1>
+  <p class="lead">Satu lembar untuk Sales, CorpSec, dan Operations. Ikuti aturan ini supaya angka Monthly Report tidak perlu ditarik ulang.</p>
+</header>
+
+<section aria-labelledby="umum">
+  <h2 id="umum">Untuk semua orang</h2>
+  <ol class="rules">
+    <li><b>Tekan F5 sebelum mulai input.</b><p class="why">Layar yang terbuka sejak kemarin berisi data lama. Simpan dari layar lama bisa menimpa input rekan.</p></li>
+    <li><b>Satu company dikerjakan satu orang dalam satu waktu.</b><p class="why">Kalau dua orang perlu mengubah company yang sama, bergantian.</p></li>
+    <li><b>Muncul "Data sudah diubah pengguna lain"? Tekan F5, lalu input ulang.</b><p class="why">Jangan tekan Simpan berulang. Pesan itu berarti sistem baru saja mencegah data rekan Anda tertimpa.</p></li>
+    <li><b>Pilih dari daftar, jangan mengetik ejaan baru.</b><p class="why">Nama produk, customer, dan company harus sama persis dengan yang sudah ada.</p>
+      <div class="pair"><div class="yes">GL ALLOY · SHEET PILE · Mlion International</div><div class="no">GL BORON · SHEETPILE · Mlion Intl</div></div></li>
+    <li><b>Baca notifikasi sesudah menyimpan.</b><p class="why">Notifikasi menyebut apakah input sudah masuk hitungan. Riwayat lengkap: tombol 🧾 Log Aktivitas (IQ Dash) dan 🕘 Riwayat Input (SalesPulse).</p></li>
+  </ol>
+</section>
+
+<section aria-labelledby="sp">
+  <h2 id="sp">SalesPulse <span class="tag">Upload PS</span></h2>
+
+  <div class="deadline">
+    <span class="big">H+3</span>
+    <p><b>Batas input: hari kerja ke-3 bulan berikutnya.</b> PS bulan Oktober masuk paling lambat hari kerja ke-3 November. PS yang masuk sesudahnya mengubah angka yang sudah dilaporkan, jadi beri tahu penyusun laporan.</p>
+  </div>
+
+  <div class="anatomy">
+    <h3 style="margin-bottom:10px">Format nama project</h3>
+    <div class="label" aria-label="Arsen 69A - Del. December 2026 - NIM">
+      <span>Arsen 69A</span><span class="sep">-</span><span>Del. December 2026</span><span class="sep">-</span><span>NIM</span>
+    </div>
+    <div class="legend"><span><b>Arsen 69A</b> kode supplier + nomor</span><span><b>Del.</b> pakai titik</span><span><b>December 2026</b> bulan Inggris lengkap + tahun kirim</span><span><b>NIM</b> customer akhir</span></div>
+  </div>
+
+  <ol class="rules">
+    <li><b>Semua leg satu transaksi memakai nama project yang sama persis.</b><p class="why">Leg ATL, GP, dan leg ke customer digabung lewat nama ini. Beda satu spasi atau satu kata, leg-nya terhitung terpisah.</p>
+      <div class="pair"><div class="yes">Arsen 69A - Del. December 2026 - NIM (semua leg)</div><div class="no">Arsen 69A -NIM · Arsen 69A - NIM (Okaya)</div></div></li>
+    <li><b>Tabel barang wajib terisi, dengan Total Weight (kg) di setiap baris.</b><p class="why">Volume (MT) dan revenue dihitung dari tabel ini. Leg ke customer luar tanpa barang = revenue 0.</p></li>
+    <li><b>PO Date berformat tanggal <span class="mono">dd/mm/yyyy</span>.</b><p class="why">Bulan laporan diambil dari PO Date.</p></li>
+    <li><b>Tahun "Del." harus tahun kirim yang benar.</b>
+      <div class="pair"><div class="yes">PO Juli 2026 → Del. October 2026</div><div class="no">PO Juli 2026 → Del. October 2025</div></div></li>
+    <li><b>Nomor PS: <span class="mono">PSF26-XXX-000000</span>. Revisi: <span class="mono">.R1</span>, <span class="mono">.R2</span>, lalu hapus versi lama.</b><p class="why">Dua versi yang sama-sama tersimpan terhitung dua kali.</p></li>
+    <li><b>Mata uang selain IDR: isi kurs di file.</b><p class="why">Tanpa kurs, sistem memakai kurs default dan revenue meleset.</p></li>
+  </ol>
+
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Saat upload</th><th>Artinya</th><th>Yang harus dilakukan</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill p-blok">Blok</span></td><td>Angka pasti salah kalau disimpan: nama kosong, PO Date tak terbaca, barang tanpa berat, leg customer tanpa barang.</td><td>Betulkan file Excel, upload lagi.</td></tr>
+        <tr><td><span class="pill p-cek">Cek</span></td><td>Mungkin salah: format nama, nama beda antar-leg, dugaan dobel, ejaan customer, lewat batas waktu, produk tak dikenali, kurs kosong.</td><td>Baca setiap baris. Pakai "Pakai saran" bila sarannya benar, atau betulkan file. Baru tekan "Sudah saya cek — Simpan".</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="iq">
+  <h2 id="iq">IQ Dash <span class="tag">Kuota impor</span></h2>
+  <ol class="rules">
+    <li><b>Cek Quota Year di pojok atas sebelum membuka form.</b><p class="why">Pengajuan 2027 diisi di tampilan 2027; data kuota 2026 di tampilan 2026. Ganti tahun dulu, baru buka form.</p></li>
+    <li><b>Utilisasi lot: isi MT, tanggal utilisasi, dan ETA sekaligus.</b><p class="why">Lot tanpa tanggal tidak dihitung. Pakai pemilih tanggal, jangan ketik bebas.</p>
+      <div class="pair"><div class="yes">100 MT · 30 October 2026 · ETA 31 December 2026</div><div class="no">100 MT · "30 ocy" · ETA "NIM 69 (GL)"</div></div></li>
+    <li><b>Rincian produk harus sama dengan total siklus.</b><p class="why">Submit 3.000 MT = GL ALLOY 2.000 + SHEET PILE 1.000. Kalau produknya belum pasti, kosongkan dan beri tahu CorpSec. Jangan ditebak.</p></li>
+    <li><b>Re-Apply lewat tombol Re-Apply, bukan Revision Request.</b><p class="why">Re-Apply menambah kuota (siklus Submit baru). Revision mengganti produk/HS dan baru berlaku setelah PERTEK Perubahan terbit.</p></li>
+    <li><b>Produk atau HS berubah karena revisi? Kabari CorpSec di hari yang sama.</b><p class="why">Angka per produk perlu diperbarui terpisah; totalnya tidak berubah sehingga selisih ini tidak tertangkap otomatis.</p></li>
+    <li><b>TBA artinya masih proses, bukan data kosong.</b><p class="why">Obtained dihitung sejak PERTEK terbit walaupun SPI masih TBA. Jangan isi tanggal perkiraan.</p></li>
+    <li><b>Realisasi salah? Pakai tombol Edit per baris. Jangan upload ulang Excel.</b><p class="why">Upload ulang menambah baris baru; baris lama yang tetap terbaca.</p></li>
+  </ol>
+
+  <div class="status" role="list">
+    <div role="listitem"><span class="pill p-ok">ok</span><p>Tersimpan dan sudah terhitung di dashboard.</p></div>
+    <div role="listitem"><span class="pill p-cek">warning</span><p>Tersimpan tapi belum terhitung. Sebabnya tertulis di notifikasi: biasanya tanggal kosong atau melebihi obtained.</p></div>
+    <div role="listitem"><span class="pill" style="background:var(--steel-soft);color:var(--steel)">nochange</span><p>Disimpan tanpa perubahan data.</p></div>
+  </div>
+</section>
+
+<footer>
+  <p><b>Ragu sebelum menyimpan?</b> Tanyakan dulu ke CorpSec. Menunda input satu jam lebih murah daripada menarik ulang laporan.</p>
+  <p>Sumber aturan: pemeriksa input SalesPulse dan log aktivitas IQ Dash, November 2026.</p>
+</footer>
+</div>
