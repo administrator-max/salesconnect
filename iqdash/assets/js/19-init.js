@@ -981,7 +981,11 @@ function buildAvqProdChart() {
    Overview dan modalnya — supaya urutan, label, dan warnanya tidak mungkin
    berbeda antara ringkasan dan rinciannya. */
 const AA_GROUPS = [
-  { key:'new',        label:'🆕 New Submission', color:'var(--blue)',  bg:'var(--blue-bg)',  bd:'var(--blue-bd)' },
+  /* Di tahun kuota selain 2026 semua pengajuan berjalan adalah Submit pertama
+     tahun itu; tim menyebutnya "Under Submission" (05-Nov-2026) — nama yang
+     sama dengan badge dan tabel PERTEK & SPI di tahun itu. */
+  { key:'new',        get label() { return (typeof QUOTA_YEAR !== 'undefined' && QUOTA_YEAR !== QUOTA_YEAR_DEFAULT) ? '🔄 Under Submission' : '🆕 New Submission'; },
+                      color:'var(--blue)',  bg:'var(--blue-bg)',  bd:'var(--blue-bd)' },
   { key:'active',     label:'🔄 Revision',       color:'var(--amber)', bg:'var(--amber-bg)', bd:'var(--amber-bd)' },
   { key:'reapply',    label:'📨 Re-Apply',       color:'#7c3aed',      bg:'#f5f3ff',         bd:'#c4b5fd' },
   { key:'revpending', label:'⏳ PERTEK Pending', color:'var(--red2)',  bg:'var(--red-bg)',   bd:'var(--red-bd)' },

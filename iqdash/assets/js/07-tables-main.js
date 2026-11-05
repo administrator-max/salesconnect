@@ -61,7 +61,11 @@ function renderMain() {
        dua-gelombang, yang justru menyimpan persentase se-perusahaan pada salah
        satu barisnya. */
     const _raT    = (typeof raTotals === 'function') ? raTotals(d.code) : null;
-    const _obtRA  = Number(ra && ra.obtained) || 0;
+    /* Penyebut = Obtained yang TAMPIL di kolom sebelahnya (kanonik), bukan
+       `ra.obtained`. Kolom RA itu tidak ikut naik saat re-apply terbit: BDG
+       menyimpan 350 padahal obtained 1.000, jadi 998 MT terbaca 285%; AMP 800
+       vs 1.000 → 108%. Rata-rata kaki tabel ikut jadi 110% (05-Nov-2026). */
+    const _obtRA  = (Number(d.obtained) || 0) || (Number(ra && ra.obtained) || 0);
     const realMT  = (_realCo[d.code] != null) ? _realCo[d.code]
                   : ((_raT && _raT.arrived) ? _raT.realMT : ((ra && ra.cargoArrived) ? ra.berat : 0));
     const realPct = (realMT > 0)

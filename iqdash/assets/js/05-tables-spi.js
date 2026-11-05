@@ -518,13 +518,22 @@ function updateSPICounts() {
     if (thn) return thn.key === 'pending' ? 'revpending' : 'active';
     return revisionStatus(d);
   };
-  const nCompleted = base.filter(d=>rsOf(d)==='clean'||rsOf(d)==='completed').length;
+  /* Company bersection PENDING digolongkan processStatus() — sama dengan tabel
+     PERTEK & SPI Terbit. Dulu cukup "ada PERTEK" → PENDING, jadi SNSD yang SPI-nya
+     sudah terbit 07/08/2026 tetap dihitung PENDING di kotak ini sementara tabel
+     menyebutnya Completed (05-Nov-2026). */
+  const prosesPending = filteredPending().map(d => processStatus(d).key);
+  /* "Completed — SPI aktif" tidak boleh menghitung company yang belum punya
+     data apa pun (APA, KITA, LILO, PP, SORE, UANG: badge-nya "Belum
+     Dikonfigurasi"). Dulu kotak ini berkata 27, padahal yang ber-SPI 21. */
+  const nCompleted = base.filter(d=>!isUnconfigured(d) && (rsOf(d)==='clean'||rsOf(d)==='completed')).length
+                   + prosesPending.filter(k => k === 'completed').length;
   const nActive   = base.filter(d=>rsOf(d)==='active').length;
   const nReapply  = base.filter(d=>rsOf(d)==='reapply').length;
   const nUnderRev = nActive + nReapply;  // merged tab
-  const nPendingPertek = filteredPending().filter(d => _pendingHasPertek(d)).length;
+  const nPendingPertek = prosesPending.filter(k => k === 'pending').length;
   const nPending  = base.filter(d=>rsOf(d)==='revpending').length + nPendingPertek;
-  const nNewSub   = filteredPending().filter(d => !_pendingHasPertek(d)).length;
+  const nNewSub   = prosesPending.filter(k => k === 'newsub').length;
   const s = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   s('pillAll',        base.length);
   s('pillClean',      nCompleted);
@@ -532,11 +541,14 @@ function updateSPICounts() {
   s('pillReapply',    nReapply);
   s('pillRevPending', nPending);
   s('pillNewSub',     nNewSub);
-  s('ntcClean', `✅ ${nCompleted} Completed`);
   /* Nama yang SAMA dengan pil tabel PERTEK & SPI Terbit dan teks asli di
-     index.html. "Under Revision" membuat pengajuan 2027 terbaca revisi. */
-  s('ntcActive',  `🔄 ${nUnderRev} Under Submission`);
-  s('ntcPending', `⏳ ${nPending} PENDING`);
+     index.html. "Under Revision" membuat pengajuan 2027 terbaca revisi.
+     Satuannya ditulis ("co."): kotak ini menghitung COMPANY, sedangkan pil
+     tabel di bawahnya menghitung BARIS produk — tanpa satuan, "9 Under
+     Submission" dan pil "Under Submission 23" terbaca bertentangan. */
+  s('ntcClean', `✅ ${nCompleted} co. Completed`);
+  s('ntcActive',  `🔄 ${nUnderRev} co. Under Submission`);
+  s('ntcPending', `⏳ ${nPending} co. PENDING`);
   // nav tab count
   const tab=document.querySelectorAll('.nav-tab')[1]; const cnt=tab&&tab.querySelector('.n-count'); if(cnt) cnt.textContent=base.length;
 }

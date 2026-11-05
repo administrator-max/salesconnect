@@ -74,5 +74,25 @@ s = status(iris('AADC', 2026));
 ok(s.thn === null, 'AADC 2026: aturan 2027 tidak berlaku', JSON.stringify(s.thn));
 ok(!/Under Submission/.test(s.proses), 'AADC 2026: tetap Completed', s.proses);
 
+console.log('D. PERTEK permohonan berjalan sudah terbit → Pending di semua permukaan (05-Nov-2026)');
+set('RR_APPROVAL_STAGES', ['Submit', 'Menunggu Disposisi Kasi', 'Pertek terbit', 'Submit SPI', 'SPI Terbit']);
+set('__c', { code: 'KJK', section: 'SPI', group: 'AB', revType: 'complete', revStatus: 'SPI Perubahan Terbit', products: ['GL ALLOY'], obtained: 1250,
+  cycles: [
+    cyc('Submit #1', 6000, { products: { 'GL ALLOY': 6000 }, pertekDate: '11/11/2025' }),
+    cyc('Obtained #1', 950, { products: { 'GL ALLOY': 950 }, pertekDate: '11/11/2025', spiDate: '31/12/2025' }),
+    cyc('Submit #3', 3000, { products: { 'GL ALLOY': 3000 }, releaseType: 'PERTEK Perubahan #2', pertekDate: '05/10/2026' }),
+    cyc('Obtained #3', 300, { products: { 'GL ALLOY': 300 }, releaseType: 'SPI Perubahan' }),
+  ] });
+ok(call('revisionStatus(__c)') === 'revpending', 'KJK: Submit #3 PERTEK terbit, SPI belum → PENDING (dulu Re-Apply)', call('revisionStatus(__c)'));
+ok(call('activeApplicationStage(__c)') === 'revpending', 'KJK: tetap muncul di Active Application (dulu hilang, revType complete)', String(call('activeApplicationStage(__c)')));
+set('__c', { code: 'ADP', section: 'SPI', group: 'CD', revType: 'active', revStatus: 'Submit SPI', products: ['GL ALLOY'], obtained: 350,
+  cycles: [
+    cyc('Submit #1', 6000, { products: { 'GL ALLOY': 6000 }, pertekDate: '14/11/2025' }),
+    cyc('Obtained #1', 250, { products: { 'GL ALLOY': 250 }, pertekDate: '14/11/2025', spiDate: '16/12/2025' }),
+    cyc('Obtained #4', 100, { products: { 'GL ALLOY': 100 }, releaseType: 'SPI Perubahan' }),
+  ] });
+ok(call('revisionStatus(__c)') === 'revpending', 'ADP: Obtained tanpa pasangan + Approval Stage "Submit SPI" → PENDING (dulu Completed)', call('revisionStatus(__c)'));
+ok(call('activeApplicationStage(__c)') === 'revpending', 'ADP: strip Active Application sama (dulu Revision)', String(call('activeApplicationStage(__c)')));
+
 console.log(`\n${pass} pass · ${fail} fail`);
 process.exit(fail ? 1 : 0);

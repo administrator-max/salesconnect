@@ -333,11 +333,13 @@ function updateOverviewKPIs() {
   const revActive   = [..._AA.new, ..._AA.active, ..._AA.reapply];
   const insValEl = document.getElementById('insRevVal');
   const insSubEl = document.getElementById('insRevSub');
+  /* Tahun selain 2026: nama golongan "new" sama dengan badge & tabel tahun itu. */
+  const _thnLain = typeof QUOTA_YEAR !== 'undefined' && QUOTA_YEAR !== QUOTA_YEAR_DEFAULT;
   if (insValEl) insValEl.textContent =
-    `${_AA.new.length} Baru · ${revRevision.length} Revisi · ${revReapply.length} Re-Apply · ${revPending.length} PERTEK`;
+    `${_AA.new.length} ${_thnLain ? 'Under Submission' : 'Baru'} · ${revRevision.length} Revisi · ${revReapply.length} Re-Apply · ${revPending.length} PERTEK`;
   if (insSubEl) {
     const parts = [];
-    if (_AA.new.length)     parts.push(_AA.new.map(d=>coLabelUtuh(d.code)).join(', ')     + ' (New Submission)');
+    if (_AA.new.length)     parts.push(_AA.new.map(d=>coLabelUtuh(d.code)).join(', ')     + (_thnLain ? ' (Under Submission)' : ' (New Submission)'));
     if (revRevision.length) parts.push(revRevision.map(d=>coLabelUtuh(d.code)).join(', ') + ' (Revision)');
     if (revReapply.length)  parts.push(revReapply.map(d=>coLabelUtuh(d.code)).join(', ')  + ' (Re-Apply)');
     if (revPending.length)  parts.push(revPending.map(d=>coLabelUtuh(d.code)).join(', ')  + ' (PERTEK Pending)');
@@ -534,6 +536,9 @@ function refreshRealizedDrill() {
   const body = document.getElementById('realDrillBody');
   if (!rows.length) {
     body.innerHTML = `<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--txt3)">No arrivals in ${periodLabel}</td></tr>`;
+    /* Footer ikut dikosongkan: tanpa ini isi pembukaan sebelumnya (mis. tahun
+       2026 — "34 companies") tetap tertulis di bawah tabel 2027 yang kosong. */
+    { const _f = document.getElementById('realDrillFooter'); if (_f) _f.textContent = '0 companies'; }
     return;
   }
 
@@ -691,6 +696,9 @@ function refreshAvqDrill() {
   if (!rows.length) {
     const msg = _avqHsFilter ? `HS ${_avqHsFilter}` : _avqHsSearch ? `"${_avqHsSearch}"` : 'the current filter';
     body.innerHTML = `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--txt3)">No data for ${msg}</td></tr>`;
+    /* Footer ikut dikosongkan: tanpa ini isi pembukaan sebelumnya (mis. tahun
+       2026 — "34 companies") tetap tertulis di bawah tabel 2027 yang kosong. */
+    { const _f = document.getElementById('avqDrillFooter'); if (_f) _f.textContent = '0 companies'; }
     return;
   }
 
@@ -809,6 +817,9 @@ function refreshUtilDrill() {
   const body = document.getElementById('utilDrillBody');
   if (!rows.length) {
     body.innerHTML = `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--txt3)">No utilization data recorded in ${periodLabel}</td></tr>`;
+    /* Footer ikut dikosongkan: tanpa ini isi pembukaan sebelumnya (mis. tahun
+       2026 — "34 companies") tetap tertulis di bawah tabel 2027 yang kosong. */
+    { const _f = document.getElementById('utilDrillFooter'); if (_f) _f.textContent = '0 companies'; }
     return;
   }
 
@@ -887,6 +898,9 @@ function refreshReapplyDrill() {
   const body = document.getElementById('raDrillBody');
   if (!rows.length) {
     body.innerHTML = `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--txt3)">No eligible or submitted companies in ${periodLabel}</td></tr>`;
+    /* Footer ikut dikosongkan: tanpa ini isi pembukaan sebelumnya (mis. tahun
+       2026 — "34 companies") tetap tertulis di bawah tabel 2027 yang kosong. */
+    { const _f = document.getElementById('raDrillFooter'); if (_f) _f.textContent = '0 companies'; }
     return;
   }
 

@@ -46,6 +46,15 @@ function _cycleTerbitLengkap(c) {
   const sah = v => v && !/^tba$/i.test(v);
   return sah(p) && sah(s);
 }
+/* Approval Stage (co.revStatus) sudah di "Pertek terbit" atau sesudahnya?
+   Urutannya diambil dari RR_APPROVAL_STAGES — daftar resmi yang dipilih CorpSec
+   di form — bukan dari pencocokan teks bebas. */
+function _tahapSesudahPertek(d) {
+  if (typeof RR_APPROVAL_STAGES === 'undefined') return false;
+  const i = RR_APPROVAL_STAGES.indexOf(String((d && d.revStatus) || '').trim());
+  const batas = RR_APPROVAL_STAGES.indexOf('Pertek terbit');
+  return i >= 0 && batas >= 0 && i >= batas;
+}
 function hasOutstandingCycle(d) {
   const cy = (d && d.cycles) || [];
   const obtained = cy.filter(c => /^obtained/i.test(c.type || ''));
@@ -210,11 +219,39 @@ function outstandingStage(d) {
     }
   }
 
+  /* OBTAINED YATIM DARI REVISI YANG SEDANG BERJALAN.
+
+     ADP 02-Nov-2026: Putri mencatat "PERTEK Perubahan 2 terbit 30/10/2026" lewat
+     Approval Stage, lalu "Submit SPI". Form membuat Obtained #4 (100 MT) TANPA
+     tanggal dan TANPA Submit pasangan. Perulangan di atas tidak menemukan
+     kandidat, jadi tabel PERTEK & SPI berkata Completed — sementara strip
+     Active Application (lewat hasOutstandingCycle) berkata Revision. Putri
+     menyimpan ulang ADP 8× pada 04-Nov tanpa statusnya berubah.
+
+     Hanya untuk revType 'active' (revisi yang memang tercatat berjalan): Obtained
+     tak bertanggal milik revisi yang sudah 'complete' (DIOR) tetap selesai.
+     Tahapnya dari Approval Stage — satu-satunya tempat tahap itu dicatat. */
+  if (!kandidat.length && String((d && d.revType) || '').toLowerCase() === 'active'
+      && hasOutstandingCycle(d) && String(d.revStatus || '').trim() !== 'SPI Terbit') {
+    return _tahapSesudahPertek(d) ? 'revpending' : 'active';
+  }
+
   if (!kandidat.length) return null;
   /* Yang TERBARU yang menentukan tahap: itulah yang sedang berjalan. */
   kandidat.sort((a, b) => a.n - b.n);
   const akhir = kandidat[kandidat.length - 1];
-  if (akhir.jenis === 'submit') return akhir.n >= 2 ? 'reapply' : 'active';
+  /* PERTEK permohonan yang berjalan SUDAH terbit → PERTEK Pending, baik
+     Submit maupun Revision. Dulu cabang Submit langsung memulangkan
+     Re-Apply tanpa melihat PERTEK-nya: KJK (Submit #3, PERTEK Perubahan #2
+     terbit 05/10/2026) dan LCP (28/09/2026) terbaca "Re-Apply / Under
+     Submission" padahal tinggal menunggu SPI (05-Nov-2026). */
+  if (akhir.jenis === 'submit') {
+    const pasangan = obtained.find(o => new RegExp(`^obtained\\s*#${akhir.n}\\b`, 'i').test(o.type || ''));
+    const pt = (typeof cyclePertekTerbitDate === 'function')
+      ? (cyclePertekTerbitDate(akhir.c) || cyclePertekTerbitDate(pasangan)) : '';
+    if (pt) return 'revpending';
+    return akhir.n >= 2 ? 'reapply' : 'active';
+  }
   const pertek = String(akhir.c.pertekDate || akhir.c.releaseDate || '').trim();
   const sudahPertek = pertek && !/^tba$/i.test(pertek);
   // PERTEK belum terbit -> masih Under Revision. Sudah terbit, SPI belum -> PERTEK Pending.
@@ -289,9 +326,12 @@ function activeApplicationStage(co) {
 
      Pagar ini SENGAJA di bawah blok re-apply: BBB dan EMS juga berstatus
      'complete', dan re-apply baru mereka harus tetap terbaca. */
-  if (String(co.revType || '').toLowerCase() === 'complete') return null;
-
   let tahap = (typeof outstandingStage === 'function') ? outstandingStage(co) : null;
+  /* Pagar 'complete' hanya menutup kalau outstandingStage() juga tidak
+     menemukan permohonan berjalan. Dulu pagar ini di ATAS outstandingStage, jadi
+     KJK & LCP (revisi lama 'complete', Submit #3 baru berjalan) hilang dari
+     strip ini sementara tabel PERTEK & SPI menampilkannya (05-Nov-2026). */
+  if (!tahap && String(co.revType || '').toLowerCase() === 'complete') return null;
 
   if (!tahap) {
     // Permintaan revisi Sales yang belum diputus CorpSec = revisi sedang berjalan.

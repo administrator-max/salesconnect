@@ -353,6 +353,43 @@ function applyQuotaYearSlice() {
   REALIZATIONS = (REALIZATIONS_ALL || []).filter(r =>
     rowQuotaYear(r) === y && codes.has(r.company_code || r.companyCode));
 
+  /* PERSEN REALISASI DIHITUNG ULANG dari obtained kanonik.
+
+     `ra.obtained` dan `ra.realPct` di sheet tidak ikut naik saat re-apply
+     terbit: BDG menyimpan obtained 350 padahal 1.000 → 998 MT terbaca 285%
+     dan lolos syarat Re-Apply ≥60%; AMP menyimpan 800 dan realPct 0 di baris
+     terbarunya → dianggap belum layak padahal 86%. Semua pemakai (kelayakan
+     Re-Apply di Overview, grafik, tabel All Companies) membaca baris RA, jadi
+     baris itulah yang dibetulkan — sekali, di sini (05-Nov-2026).
+
+     Pembilangnya realisasi PIB company sepanjang tahun kuota (sumber yang sama
+     dengan kartu Realized). Persen se-perusahaan ditaruh di SATU baris saja
+     (getRA, gelombang terbaru), seperti kebiasaan sheet untuk company
+     dua-gelombang, supaya kolam "eligible" tidak menghitungnya dua kali. */
+  const _realTahun = {};
+  REALIZATIONS.forEach(r => {
+    const c = String(r.company_code || r.companyCode || '').toUpperCase();
+    if (c) _realTahun[c] = (_realTahun[c] || 0) + (parseFloat(String(r.volume ?? '').replace(/,/g, '')) || 0);
+  });
+  const _coPer = {};
+  [...SPI, ...PENDING].forEach(c => { _coPer[c.code] = c; });
+  RA = RA.map(r => Object.assign({}, r));
+  const _sudah = new Set();
+  RA.forEach(r => {
+    if (_sudah.has(r.code) || !r.cargoArrived) return;
+    const co = _coPer[r.code];
+    const obt = co && (typeof canonicalObtained === 'function') ? canonicalObtained(co) : 0;
+    if (!(obt > 0)) return;
+    const pembawa = (typeof getRA === 'function') ? getRA(r.code) : r;
+    const real = _realTahun[String(r.code).toUpperCase()]
+      ?? RA.filter(x => x.code === r.code && x.cargoArrived).reduce((s, x) => s + (Number(x.berat) || 0), 0);
+    RA.filter(x => x.code === r.code).forEach(x => {
+      if (x === pembawa) { x.obtained = obt; x.realPct = real / obt; }
+      else x.realPct = 0;
+    });
+    _sudah.add(r.code);
+  });
+
   if (typeof window !== 'undefined') {
     window.SPI = SPI; window.PENDING = PENDING; window.RA = RA;
     window.REALIZATIONS = REALIZATIONS;

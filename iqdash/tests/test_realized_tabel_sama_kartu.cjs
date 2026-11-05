@@ -446,8 +446,12 @@ SEMUA.forEach(([nama, f, t, mode]) => {
      companiesWithLotsInPeriod() waktu kartunya sendiri pernah kehilangan mereka. */
   setPeriode(null, null, 'All Time', 'both');
   const { induk } = bacaTabel();
-  [['AADC', 150], ['KARA', 100], ['PPGL', 50]].forEach(([c, mt]) => {
+  /* Angkanya dibaca dari master (scopedUtilTotal), bukan dibekukan: utilisasi
+     KARA naik dari 100 ke 180 MT di data hidup (05-Nov-2026) dan uji ini
+     sempat gagal palsu. Yang dikunci: barisnya ADA dan sama dengan master. */
+  ['AADC', 'KARA', 'PPGL'].forEach(c => {
     const r = induk.find(x => x.code === c);
+    const mt = Number(call(`scopedUtilTotal([].concat(SPI, PENDING).find(x => x.code === '${c}'))`)) || 0;
     ok(r && dekat(r.util, mt, 0.01),
        c + ' punya barisnya, UTILIZED ' + mt + ' (dulu tidak ada barisnya sama sekali)',
        r ? 'util ' + r.util : 'tidak ada baris');
@@ -590,8 +594,11 @@ PERIODE_RA.forEach(([nama, f, t, mode]) => {
   const sgd = induk.filter(r => r.code === 'SGD');
   ok(amp.length === 1, 'AMP tepat satu baris (dulu dua)', 'dapat ' + amp.length);
   ok(sgd.length === 1, 'SGD tepat satu baris (dulu dua)', 'dapat ' + sgd.length);
-  ok(amp[0] && dekat(amp[0].real, 799.12, 0.01),
-     'AMP menjumlah kedua gelombang: 799,12 (dulu 399,942 per baris)',
+  /* Dibanding realizedByCompany() (sumber kartu Realized), bukan angka beku:
+     PIB AMP bertambah jadi 860,85 di data hidup (05-Nov-2026). */
+  const _ampReal = call('realizedByCompany()')['AMP'];
+  ok(amp[0] && dekat(amp[0].real, _ampReal, 0.01) && amp[0].real > 399.942 + 0.01,
+     'AMP menjumlah seluruh gelombang = realisasi kartu (dulu 399,942 per baris)',
      amp[0] ? String(amp[0].real) : '-');
   ok(amp[0] && /Eligible/i.test(amp[0].status),
      'AMP kini ✅ Eligible — 79,9% dari 1.000 MT (dulu dicap ✗ <60%)',
