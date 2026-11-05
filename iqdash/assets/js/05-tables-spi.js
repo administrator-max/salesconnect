@@ -509,12 +509,24 @@ function setSPIF(f, el) { spiFilter=f; document.querySelectorAll('#page-spi .f-b
 function sortS(col) { if(spiSortS.col===col)spiSortS.dir*=-1; else{spiSortS.col=col;spiSortS.dir=1;} renderSPI(); }
 function updateSPICounts() {
   const base = filteredSPI();
-  const nCompleted = base.filter(d=>revisionStatus(d)==='clean'||revisionStatus(d)==='completed').length;
-  const nActive   = base.filter(d=>revisionStatus(d)==='active').length;
-  const nReapply  = base.filter(d=>revisionStatus(d)==='reapply').length;
+  /* Tahun kuota kedua (2027): revisionStatus() membaca revType tahun pertama
+     dan memulangkan 'clean', jadi kotak ini berkata "21 Completed" sementara
+     tabel PERTEK & SPI Terbit di bawahnya — lewat processStatus() — sudah
+     Under Submission semua (05-Nov-2026). Untuk irisan itu ikut processStatus. */
+  const rsOf = d => {
+    if (d._namaPerTahun || companyPrimaryYear(d) !== QUOTA_YEAR_DEFAULT) {
+      const k = processStatus(d).key;
+      if (k === 'under')   return 'active';
+      if (k === 'pending') return 'revpending';
+    }
+    return revisionStatus(d);
+  };
+  const nCompleted = base.filter(d=>rsOf(d)==='clean'||rsOf(d)==='completed').length;
+  const nActive   = base.filter(d=>rsOf(d)==='active').length;
+  const nReapply  = base.filter(d=>rsOf(d)==='reapply').length;
   const nUnderRev = nActive + nReapply;  // merged tab
   const nPendingPertek = filteredPending().filter(d => _pendingHasPertek(d)).length;
-  const nPending  = base.filter(d=>revisionStatus(d)==='revpending').length + nPendingPertek;
+  const nPending  = base.filter(d=>rsOf(d)==='revpending').length + nPendingPertek;
   const nNewSub   = filteredPending().filter(d => !_pendingHasPertek(d)).length;
   const s = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
   s('pillAll',        base.length);

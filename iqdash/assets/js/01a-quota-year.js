@@ -818,6 +818,22 @@ function processStatus(co) {
       ? { key: 'pending', label: '⏳ Pending' }
       : { key: 'newsub',  label: '📬 New Submission' };
   }
+  /* TAHUN KUOTA KEDUA (mis. pengajuan 2027 dari company yang sudah punya SPI
+     2026). section dan revType di irisan ini masih milik tahun pertama, jadi
+     revisionStatus() memulangkan 'clean' dan SEMUA baris 2027 terbaca
+     "✅ Completed" padahal PERTEK-nya belum terbit (dilaporkan tim
+     05-Nov-2026). Yang menentukan di sini fakta siklus tahun ini sendiri:
+     belum ada PERTEK → Under Submission, PERTEK ada tapi SPI belum → Pending.
+     Termasuk company yang HANYA punya pengajuan 2027 (SUJU): section-nya
+     tetap "SPI" walau belum punya satu dokumen pun. */
+  if (co._namaPerTahun || companyPrimaryYear(co) !== QUOTA_YEAR_DEFAULT) {
+    const siklus = co.cycles || [];
+    if (!siklus.some(spiIsIssued)) {
+      return siklus.some(c => !!cyclePertekTerbitDate(c))
+        ? { key: 'pending', label: '⏳ Pending' }
+        : { key: 'under',   label: '🔄 Under Submission' };
+    }
+  }
   const rs = (typeof revisionStatus === 'function') ? revisionStatus(co) : 'clean';
   if (rs === 'active' || rs === 'reapply') return { key: 'under',     label: '🔄 Under Submission' };
   if (rs === 'revpending')                 return { key: 'pending',   label: '⏳ Pending' };
