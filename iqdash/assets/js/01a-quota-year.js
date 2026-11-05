@@ -809,6 +809,32 @@ function _spiSudahTerbit(co) {
   });
 }
 
+/**
+ * Status company pada TAHUN KUOTA SELAIN 2026 (mis. pengajuan 2027), atau null
+ * kalau aturan biasa yang berlaku.
+ *
+ * section dan revType di irisan tahun ini masih milik tahun pertama, jadi
+ * revisionStatus() memulangkan 'clean' dan semua baris 2027 terbaca
+ * "✅ Completed" padahal PERTEK-nya belum terbit (dilaporkan tim 05-Nov-2026).
+ * Termasuk company yang HANYA punya pengajuan 2027 (SUJU): section-nya tetap
+ * "SPI" walau belum punya satu dokumen pun.
+ *
+ * SATU-SATUNYA sumber status 2027. Tabel PERTEK & SPI, kotak ringkasan, badge
+ * (All Companies, drawer, Overview) dan strip Active Application semuanya
+ * bertanya ke sini. Versi pertama perbaikan ini hanya mengubah tabel, sehingga
+ * tabel berkata "Under Submission", badge "New Submission", dan kotak
+ * "Under Revision" untuk company yang sama (05-Nov-2026).
+ */
+function statusTahunLain(co) {
+  if (!co) return null;
+  if (!(co._namaPerTahun || companyPrimaryYear(co) !== QUOTA_YEAR_DEFAULT)) return null;
+  const siklus = co.cycles || [];
+  if (siklus.some(spiIsIssued)) return null;
+  return siklus.some(c => !!cyclePertekTerbitDate(c))
+    ? { key: 'pending', label: '⏳ Pending' }
+    : { key: 'under',   label: '🔄 Under Submission' };
+}
+
 function processStatus(co) {
   if (!co) return { key: 'pending', label: '⏳ Pending' };
   const seksi = String(co.section || '').toUpperCase();
@@ -818,22 +844,8 @@ function processStatus(co) {
       ? { key: 'pending', label: '⏳ Pending' }
       : { key: 'newsub',  label: '📬 New Submission' };
   }
-  /* TAHUN KUOTA KEDUA (mis. pengajuan 2027 dari company yang sudah punya SPI
-     2026). section dan revType di irisan ini masih milik tahun pertama, jadi
-     revisionStatus() memulangkan 'clean' dan SEMUA baris 2027 terbaca
-     "✅ Completed" padahal PERTEK-nya belum terbit (dilaporkan tim
-     05-Nov-2026). Yang menentukan di sini fakta siklus tahun ini sendiri:
-     belum ada PERTEK → Under Submission, PERTEK ada tapi SPI belum → Pending.
-     Termasuk company yang HANYA punya pengajuan 2027 (SUJU): section-nya
-     tetap "SPI" walau belum punya satu dokumen pun. */
-  if (co._namaPerTahun || companyPrimaryYear(co) !== QUOTA_YEAR_DEFAULT) {
-    const siklus = co.cycles || [];
-    if (!siklus.some(spiIsIssued)) {
-      return siklus.some(c => !!cyclePertekTerbitDate(c))
-        ? { key: 'pending', label: '⏳ Pending' }
-        : { key: 'under',   label: '🔄 Under Submission' };
-    }
-  }
+  const thn = statusTahunLain(co);
+  if (thn) return thn;
   const rs = (typeof revisionStatus === 'function') ? revisionStatus(co) : 'clean';
   if (rs === 'active' || rs === 'reapply') return { key: 'under',     label: '🔄 Under Submission' };
   if (rs === 'revpending')                 return { key: 'pending',   label: '⏳ Pending' };

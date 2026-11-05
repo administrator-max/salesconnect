@@ -511,6 +511,14 @@ function isUnconfigured(d) {
 
 function statusBadge(d) {
   if (isUnconfigured(d)) return '<span class="badge b-none">Belum Dikonfigurasi</span>';
+  /* Tahun kuota selain 2026 (pengajuan 2027): status dari statusTahunLain(),
+     sumber yang sama dengan tabel PERTEK & SPI Terbit. Tanpa ini badge di
+     All Companies/drawer berkata "New Submission" sementara tabel itu berkata
+     "Under Submission" untuk company yang sama (05-Nov-2026). */
+  const thn = (typeof statusTahunLain === 'function') ? statusTahunLain(d) : null;
+  if (thn) return thn.key === 'pending'
+    ? '<span class="badge b-revpending">⏳ PENDING — PERTEK Terbit, SPI Belum</span>'
+    : '<span class="badge b-rev">🔄 Under Submission</span>';
   /* Pengajuan pertama yang masih berjalan: ada Submit menggantung dan obtained
      masih nol — PERTEK belum terbit, apalagi SPI. Tanpa cabang ini
      revisionStatus() memulangkan 'clean' (revType 'none') dan barisnya jatuh ke

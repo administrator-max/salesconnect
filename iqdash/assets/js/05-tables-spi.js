@@ -512,13 +512,10 @@ function updateSPICounts() {
   /* Tahun kuota kedua (2027): revisionStatus() membaca revType tahun pertama
      dan memulangkan 'clean', jadi kotak ini berkata "21 Completed" sementara
      tabel PERTEK & SPI Terbit di bawahnya — lewat processStatus() — sudah
-     Under Submission semua (05-Nov-2026). Untuk irisan itu ikut processStatus. */
+     Under Submission semua (05-Nov-2026). Untuk irisan itu ikut statusTahunLain(). */
   const rsOf = d => {
-    if (d._namaPerTahun || companyPrimaryYear(d) !== QUOTA_YEAR_DEFAULT) {
-      const k = processStatus(d).key;
-      if (k === 'under')   return 'active';
-      if (k === 'pending') return 'revpending';
-    }
+    const thn = statusTahunLain(d);
+    if (thn) return thn.key === 'pending' ? 'revpending' : 'active';
     return revisionStatus(d);
   };
   const nCompleted = base.filter(d=>rsOf(d)==='clean'||rsOf(d)==='completed').length;
@@ -536,7 +533,9 @@ function updateSPICounts() {
   s('pillRevPending', nPending);
   s('pillNewSub',     nNewSub);
   s('ntcClean', `✅ ${nCompleted} Completed`);
-  s('ntcActive',  `🔄 ${nUnderRev} Under Revision`);
+  /* Nama yang SAMA dengan pil tabel PERTEK & SPI Terbit dan teks asli di
+     index.html. "Under Revision" membuat pengajuan 2027 terbaca revisi. */
+  s('ntcActive',  `🔄 ${nUnderRev} Under Submission`);
   s('ntcPending', `⏳ ${nPending} PENDING`);
   // nav tab count
   const tab=document.querySelectorAll('.nav-tab')[1]; const cnt=tab&&tab.querySelector('.n-count'); if(cnt) cnt.textContent=base.length;

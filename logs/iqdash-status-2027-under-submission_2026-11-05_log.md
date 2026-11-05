@@ -22,3 +22,15 @@ SUJU (hanya punya pengajuan 2027) kena hal yang sama karena section-nya "SPI".
 - 2027: 28 baris Under Submission, 0 Completed; kotak 0 Completed / 23 Under Revision.
 - 2026: tidak ada company yang kena pagar baru; angka tetap 27 / 12 / 1.
 - Uji `.cjs`: 52/53 lulus; `test_realized_tabel_sama_kartu` gagal 2 juga tanpa perubahan ini (data KARA/AMP).
+
+## Lanjutan — satu sumber untuk semua permukaan
+
+Perbaikan pertama hanya mengubah tabel PERTEK & SPI. Akibatnya untuk company yang sama
+tabel berkata "Under Submission", badge All Companies/drawer "New Submission", dan kotak
+ringkasan "Under Revision". Sekarang:
+
+- `statusTahunLain()` (01a-quota-year.js) — satu-satunya sumber status 2027.
+- Dipakai `processStatus()`, `updateSPICounts()`, dan `statusBadge()` (04-charts.js).
+- Kotak ringkasan berlabel "Under Submission" (sama dengan pil tabel dan teks asli HTML).
+- Uji baru `tests/test_status_2027_satu_sumber.cjs` (7 lulus).
+- Verifikasi data hidup: 2027 badge & tabel semuanya "Under Submission"; 2026 tidak ada yang kena.
