@@ -28,3 +28,9 @@ Rename juga MENIMPA (bukan menambah) MT produk tujuan yang sudah ada.
 tools/bersihkan_revisi_palsu_2027_2026-11-05.php: hapus 4 siklus revisi 2027 + cycle_products-nya,
 kosongkan kolom revisi perYear 2027, SGD Submit #3 (2027) → SHEET PILE 6.000 (sesuai koreksi
 GL ALLOY → SHEET PILE atas permintaan GL ALLOY 4.000 + SHEET PILE 2.000).
+
+## Data DIBERSIHKAN (05-Nov-2026 03:12 UTC, disetujui pengguna "Ya, bersihkan")
+4 siklus + 4 cycle_products dihapus; perYear 2027 SGD/ADP revType none, revStatus/spiRef/revFrom/revTo
+kosong (statusUpdate tetap); SGD Submit #3 (2027) SHEET PILE 6.000. Dibaca ulang: sisa siklus
+Revision #3 = 0, payload: SGD 2027 Submit 6.000 {SHEET PILE 6.000}, ADP 2027 Submit 3.000 {GI ALLOY 3.000}.
+Backup: backups/revisi_palsu_2027_sebelum_2026-11-05_031204.json.
