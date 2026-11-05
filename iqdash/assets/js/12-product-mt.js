@@ -376,7 +376,11 @@ function onProdSelectChange(sel) {
 
   // Live UI: show / hide Revision pill
   const pill = document.getElementById('prev-' + ri);
-  if (pill) pill.classList.toggle('show', newProd !== origProd);
+  if (pill) {
+    pill.classList.toggle('show', newProd !== origProd);
+    const co = (typeof getCurrentEditCo === 'function') ? getCurrentEditCo() : null;
+    pill.textContent = (co && !adaPertekTerbit(co)) ? '✏️ Koreksi pengajuan' : '🔄 Revision';
+  }
 
   // Sync the MT input's data-prod so collectProductMTs reads the new name
   const mtInp = document.getElementById('pmt-' + ri);
@@ -402,9 +406,53 @@ function onProdSelectChange(sel) {
      5. Injects Revision #N + Obtained (Revision #N) cycles
      6. Sets revType / revFrom / revTo / revStatus so dashboard shows "Under Revision"
    ══════════════════════════════════════════════════════════════════════ */
+/* PERTEK sudah terbit untuk siklus yang sedang tampil? Revisi (PERTEK
+   Perubahan) hanya mungkin SESUDAH PERTEK terbit — aturan induk no. 3.
+   Sebelum itu, mengganti produk = KOREKSI pengajuan, bukan revisi.
+   05-Nov-2026: SGD & ADP 2027 (PERTEK belum terbit) mendapat siklus
+   "Revision #3" + "Obtained (Revision #3)" palsu karena koreksi produk
+   pengajuan 2027 di tabel ini selalu dianggap revisi. */
+function adaPertekTerbit(co) {
+  const ada = v => { const t = String(v == null ? '' : v).trim(); return !!t && !/^(TBA|null|undefined|—|-)$/i.test(t); };
+  return (co && co.cycles || []).some(cy => cy && /^submit\s*#/i.test(cy.type || '') &&
+    (ada(cy.pertekDate) || ada(cy.releaseDate)));
+}
+
+/* Koreksi produk pengajuan (PERTEK belum terbit): ganti nama produk di siklus,
+   daftar produk, lot dan RA. MT produk lama DITAMBAHKAN ke produk tujuan bila
+   produk tujuan sudah ada di siklus yang sama (satu pengajuan dipecah/digabung),
+   dibandingkan lewat nama kanonik supaya ejaan kembar tidak jadi dua baris. */
+function _koreksiProdukPengajuan(co, origProd, newProd) {
+  const kanon = p => (typeof canonicalProduct === 'function') ? canonicalProduct(String(p || '').trim()) : String(p || '').trim();
+  const tuju = kanon(newProd);
+  if (Array.isArray(co.products)) {
+    co.products = co.products.filter(p => p !== origProd);
+    if (!co.products.some(p => kanon(p) === tuju)) co.products.push(newProd);
+  }
+  (co.cycles || []).forEach(cy => {
+    if (!cy.products || !Object.prototype.hasOwnProperty.call(cy.products, origProd)) return;
+    const mt = Number(cy.products[origProd]) || 0;
+    delete cy.products[origProd];
+    const kunci = Object.keys(cy.products).find(k => kanon(k) === tuju) || newProd;
+    cy.products[kunci] = (Number(cy.products[kunci]) || 0) + mt;
+  });
+  if (co.shipments && co.shipments[origProd]) {
+    const kunci = Object.keys(co.shipments).find(k => k !== origProd && kanon(k) === tuju) || newProd;
+    co.shipments[kunci] = [...(co.shipments[kunci] || []), ...co.shipments[origProd]];
+    delete co.shipments[origProd];
+  }
+  RA.forEach(r => { if (r.code === co.code && r.product === origProd) r.product = newProd; });
+}
+
 function applyProductRenames(co) {
   const renames = Object.entries(_pendingRenames);
   if (!renames.length) return;
+
+  if (!adaPertekTerbit(co)) {
+    renames.forEach(([origProd, newProd]) => _koreksiProdukPengajuan(co, origProd, newProd));
+    Object.keys(_pendingRenames).forEach(k => delete _pendingRenames[k]);
+    return;
+  }
 
   renames.forEach(([origProd, newProd]) => {
     // 1. co.products list
