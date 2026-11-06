@@ -16,6 +16,29 @@ function makeRevPid(prodName) {
    collectShipmentData, reapply table
 ═══════════════════════════════════════ */
 
+/* ── Pemakaian yang SUDAH tercatat tapi bukan lot ─────────────────────────
+   Utilisasi dari master (utilCycles, mis. "Utilization #1 · 100 MT ·
+   31/08/2026") ikut dihitung di "Used", tapi dulu tidak tampil di form —
+   yang terlihat hanya baris lot kosong. Tim mengira isiannya hilang lalu
+   mengisi ulang, dan ditolak "Melebihi kuota" (DIOR & BBB, 06-Nov-2026).
+   Blok ini menampilkannya, hanya-baca. */
+function _blokSudahTercatat(co, prod) {
+  const sisa = utilBaselineForProd(co, prod);
+  if (!(sisa > 0.0005)) return '';
+  const K = p => (typeof canonicalProduct === 'function') ? canonicalProduct(String(p || '').trim()) : String(p || '').trim();
+  const kp = K(prod);
+  const baris = (co.utilCycles || []).filter(u => u && K(u.product) === kp && Number(u.mt) > 0);
+  const fmt = n => Number(n).toLocaleString(MT_LOCALE);
+  const isi = baris.length
+    ? baris.map(u => `<li>${u.cycle || 'Utilisasi'} · <b>${fmt(u.mt)} MT</b> · ${u.date || 'tanpa tanggal'}</li>`).join('')
+    : `<li><b>${fmt(sisa)} MT</b> · tanpa rincian tanggal</li>`;
+  return `<div class="pmt-note" style="margin:6px 0 8px;padding:8px 10px;border-left:3px solid var(--blue,#3b82f6)">
+      <div><b>Sudah tercatat ${fmt(sisa)} MT</b> (dari master, sudah masuk "Used" — jangan diinput ulang di lot):</div>
+      <ul style="margin:4px 0 0 18px;padding:0">${isi}</ul>
+      <div style="margin-top:4px;opacity:.8">Lot di bawah hanya untuk pemakaian <b>baru</b>. Kalau tanggal/MT di atas salah, minta CorpSec membetulkannya.</div>
+    </div>`;
+}
+
 function buildSalesOpsForm(co) {
   if (!co) return;
 
@@ -59,6 +82,7 @@ function buildSalesOpsForm(co) {
           Available: ${availMT.toLocaleString(MT_LOCALE)} MT
         </span>
       </div>
+      ${_blokSudahTercatat(co, prod)}
 
       <table class="sship-table">
         <thead>
@@ -424,7 +448,9 @@ function onSalesDirectChange(inp) {
   } else if (available < 0) {
     inp.classList.add('err');
     if (errEl) {
-      errEl.textContent = `Melebihi kuota ${Math.abs(available).toLocaleString(MT_LOCALE)} MT (max ${(obtMT - otherMT).toLocaleString(MT_LOCALE)} MT)`;
+      const _sdh = utilBaselineForProd(co, prod);
+      errEl.textContent = `Melebihi kuota ${Math.abs(available).toLocaleString(MT_LOCALE)} MT (max ${(obtMT - otherMT).toLocaleString(MT_LOCALE)} MT)`
+        + (_sdh > 0.0005 ? ` — ${_sdh.toLocaleString(MT_LOCALE)} MT sudah tercatat dari master (lihat kotak di atas), jangan diinput ulang.` : '');
       errEl.classList.add('show');
     }
     if (saveBtn) saveBtn.disabled = true;
