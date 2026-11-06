@@ -18,3 +18,10 @@
 ## Uji
 - Pratinjau lokal: DIOR, BBB (700 MT master + lot 100), BTS tampil benar.
 - 54/54 berkas uji .cjs lulus.
+
+## Tambahan: tombol Save utama menolak lot di atas kuota
+- Sebelumnya lot di atas kuota tetap terkirim lalu dipangkas server di atap obtained → "hilang".
+- `lotsMelebihiKuota()` (11-shipment.js) + pagar di `saveEdit()` (13-rev-mgmt.js v24): alert
+  "Utilisasi melebihi kuota — TIDAK disimpan" dengan kuota / sudah tercatat / isian / maks.
+- Uji pratinjau: DIOR 100 MT → ditolak, tidak ada PATCH; BTS SHEET PILE 50 MT → terkirim.
+  Pindai semua company: tidak ada yang terblokir oleh data yang sudah ada.

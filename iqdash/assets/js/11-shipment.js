@@ -955,6 +955,26 @@ function applyShipmentRoleLock() {
    dateless. This is the shared rule both paths now use.
 ══════════════════════════════════════════════════════════════════════ */
 
+/** Produk yang total lot-nya (dibaca dari INPUT form) + pemakaian yang sudah
+    tercatat melebihi obtained. Server memagari utilisasi di atap obtained dan
+    membuang kelebihannya tanpa jejak — bagi tim terlihat "sudah input, lalu
+    hilang" (DIOR 06-Nov-2026). Tombol Save utama kini menolak lebih dulu. */
+function lotsMelebihiKuota() {
+  const co = getCurrentEditCo();
+  if (!co) return [];
+  const obtByProd = getObtainedByProd(co);
+  const out = [];
+  Object.keys(obtByProd).forEach(prod => {
+    const inps = [...document.querySelectorAll(`.sales-util-direct-inp[data-prod="${prod}"]`)];
+    if (!inps.length) return;
+    const lotSum = inps.reduce((s, i) => s + (parseFloat(String(i.value || '').replace(/,/g, '')) || 0), 0);
+    const sudah  = utilBaselineForProd(co, prod);
+    const obt    = obtByProd[prod] || 0;
+    if (sudah + lotSum > obt + 0.0005) out.push({ prod, obt, sudah, lotSum, maks: Math.max(0, obt - sudah) });
+  });
+  return out;
+}
+
 /** True when this lot carries a date the period filter can actually read. */
 function lotHasUtilDate(lot) {
   if (!lot) return false;

@@ -2245,6 +2245,18 @@ function saveEdit() {
         + 'muncul di filter periode manapun.');
       return;
     }
+    /* Lot di atas kuota dulu tetap terkirim, lalu dibuang server di atap
+       obtained — isian "hilang" tanpa pesan (DIOR 06-Nov-2026). */
+    const lebih = (typeof lotsMelebihiKuota === 'function') ? lotsMelebihiKuota() : [];
+    if (lebih.length) {
+      const f = n => Number(n).toLocaleString(MT_LOCALE);
+      alert('Utilisasi melebihi kuota — TIDAK disimpan:\n\n'
+        + lebih.map(x => `• ${prodLabel(x.prod)}: kuota ${f(x.obt)} MT, sudah tercatat ${f(x.sudah)} MT, `
+          + `isian lot ${f(x.lotSum)} MT (maks ${f(x.maks)} MT)`).join('\n')
+        + '\n\nPemakaian yang sudah tercatat (kotak biru di form) jangan diinput ulang. '
+        + 'Kalau tanggal/MT-nya salah, minta CorpSec membetulkannya.');
+      return;
+    }
   }
 
   // ── Re-Apply guard: produk wajib dipilih, tidak pernah ditebak ─────
