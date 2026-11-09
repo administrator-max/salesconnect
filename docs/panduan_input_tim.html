@@ -1,9 +1,9 @@
-<title>Aturan Input SalesConnect</title>
+<title>Panduan Input SalesConnect</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: lembar kerja satu kolom, tiap aturan = baris "Benar / Salah"; format baku ditampilkan sebagai label yang dibedah. */
+/* Panduan kerja: dibaca sambil membuka aplikasi. Nama tombol dibuat seperti tombol supaya mudah dicari di layar. */
 :root{
   --bg:#f3f4f2; --paper:#ffffff; --ink:#1b2126; --ink2:#4d5761; --line:#d9ddd8;
   --steel:#2f5d7c; --steel-soft:#e3ecf2;
@@ -19,134 +19,529 @@
   --steel:#7fb0d2; --steel-soft:#203440;
   --blok:#ff8a7d; --blok-soft:#3b1f1c; --cek:#f0b54a; --cek-soft:#3a2e15; --ok:#6fd39a; --ok-soft:#173527; color-scheme:dark}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font:400 16px/1.55 var(--f-body);
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font:400 16.5px/1.6 var(--f-body);margin:0;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
-.wrap{max-width:860px;margin:0 auto;display:grid;gap:28px}
-h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
-h1{font-size:clamp(28px,5vw,40px);font-weight:800;letter-spacing:-.01em}
-h2{font-size:22px;font-weight:800;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-h3{font-size:16px;font-weight:600}
+.wrap{max-width:880px;margin:0 auto;display:grid;gap:26px;min-width:0}
+h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(30px,5vw,42px);font-weight:800;letter-spacing:-.01em}
+h2{font-size:clamp(24px,4vw,30px);font-weight:800}
+h3{font-size:19px;font-weight:800;padding-top:10px;border-top:2px solid var(--ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+h4{font-size:16px;font-weight:600;margin-top:4px}
 p{margin:0}
-.lead{color:var(--ink2);max-width:62ch}
+ul,ol{margin:0}
+a{color:var(--steel)}
+.lead{color:var(--ink2);max-width:64ch}
 .kicker{font:600 12px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--steel)}
 header{display:grid;gap:10px;border-bottom:3px solid var(--ink);padding-bottom:18px}
-.tag{font:600 12px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:5px 8px;border-radius:4px;background:var(--steel-soft);color:var(--steel)}
-section{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:22px clamp(16px,3vw,28px);display:grid;gap:18px}
-.rules{display:grid;gap:0;margin:0;padding:0;list-style:none;counter-reset:r}
-.rules>li{display:grid;grid-template-columns:2.2em 1fr;gap:4px 10px;padding:14px 0;border-top:1px solid var(--line);counter-increment:r}
-.rules>li:first-child{border-top:0;padding-top:0}
-.rules>li::before{content:counter(r);font:800 18px/1.3 var(--f-display);color:var(--steel)}
-.rules>li>*{grid-column:2;min-width:0}
-.rules b{font-weight:700}
-.why{color:var(--ink2);font-size:14.5px}
+section{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:24px clamp(16px,3vw,30px);display:grid;gap:18px;min-width:0;scroll-margin-top:12px}
+.part{display:grid;gap:14px;min-width:0;scroll-margin-top:12px}
+.steps{display:grid;gap:0;margin:0;padding:0;list-style:none;counter-reset:r}
+.steps>li{position:relative;padding:11px 0 11px 2.5em;border-top:1px solid var(--line);counter-increment:r;min-width:0}
+.steps>li:first-child{border-top:0;padding-top:0}
+.steps>li::before{content:counter(r);position:absolute;left:0;top:11px;font:800 18px/1.4 var(--f-display);color:var(--steel)}
+.steps>li:first-child::before{top:0}
+.steps>li>p,.steps>li>ul,.steps>li>.tbl,.steps>li>.tip{margin-top:6px}
+.steps>li>.anatomy{margin-top:8px}
+.note{color:var(--ink2);font-size:15px}
+.btn{display:inline-block;font:600 13.5px/1.25 var(--f-body);background:var(--steel-soft);color:var(--steel);border:1px solid var(--steel);border-radius:4px;padding:1px 6px;white-space:normal}
 code,.mono{font-family:var(--f-mono);font-size:.88em}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
-.pair>div{border-radius:6px;padding:8px 10px;font-size:14.5px;min-width:0;overflow-wrap:anywhere}
+.pair>div{border-radius:6px;padding:8px 10px;font-size:15px;min-width:0;overflow-wrap:anywhere}
 .yes{background:var(--ok-soft)} .no{background:var(--blok-soft)}
-.yes::before{content:"Benar";display:block;font:700 11px/1.4 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ok)}
-.no::before{content:"Salah";display:block;font:700 11px/1.4 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--blok)}
-/* label format baku yang dibedah */
+.yes::before{content:"Benar";display:block;font:700 11px/1.5 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ok)}
+.no::before{content:"Salah";display:block;font:700 11px/1.5 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--blok)}
+.tip{background:var(--cek-soft);border-radius:6px;padding:10px 12px;font-size:15px}
+.tip b:first-child{color:var(--cek)}
 .anatomy{overflow-x:auto}
 .label{display:inline-flex;flex-wrap:nowrap;font:600 15px/1 var(--f-mono);border:2px solid var(--ink);border-radius:6px;overflow:hidden;white-space:nowrap}
-.label span{padding:10px 10px;border-left:1px dashed var(--line)}
-.label span:first-child{border-left:0}
-.label .sep{color:var(--ink2);padding-inline:4px}
-.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:var(--ink2);margin-top:10px}
-.legend b{color:var(--ink);font-family:var(--f-mono);font-size:13px}
-.tbl{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:14.5px}
+.label span{padding:10px}
+.label .sep{color:var(--ink2);padding-inline:2px}
+.legend{display:grid;gap:3px;font-size:15px;color:var(--ink2);margin-top:8px}
+.legend b{color:var(--ink);font-family:var(--f-mono);font-size:13.5px}
+.tbl{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;width:100%;font-size:15px}
 th,td{text-align:left;padding:8px 10px;border-top:1px solid var(--line);vertical-align:top}
-th{font:700 12px/1.3 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);border-top:0}
-.pill{display:inline-block;font:700 11px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:999px;white-space:nowrap}
-.p-blok{background:var(--blok-soft);color:var(--blok)} .p-cek{background:var(--cek-soft);color:var(--cek)} .p-ok{background:var(--ok-soft);color:var(--ok)}
-.status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.status>div{border:1px solid var(--line);border-radius:6px;padding:12px;display:grid;gap:6px;align-content:start;font-size:14.5px}
+th{font:700 12px/1.3 var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);border-top:0}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;font:700 11px/1.25 var(--f-body);letter-spacing:.04em;text-transform:uppercase;padding:4px 7px;border-radius:999px}
+.p-blok{background:var(--blok-soft);color:var(--blok)} .p-cek{background:var(--cek-soft);color:var(--cek)} .p-ok{background:var(--ok-soft);color:var(--ok)} .p-steel{background:var(--steel-soft);color:var(--steel)}
 .deadline{display:flex;gap:16px;align-items:center;flex-wrap:wrap;border:2px solid var(--steel);border-radius:8px;padding:14px 16px}
 .deadline .big{font:800 30px/1 var(--f-display);color:var(--steel);font-variant-numeric:tabular-nums}
-footer{color:var(--ink2);font-size:14px;display:grid;gap:4px}
-@media (max-width:620px){.pair,.status{grid-template-columns:1fr}}
-@media print{body{background:#fff;padding:0}section{break-inside:avoid;border-color:#ccc}}
+.deadline p{flex:1 1 280px}
+.ticks{padding-left:1.15em;display:grid;gap:8px}
+.open{border:2px solid var(--cek);border-radius:8px;padding:18px clamp(12px,2.5vw,20px);display:grid;gap:14px;min-width:0;scroll-margin-top:12px}
+.open h3{border-top:0;padding-top:0}
+.toc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 24px;padding-left:1.2em}
+footer{color:var(--ink2);font-size:15px;display:grid;gap:4px}
+@media (max-width:620px){.pair,.toc{grid-template-columns:1fr}}
+@media print{html{scroll-behavior:auto}body{background:#fff;padding:0;font-size:12.5pt}section{border-color:#ccc;break-inside:auto}.steps>li,tr,.pair,.tip,h3,h4{break-inside:avoid}h3,h4{break-after:avoid}.btn{border-color:#777;background:#eee;color:#111}}
 </style>
 
 <div class="wrap">
 <header>
-  <span class="kicker">SalesConnect · berlaku mulai 4 November 2026</span>
-  <h1>Aturan Input SalesConnect</h1>
-  <p class="lead">Satu lembar untuk Sales, CorpSec, dan Operations. Ikuti aturan ini supaya angka Monthly Report tidak perlu ditarik ulang.</p>
+  <span class="kicker">SalesConnect · revisi 9 November 2026</span>
+  <h1>Panduan Input IQ Dash dan SalesPulse</h1>
+  <p class="lead">Ikuti sambil membuka aplikasinya. Di akhir setiap modul ada daftar hal yang masih membuat angkanya berbeda.</p>
 </header>
 
-<section aria-labelledby="umum">
-  <h2 id="umum">Untuk semua orang</h2>
-  <ol class="rules">
-    <li><b>Tekan F5 sebelum mulai input.</b><p class="why">Layar yang terbuka sejak kemarin berisi data lama. Simpan dari layar lama bisa menimpa input rekan.</p></li>
-    <li><b>Satu company dikerjakan satu orang dalam satu waktu.</b><p class="why">Kalau dua orang perlu mengubah company yang sama, bergantian.</p></li>
-    <li><b>Muncul "Data sudah diubah pengguna lain"? Tekan F5, lalu input ulang.</b><p class="why">Jangan tekan Simpan berulang. Pesan itu berarti sistem baru saja mencegah data rekan Anda tertimpa.</p></li>
-    <li><b>Pilih dari daftar, jangan mengetik ejaan baru.</b><p class="why">Nama produk, customer, dan company harus sama persis dengan yang sudah ada.</p>
-      <div class="pair"><div class="yes">GL ALLOY · SHEET PILE · Mlion International</div><div class="no">GL BORON · SHEETPILE · Mlion Intl</div></div></li>
-    <li><b>Baca notifikasi sesudah menyimpan.</b><p class="why">Notifikasi menyebut apakah input sudah masuk hitungan. Riwayat lengkap: tombol 🧾 Log Aktivitas (IQ Dash) dan 🕘 Riwayat Input (SalesPulse).</p></li>
+<section aria-labelledby="isi">
+  <h2 id="isi">Isi panduan</h2>
+  <ol class="toc">
+    <li><a href="#kamus">Istilah yang sering dipakai</a></li>
+    <li><a href="#dasar">Aturan dasar untuk semua orang</a></li>
+    <li><a href="#iq">IQ Dash: cara mulai</a></li>
+    <li><a href="#corp">IQ Dash: CorpSec</a></li>
+    <li><a href="#sales">IQ Dash: Sales</a></li>
+    <li><a href="#ops">IQ Dash: Operations</a></li>
+    <li><a href="#iqbeda">IQ Dash: kenapa angka masih beda</a></li>
+    <li><a href="#sp">SalesPulse: langkah input PS</a></li>
+    <li><a href="#spbeda">SalesPulse: kenapa angka masih beda</a></li>
+    <li><a href="#lap">Menarik Monthly Report</a></li>
   </ol>
 </section>
 
-<section aria-labelledby="sp">
-  <h2 id="sp">SalesPulse <span class="tag">Upload PS</span></h2>
+<section aria-labelledby="kamus">
+  <h2 id="kamus">Istilah yang sering dipakai</h2>
+  <div class="tbl"><table>
+    <tbody>
+      <tr><td><b>Submit</b></td><td>Kuota yang sudah diajukan ke kementerian.</td></tr>
+      <tr><td><b>PERTEK</b></td><td>Surat persetujuan teknis. Begitu terbit, kuotanya dihitung sebagai Obtained.</td></tr>
+      <tr><td><b>Obtained</b></td><td>Kuota yang sudah didapat.</td></tr>
+      <tr><td><b>SPI</b></td><td>Surat izin impor yang terbit sesudah PERTEK.</td></tr>
+      <tr><td><b>TBA</b></td><td>Masih diproses. Bukan data hilang.</td></tr>
+      <tr><td><b>Lot</b></td><td>Satu baris pemakaian kuota atau pengiriman.</td></tr>
+      <tr><td><b>Utilized</b></td><td>Kuota yang sudah dipakai. Dicatat Sales per lot.</td></tr>
+      <tr><td><b>ETA JKT</b></td><td>Perkiraan barang tiba di Jakarta. Hanya informasi, tidak menentukan bulan laporan.</td></tr>
+      <tr><td><b>PIB</b></td><td>Dokumen impor dari bea cukai.</td></tr>
+      <tr><td><b>Realized</b></td><td>Barang yang sudah masuk, dihitung dari data PIB.</td></tr>
+      <tr><td><b>Available</b></td><td>Sisa kuota: Obtained dikurangi Utilized.</td></tr>
+      <tr><td><b>PS</b></td><td>Project Sheet, file Excel satu transaksi penjualan.</td></tr>
+      <tr><td><b>Leg</b></td><td>Satu bagian transaksi antar-PT. Satu penjualan bisa punya beberapa leg dan beberapa PS.</td></tr>
+    </tbody>
+  </table></div>
+</section>
 
+<section aria-labelledby="dasar">
+  <h2 id="dasar">Aturan dasar untuk semua orang</h2>
   <div class="deadline">
     <span class="big">H+3</span>
-    <p><b>Batas input: hari kerja ke-3 bulan berikutnya.</b> PS bulan Oktober masuk paling lambat hari kerja ke-3 November. PS yang masuk sesudahnya mengubah angka yang sudah dilaporkan, jadi beri tahu penyusun laporan.</p>
+    <p><b>Semua input satu bulan masuk paling lambat hari kerja ke-3 bulan berikutnya.</b> Kalau terlambat, input tetap boleh, tetapi langsung beri tahu penyusun laporan karena angka yang sudah dilaporkan ikut berubah.</p>
   </div>
+  <ul class="ticks">
+    <li><b>Tekan F5 sebelum mulai.</b> Menyimpan dari layar yang sudah lama terbuka bisa menimpa input teman.</li>
+    <li><b>Satu company dikerjakan satu orang dalam satu waktu.</b></li>
+    <li><b>Muncul "Data sudah diubah pengguna lain"?</b> Input Anda ditolak supaya tidak menimpa data teman. Tekan F5, lalu isi lagi. Jangan menekan simpan berulang.</li>
+    <li><b>Pilih nama dari daftar.</b> Jangan mengetik ejaan baru untuk produk, customer, atau company.</li>
+    <li><b>Isi data asli pada hari kejadiannya.</b> Kalau belum pasti, biarkan TBA. Jangan isi perkiraan.</li>
+  </ul>
 
-  <div class="anatomy">
-    <h3 style="margin-bottom:10px">Format nama project</h3>
-    <div class="label" aria-label="Arsen 69A - Del. December 2026 - NIM">
-      <span>Arsen 69A</span><span class="sep">-</span><span>Del. December 2026</span><span class="sep">-</span><span>NIM</span>
-    </div>
-    <div class="legend"><span><b>Arsen 69A</b> kode supplier + nomor</span><span><b>Del.</b> pakai titik</span><span><b>December 2026</b> bulan Inggris lengkap + tahun kirim</span><span><b>NIM</b> customer akhir</span></div>
-  </div>
+  <h4>Cara menulis tanggal</h4>
+  <p>Tulis <b>tanggal/bulan/tahun lengkap</b>. Contoh: <span class="mono">24/09/2026</span>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Yang diketik</th><th>Hasilnya di sistem</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">24/09/2026</td><td><span class="pill p-ok">Terbaca</span> Paling disarankan.</td></tr>
+      <tr><td class="mono">24 Sep 2026 · 24 September 2026</td><td><span class="pill p-ok">Terbaca</span></td></tr>
+      <tr><td class="mono">24-09-2026</td><td><span class="pill p-blok">Tidak terbaca</span> Hilang dari laporan bulanan.</td></tr>
+      <tr><td class="mono">09/24/2026</td><td><span class="pill p-blok">Tidak terbaca</span> Bulan tidak boleh ditulis lebih dulu.</td></tr>
+      <tr><td class="mono">30 November · 03 No · 30 ocy</td><td><span class="pill p-blok">Tidak terbaca</span> Tidak lengkap atau salah ketik.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="tip"><b>Hati-hati:</b> <span class="mono">03/11/2026</span> selalu dibaca 3 November, bukan 11 Maret.</p>
 
-  <ol class="rules">
-    <li><b>Semua leg satu transaksi memakai nama project yang sama persis.</b><p class="why">Leg ATL, GP, dan leg ke customer digabung lewat nama ini. Beda satu spasi atau satu kata, leg-nya terhitung terpisah.</p>
-      <div class="pair"><div class="yes">Arsen 69A - Del. December 2026 - NIM (semua leg)</div><div class="no">Arsen 69A -NIM · Arsen 69A - NIM (Okaya)</div></div></li>
-    <li><b>Tabel barang wajib terisi, dengan Total Weight (kg) di setiap baris.</b><p class="why">Volume (MT) dan revenue dihitung dari tabel ini. Leg ke customer luar tanpa barang = revenue 0.</p></li>
-    <li><b>PO Date berformat tanggal <span class="mono">dd/mm/yyyy</span>.</b><p class="why">Bulan laporan diambil dari PO Date.</p></li>
-    <li><b>Tahun "Del." harus tahun kirim yang benar.</b>
-      <div class="pair"><div class="yes">PO Juli 2026 → Del. October 2026</div><div class="no">PO Juli 2026 → Del. October 2025</div></div></li>
-    <li><b>Nomor PS: <span class="mono">PSF26-XXX-000000</span>. Revisi: <span class="mono">.R1</span>, <span class="mono">.R2</span>, lalu hapus versi lama.</b><p class="why">Dua versi yang sama-sama tersimpan terhitung dua kali.</p></li>
-    <li><b>Mata uang selain IDR: isi kurs di file.</b><p class="why">Tanpa kurs, sistem memakai kurs default dan revenue meleset.</p></li>
-  </ol>
-
-  <div class="tbl">
-    <table>
-      <thead><tr><th>Saat upload</th><th>Artinya</th><th>Yang harus dilakukan</th></tr></thead>
-      <tbody>
-        <tr><td><span class="pill p-blok">Blok</span></td><td>Angka pasti salah kalau disimpan: nama kosong, PO Date tak terbaca, barang tanpa berat, leg customer tanpa barang.</td><td>Betulkan file Excel, upload lagi.</td></tr>
-        <tr><td><span class="pill p-cek">Cek</span></td><td>Mungkin salah: format nama, nama beda antar-leg, dugaan dobel, ejaan customer, lewat batas waktu, produk tak dikenali, kurs kosong.</td><td>Baca setiap baris. Pakai "Pakai saran" bila sarannya benar, atau betulkan file. Baru tekan "Sudah saya cek — Simpan".</td></tr>
-      </tbody>
-    </table>
-  </div>
+  <h4>Cara menulis angka MT di IQ Dash</h4>
+  <p>Ribuan pakai <b>koma</b> atau tanpa pemisah. Desimal pakai <b>titik</b>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Yang diketik</th><th>Dibaca sebagai</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">2,000 atau 2000</td><td>2.000 MT</td></tr>
+      <tr><td class="mono">123.50</td><td>123,5 MT</td></tr>
+      <tr><td class="mono">2.000</td><td><span class="pill p-blok">Ditolak</span> Muncul pesan "Format tidak jelas".</td></tr>
+      <tr><td class="mono">123,5 · 1.234,5</td><td><span class="pill p-blok">Ditolak</span> Desimal tidak boleh pakai koma. Kolom menjadi merah dan tidak bisa disimpan.</td></tr>
+    </tbody>
+  </table></div>
 </section>
 
 <section aria-labelledby="iq">
-  <h2 id="iq">IQ Dash <span class="tag">Kuota impor</span></h2>
-  <ol class="rules">
-    <li><b>Cek Quota Year di pojok atas sebelum membuka form.</b><p class="why">Pengajuan 2027 diisi di tampilan 2027; data kuota 2026 di tampilan 2026. Ganti tahun dulu, baru buka form.</p></li>
-    <li><b>Utilisasi lot: isi MT, tanggal utilisasi, dan ETA sekaligus.</b><p class="why">Lot tanpa tanggal tidak dihitung. Pakai pemilih tanggal, jangan ketik bebas.</p>
-      <div class="pair"><div class="yes">100 MT · 30 October 2026 · ETA 31 December 2026</div><div class="no">100 MT · "30 ocy" · ETA "NIM 69 (GL)"</div></div></li>
-    <li><b>Rincian produk harus sama dengan total siklus.</b><p class="why">Submit 3.000 MT = GL ALLOY 2.000 + SHEET PILE 1.000. Kalau produknya belum pasti, kosongkan dan beri tahu CorpSec. Jangan ditebak.</p></li>
-    <li><b>Re-Apply lewat tombol Re-Apply, bukan Revision Request.</b><p class="why">Re-Apply menambah kuota (siklus Submit baru). Revision mengganti produk/HS dan baru berlaku setelah PERTEK Perubahan terbit.</p></li>
-    <li><b>Produk atau HS berubah karena revisi? Kabari CorpSec di hari yang sama.</b><p class="why">Angka per produk perlu diperbarui terpisah; totalnya tidak berubah sehingga selisih ini tidak tertangkap otomatis.</p></li>
-    <li><b>TBA artinya masih proses, bukan data kosong.</b><p class="why">Obtained dihitung sejak PERTEK terbit walaupun SPI masih TBA. Jangan isi tanggal perkiraan.</p></li>
-    <li><b>Realisasi salah? Pakai tombol Edit per baris. Jangan upload ulang Excel.</b><p class="why">Upload ulang menambah baris baru; baris lama yang tetap terbaca.</p></li>
-  </ol>
+  <h2 id="iq">IQ Dash</h2>
+  <p>Modul kuota impor. Alurnya: CorpSec mencatat pengajuan dan izin, Sales mencatat pemakaian kuota, Operations mengupload data PIB.</p>
 
-  <div class="status" role="list">
-    <div role="listitem"><span class="pill p-ok">ok</span><p>Tersimpan dan sudah terhitung di dashboard.</p></div>
-    <div role="listitem"><span class="pill p-cek">warning</span><p>Tersimpan tapi belum terhitung. Sebabnya tertulis di notifikasi: biasanya tanggal kosong atau melebihi obtained.</p></div>
-    <div role="listitem"><span class="pill" style="background:var(--steel-soft);color:var(--steel)">nochange</span><p>Disimpan tanpa perubahan data.</p></div>
+  <div class="part">
+    <h3>Cara mulai, untuk semua peran</h3>
+    <ol class="steps">
+      <li><b>Buka IQ Dash, lalu tekan F5.</b></li>
+      <li><b>Pilih <span class="btn">Quota Year</span> di bagian atas.</b><p class="note">Data 2026 diisi saat memilih 2026. Pengajuan 2027 diisi saat memilih 2027. Keduanya dihitung terpisah.</p></li>
+      <li><b>Klik <span class="btn">📝 Input Data</span>.</b></li>
+      <li><b>Step 1: pilih peran.</b><p class="note"><span class="btn">CorpSec</span>, <span class="btn">Sales</span>, atau <span class="btn">Operations</span>. Layar hanya menampilkan bagian milik peran itu.</p></li>
+      <li><b>Step 2: pilih company di "Select Company".</b><p class="note">Pastikan kotak ringkasan di atas form menunjukkan company yang benar.</p></li>
+      <li><b>Isi bagian sesuai peran.</b> Lihat bagian CorpSec, Sales, atau Operations di bawah.</li>
+      <li><b>Klik <span class="btn">💾 Save &amp; Refresh All</span>.</b></li>
+      <li><b>Baca notifikasi yang muncul.</b>
+        <div class="tbl"><table>
+          <tbody>
+            <tr><td><span class="pill p-ok">✓ Tersimpan &amp; terhitung</span></td><td>Selesai.</td></tr>
+            <tr><td><span class="pill p-cek">⚠ Tersimpan, perlu dicek</span></td><td>Data masuk, tetapi angkanya belum ikut. Baca alasannya dan betulkan, atau hubungi CorpSec.</td></tr>
+            <tr><td><span class="pill p-steel">ℹ Tidak ada perubahan</span></td><td>Tidak ada data baru yang tersimpan. Cek lagi isian Anda.</td></tr>
+          </tbody>
+        </table></div>
+        <p class="note">Semua riwayat simpan bisa dilihat di <span class="btn">🧾 Log Aktivitas</span>.</p></li>
+    </ol>
+  </div>
+
+  <div class="part" id="corp">
+    <h3>CorpSec</h3>
+
+    <h4>A. Saat mengajukan kuota</h4>
+    <ol class="steps">
+      <li><b>Buka bagian <span class="btn">📋 Submission</span>.</b></li>
+      <li><b>Isi Submit Date</b> dengan tanggal asli pengajuan. <p class="note">Jangan menyalin dari pengajuan sebelumnya dan jangan dikosongkan. Tanggal ini menentukan bulan di laporan.</p></li>
+      <li><b>Isi Status Update</b> untuk catatan progres.</li>
+      <li><b>Isi Submit MT per produk.</b><p class="note">Jumlah semua produk harus sama dengan total pengajuan.</p>
+        <div class="pair"><div class="yes">Total 3.000 MT = GL ALLOY 2.000 + SHEET PILE 1.000</div><div class="no">Total 3.000 MT, tetapi rincian produknya 6.000 MT</div></div></li>
+      <li><b>Klik <span class="btn">💾 Save &amp; Refresh All</span>.</b></li>
+    </ol>
+
+    <h4>B. Saat PERTEK terbit</h4>
+    <ol class="steps">
+      <li><b>Buka bagian <span class="btn">📄 PERTEK</span>.</b></li>
+      <li><b>Isi PERTEK No. dan PERTEK Terbit Date.</b></li>
+      <li><b>Isi Obtained MT per produk</b> sesuai angka di surat, bukan angka yang diminta.<p class="note">Kuota langsung dihitung Obtained walaupun SPI masih TBA.</p></li>
+      <li><b>Klik <span class="btn">💾 Save &amp; Refresh All</span>.</b></li>
+    </ol>
+
+    <h4>C. Saat SPI terbit</h4>
+    <ol class="steps">
+      <li><b>Buka bagian <span class="btn">✅ SPI</span>.</b></li>
+      <li><b>Isi SPI No. dan SPI Terbit Date.</b> Status / SPI Reference boleh diisi sebagai catatan.</li>
+      <li><b>Klik <span class="btn">💾 Save &amp; Refresh All</span>.</b></li>
+    </ol>
+
+    <h4>D. Saat ada permintaan dari Sales</h4>
+    <ol class="steps">
+      <li><b>Klik <span class="btn">🔔 Request</span> untuk melihat permintaan yang menunggu.</b></li>
+      <li><b>Buka company itu, lalu bagian <span class="btn">🔄 Revision &amp; Re-Apply</span>.</b></li>
+      <li><b>Periksa produk dan jumlahnya.</b> Ubah Qty kalau jumlah yang disetujui berbeda.
+        <p class="note">Untuk Re-Apply, isi juga Tanggal Submit MOI Perubahan. Kolom ini wajib.</p></li>
+      <li><b>Klik <span class="btn">Konfirmasi</span> atau <span class="btn">Batal</span> per produk.</b><p class="note">Untuk pengajuan tahun depan, tombolnya <span class="btn">✅ Konfirmasi → Submit 2027</span> di panel Pengajuan Kuota 2027.</p></li>
+      <li><b>Klik <span class="btn">💾 Save &amp; Refresh All</span>,</b> lalu baca notifikasinya.</li>
+    </ol>
+
+    <h4>E. Saat revisi sedang berjalan</h4>
+    <p class="note">Selama revisi aktif, bagian Submission, PERTEK, dan SPI terkunci. Semua update dilakukan di bagian <span class="btn">🔄 Revision &amp; Re-Apply</span>.</p>
+    <ol class="steps">
+      <li><b>Setiap ada progres:</b> perbarui Approval Stage dan REMARKS, lalu klik <span class="btn">💾 Save Status Update</span>.</li>
+      <li><b>PERTEK Perubahan terbit:</b> isi tanggalnya, lalu klik <span class="btn">💾 Simpan Tanggal Terbit PERTEK Perubahan</span>.<p class="note">Sebelum tanggal ini diisi, Obtained baru belum boleh diisi.</p></li>
+      <li><b>Isi PERTEK No. (Revision) dan PERTEK Terbit Date.</b></li>
+      <li><b>Isi Obtained MT per produk dengan tambahan saja, bukan totalnya.</b>
+        <div class="pair"><div class="yes">Punya 1.400 MT, naik menjadi 1.700 MT: isi 300</div><div class="no">Punya 1.400 MT, naik menjadi 1.700 MT: isi 1.700</div></div></li>
+      <li><b>Pilih tombol yang tepat.</b>
+        <div class="tbl"><table>
+          <tbody>
+            <tr><td><span class="btn">✓ Terapkan</span></td><td>Mencatat angka ke riwayat. <b>Tidak</b> menambah kuota.</td></tr>
+            <tr><td><span class="btn">📌 Catat Terbit</span></td><td>Mencatat kuota baru. <b>Menambah</b> Total Obtained dan Available.</td></tr>
+          </tbody>
+        </table></div>
+        <p class="tip"><b>Hati-hati:</b> kalau revisi hanya mengganti produk atau HS, total kuota tidak bertambah. Jangan langsung memakai Catat Terbit. Kabari admin supaya angka per produk ikut diganti. Pernah terjadi, kuota IKM tampil 16.000 MT karena hal ini.</p></li>
+      <li><b>SPI Perubahan terbit:</b> isi SPI No. (Revision) dan SPI Terbit Date.</li>
+      <li><b>Semua selesai:</b> klik <span class="btn">✓ Mark Approved (Complete)</span>.</li>
+    </ol>
+  </div>
+
+  <div class="part" id="sales">
+    <h3>Sales</h3>
+
+    <h4>A. Mencatat pemakaian kuota</h4>
+    <ol class="steps">
+      <li><b>Buka bagian <span class="btn">💼 Sales</span>, lalu cari kartu produknya.</b><p class="note">Kartu menunjukkan kuota terpakai dan sisanya, misalnya "250 / 350 MT used".</p></li>
+      <li><b>Pakai baris kosong, atau klik <span class="btn">+ Add Shipment Lot</span>.</b><p class="note">Jangan menimpa lot lama untuk pemakaian baru.</p></li>
+      <li><b>Isi semua kolom sekaligus:</b>
+        <div class="tbl"><table>
+          <tbody>
+            <tr><td><b>Utilization</b></td><td>Jumlah kuota yang dipakai, dalam MT.</td></tr>
+            <tr><td><b>Tgl Utilisasi</b></td><td>Tanggal kuota dipakai. <b>Kolom ini yang menentukan bulan laporan.</b></td></tr>
+            <tr><td><b>ETA JKT</b></td><td>Perkiraan barang tiba.</td></tr>
+            <tr><td><b>Note / Vessel</b></td><td>Nama kapal atau catatan.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="pair"><div class="yes">100 MT · util 30/10/2026 · ETA 31/12/2026</div><div class="no">100 MT · util kosong · ETA 31/12/2026</div></div>
+        <p class="tip"><b>Hati-hati:</b> kolom tanggal lot tersimpan otomatis saat diketik, dan belum dicek kelengkapannya. Pastikan tanggal sudah lengkap sebelum pindah kolom.</p></li>
+      <li><b>Klik <span class="btn">Simpan</span> pada baris lot itu.</b></li>
+      <li><b>Klik <span class="btn">💾 Save &amp; Refresh All</span>.</b></li>
+    </ol>
+    <h4>Kalau muncul pesan</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Pesan</th><th>Artinya</th><th>Yang dilakukan</th></tr></thead>
+      <tbody>
+        <tr><td>Melebihi kuota … MT</td><td>Jumlah lot lebih besar dari sisa kuota produk.</td><td>Cek MT. Kalau memang kurang, ajukan Revision atau Re-Apply.</td></tr>
+        <tr><td>… sudah tercatat dari master, jangan diinput ulang</td><td>Sebagian pemakaian sudah ada di data awal.</td><td>Isi tambahan barunya saja.</td></tr>
+        <tr><td>Tgl Utilisasi wajib diisi</td><td>Tanggal pemakaian masih kosong.</td><td>Isi tanggalnya.</td></tr>
+        <tr><td>Format tidak jelas</td><td>Ribuan ditulis pakai titik, atau desimal ditulis pakai koma.</td><td>Tulis 2,000 atau 2000. Desimal tulis 123.50.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>B. Minta perubahan atau kuota tambahan</h4>
+    <ol class="steps">
+      <li><b>Di <span class="btn">📋 Revision Request ke CorpSec</span>, pilih Type.</b>
+        <div class="tbl"><table>
+          <tbody>
+            <tr><td><b>✏️ Revision</b></td><td>Mengubah produk atau jumlah dari kuota yang sudah ada. Total kuota tidak bertambah.</td></tr>
+            <tr><td><b>📨 Re-Apply</b></td><td>Meminta kuota tambahan baru.</td></tr>
+          </tbody>
+        </table></div></li>
+      <li><b>Kalau memilih Revision:</b> centang produk asal, isi MT dan produk tujuan, lalu tulis alasannya.<p class="note">Satu produk bisa dipecah. Klik <span class="btn">+ Tambah Produk Tujuan</span>.</p></li>
+      <li><b>Kalau memilih Re-Apply:</b> pilih produk dan isi Qty (MT). Tambah baris lewat <span class="btn">+ Add Product</span>.<p class="note">Produk lama tidak ikut otomatis, jadi pilih satu per satu.</p></li>
+      <li><b>Klik <span class="btn">💾 Save &amp; Refresh All</span>.</b><p class="note">Angka dashboard belum berubah sampai CorpSec mengonfirmasi. Revision baru berlaku setelah PERTEK Perubahan terbit.</p></li>
+    </ol>
+
+    <h4>C. Company belum punya kuota</h4>
+    <ol class="steps">
+      <li><b>Di panel <span class="btn">🆕 New Submission ke CorpSec</span>, pilih produk dan isi Qty (MT).</b></li>
+      <li><b>Isi catatan bila perlu, lalu klik <span class="btn">💾 Save &amp; Refresh All</span>.</b></li>
+      <li><b>Tunggu konfirmasi CorpSec.</b></li>
+    </ol>
+
+    <h4>D. Mengajukan kuota tahun depan</h4>
+    <ol class="steps">
+      <li><b>Ganti <span class="btn">Quota Year</span> ke 2027 terlebih dulu.</b></li>
+      <li><b>Buka company, lalu cari panel <span class="btn">🆕 Pengajuan Kuota 2027</span>.</b></li>
+      <li><b>Pilih produk, isi Qty (MT), lalu klik <span class="btn">💾 Simpan Pengajuan 2027</span>.</b><p class="note">Kalau produknya belum pasti, jangan menebak. Beri tahu CorpSec lebih dulu.</p></li>
+      <li><b>Tunggu konfirmasi CorpSec.</b></li>
+    </ol>
+  </div>
+
+  <div class="part" id="ops">
+    <h3>Operations</h3>
+    <p class="tip"><b>Penting:</b> kartu Total Realized membaca data PIB yang diupload di sini, bukan kolom Real MT di tabel lot. Jadi PIB wajib diupload.</p>
+
+    <h4>A. Upload file PIB</h4>
+    <ol class="steps">
+      <li><b>Siapkan file Excel PIB dari bea cukai.</b>
+        <ul class="ticks">
+          <li>Data ada di sheet pertama, dan judul kolom ada di baris pertama.</li>
+          <li>Tanggal PIB ditulis <span class="mono">dd/mm/yyyy</span>, misalnya <span class="mono">24/09/2026</span>. Periksa baris paling bawah juga.</li>
+          <li>No. PIB, HS, dan Volume terisi di setiap baris.</li>
+        </ul></li>
+      <li><b>Di bagian <span class="btn">🚢 Operations</span>, klik <span class="btn">📥 Upload Excel / Manual Entry</span>.</b></li>
+      <li><b>Pastikan company di kotak "Company" sudah benar.</b></li>
+      <li><b>Buka tab <span class="btn">📊 Upload Excel</span>, lalu pilih file.</b></li>
+      <li><b>Periksa pratinjau.</b><p class="note">Cocokkan jumlah PIB dan total volume dengan file. Pastikan kolom PIB Date terisi benar. Baris TOTAL memang dilewati otomatis.</p></li>
+      <li><b>Klik <span class="btn">💾 Save to Database</span>.</b></li>
+      <li><b>Pastikan masuk.</b><p class="note">Datanya tampil di tab <span class="btn">📋 Existing Records</span>. Lalu pilih bulan PIB itu di filter Periode dan pastikan volumenya ikut.</p></li>
+    </ol>
+
+    <h4>B. Input PIB satu per satu</h4>
+    <ol class="steps">
+      <li><b>Buka tab <span class="btn">✍️ Manual Entry</span>.</b></li>
+      <li><b>Isi minimal PIB No, PIB Date, HS Code, dan Volume.</b></li>
+      <li><b>Klik <span class="btn">💾 Save Entry</span>.</b></li>
+    </ol>
+
+    <h4>C. Membetulkan PIB yang salah</h4>
+    <ol class="steps">
+      <li><b>Buka tab <span class="btn">📋 Existing Records</span>.</b></li>
+      <li><b>Klik <span class="btn">Edit</span> pada baris yang salah, betulkan, lalu klik <span class="btn">💾 Save</span>.</b></li>
+    </ol>
+    <p class="tip"><b>Jangan upload ulang Excel untuk membetulkan data.</b> Baris lama yang tetap dipakai, jadi kesalahannya tidak hilang.</p>
+
+    <h4>D. Tabel lot di layar Operations</h4>
+    <p>Boleh diisi Shipment Name, Real MT, dan PIB Date per lot. Tabel ini hanya pelengkap, dan tidak menggantikan upload PIB.</p>
+  </div>
+
+  <div class="open" id="iqbeda">
+    <h3>Kenapa angka IQ Dash masih bisa beda</h3>
+    <p>Panduan di atas mengurangi salah input, tetapi belum bisa menghilangkan semua selisih. Penyebab yang masih ada:</p>
+
+    <h4>Karena sistem dan cara kerjanya</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Masalah</th><th>Akibatnya</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><b>Belum ada tutup buku.</b> Data bulan lalu masih bisa diubah kapan saja.</td><td>Laporan yang ditarik beda hari, angkanya beda. Utilized Oktober 1.770 MT pada 20 Oktober, kini 3.225 MT.</td><td><span class="pill p-blok">Keputusan Pak Jeri</span></td></tr>
+        <tr><td><b>Available adalah sisa kuota hari ini,</b> bukan sisa pada akhir bulan yang dipilih.</td><td>Filter sama, angka berubah. Per 31 Oktober tertulis 3.793 MT, kini 3.687 MT.</td><td><span class="pill p-steel">Memang begitu rumusnya</span></td></tr>
+        <tr><td><b>Sistem belum membaca tanggal PIB <span class="mono">24-09-2026</span>.</b></td><td>384 MT milik JKT dan SGD tidak masuk bulan mana pun.</td><td><span class="pill p-blok">Keputusan Pak Jeri</span></td></tr>
+        <tr><td><b>Tanggal lot boleh diketik bebas.</b> Tulisan belum lengkap ikut tersimpan.</td><td>Lot bisa tidak terhitung atau masuk bulan yang salah sampai dibetulkan.</td><td><span class="pill p-cek">Belum diperbaiki</span></td></tr>
+        <tr><td><b>Bulan Utilized bisa pindah.</b> Sistem memakai tanggal master sampai semua lot produk itu lengkap, baru memakai tanggal lot.</td><td>Saat lot terakhir diisi, MT bisa bergeser ke bulan lain walau totalnya tetap.</td><td><span class="pill p-steel">Memang begitu rumusnya</span></td></tr>
+        <tr><td><b>Kerusakan lama sudah diperbaiki,</b> jadi angka lama ikut terkoreksi.</td><td>Obtained Agustus dari 27.040 menjadi 21.540 MT. Submitted Januari–Agustus naik 9.000 MT. Sebanyak 500 MT Obtained belum ketemu sebabnya.</td><td><span class="pill p-cek">500 MT belum terlacak</span></td></tr>
+        <tr><td><b>75 isian lama yang tertimpa belum dipulihkan.</b></td><td>Hanya status dan nomor dokumen, jadi angka MT tidak berubah.</td><td><span class="pill p-cek">Ditunda</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>Karena data yang masih perlu dibetulkan</h4>
+    <div class="tbl"><table>
+      <thead><tr><th>Data</th><th>Akibatnya</th><th>Yang membetulkan</th></tr></thead>
+      <tbody>
+        <tr><td>Tanggal Submit MSN #4 dan SPA #3 baru dicatat 4 November, bertanggal 6 Oktober.</td><td>Submitted Oktober berubah dari 0 menjadi 6.000 MT.</td><td><span class="pill p-cek">CorpSec</span></td></tr>
+        <tr><td>Tanggal GNG #4 sama dengan GNG #3.</td><td>3.000 MT masuk Juni. Perlu dipastikan.</td><td><span class="pill p-cek">CorpSec</span></td></tr>
+        <tr><td>SJH #2 tanpa tanggal Submit.</td><td>2.700 MT tidak masuk laporan bulanan.</td><td><span class="pill p-cek">CorpSec</span></td></tr>
+        <tr><td>6 lot tanpa tanggal utilisasi: BDG, BHG, HKG, JKT, MIN, SMS.</td><td>1.247 MT tidak bisa dibulankan dari lot.</td><td><span class="pill p-cek">Sales</span></td></tr>
+        <tr><td>Rincian produk 2027 tidak sama dengan total: ADP dan SGD.</td><td>ADP 3.000 vs 6.000 MT. SGD 6.000 vs 2.000 MT. Rincian per produk meleset.</td><td><span class="pill p-cek">CorpSec</span></td></tr>
+      </tbody>
+    </table></div>
   </div>
 </section>
 
+<section aria-labelledby="sp">
+  <h2 id="sp">SalesPulse</h2>
+  <p>Modul penjualan. Datanya masuk dari file Project Sheet (PS).</p>
+
+  <div class="part">
+    <h3>Langkah 1: siapkan file PS</h3>
+    <ol class="steps">
+      <li><b>Pakai template Project Sheet yang biasa.</b> Sistem membaca sheet pertama.</li>
+      <li><b>Tulis Project Name sesuai format ini.</b>
+        <div class="anatomy" style="margin-top:8px">
+          <div class="label" aria-label="Arsen 69A - Del. December 2026 - NIM"><span>Arsen 69A</span><span class="sep">-</span><span>Del. December 2026</span><span class="sep">-</span><span>NIM</span></div>
+        </div>
+        <div class="legend">
+          <span><b>Arsen 69A</b> kode supplier dan nomornya</span>
+          <span><b>Del.</b> pakai titik</span>
+          <span><b>December 2026</b> bulan kirim dalam bahasa Inggris lengkap, dengan tahun</span>
+          <span><b>NIM</b> customer akhir</span>
+        </div></li>
+      <li><b>Samakan Project Name di semua leg.</b><p class="note">SalesPulse menggabungkan leg lewat nama ini. Beda satu spasi saja, leg-nya terpisah.</p>
+        <div class="pair"><div class="yes">Semua leg: Arsen 69A - Del. December 2026 - NIM</div><div class="no">Leg 1: Arsen 69A -NIM<br>Leg 2: Arsen 69A - NIM (Okaya)</div></div></li>
+      <li><b>Periksa kolom-kolom penting.</b>
+        <div class="tbl"><table>
+          <thead><tr><th>Kolom</th><th>Cara mengisi</th></tr></thead>
+          <tbody>
+            <tr><td><b>PS #</b></td><td>Format <span class="mono">PSF26-XXX-000000</span>. Revisi ditambah <span class="mono">.R1</span>, <span class="mono">.R2</span>.</td></tr>
+            <tr><td><b>PO Date</b></td><td><span class="mono">dd/mm/yyyy</span>. <b>Tanggal ini menentukan bulan laporan.</b></td></tr>
+            <tr><td><b>Customer Name</b></td><td>Ejaan sama dengan data sebelumnya.</td></tr>
+            <tr><td><b>Currency dan kurs</b></td><td>Selain IDR, kurs wajib diisi. Kalau masih 1, sistem memakai kurs default.</td></tr>
+            <tr><td><b>Tabel barang</b></td><td>Setiap baris punya Total Weight (kg). Tanpa barang, revenue dan volume menjadi 0.</td></tr>
+            <tr><td><b>Sales, Margin, Net Margin</b></td><td>Pastikan terisi di bagian bawah file.</td></tr>
+          </tbody>
+        </table></div></li>
+    </ol>
+  </div>
+
+  <div class="part">
+    <h3>Langkah 2: cek apakah PS sudah pernah masuk</h3>
+    <ol class="steps">
+      <li><b>Klik <span class="btn">🕘 Riwayat Input</span>.</b></li>
+      <li><b>Ketik nama project atau nomor PS,</b> misalnya <span class="mono">arsen 66</span>.</li>
+      <li><b>Baca hasilnya.</b>
+        <p class="note">✅ Ditemukan: lihat dulu nama, bulan kirim, dan customer. "Arsen 66A" bukan "Arsen 66". Kalau sama persis, jangan upload lagi dengan nomor lain.</p>
+        <p class="note">❌ Belum ada: lanjut upload.</p></li>
+    </ol>
+  </div>
+
+  <div class="part">
+    <h3>Langkah 3: upload</h3>
+    <ol class="steps">
+      <li><b>Buka menu Data, lalu klik <span class="btn">Import Project Sheet</span>.</b></li>
+      <li><b>Pilih file, atau seret ke kotak yang tersedia.</b><p class="note">Upload semua leg satu transaksi sekaligus. Boleh <span class="mono">.xls</span>, <span class="mono">.xlsx</span>, atau <span class="mono">.csv</span>.</p></li>
+      <li><b>Periksa pratinjau.</b>
+        <ul class="ticks">
+          <li>PO Date dan bulan laporannya sudah benar.</li>
+          <li>Total MT dan margin masuk akal.</li>
+          <li>Leg satu transaksi tampil satu kelompok dengan tanda 🔗 INTERCOMPANY. Kalau terpisah, Project Name-nya belum sama.</li>
+        </ul>
+        <p class="note">Salah file? Klik <span class="btn">Ganti File</span>.</p></li>
+      <li><b>Klik <span class="btn">Simpan ke Database</span>.</b><p class="note">Klik pertama hanya memeriksa file. Tunggu sampai selesai, lalu baca hasilnya.</p></li>
+    </ol>
+  </div>
+
+  <div class="part">
+    <h3>Langkah 4: baca hasil pemeriksaan</h3>
+    <h4>⛔ Harus dibetulkan</h4>
+    <p>PS tidak bisa disimpan, dan tombol berubah menjadi "Betulkan file dulu". Betulkan Excel, lalu klik <span class="btn">Ganti File</span>.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Pesan</th><th>Yang dilakukan</th></tr></thead>
+      <tbody>
+        <tr><td>Nama project kosong</td><td>Isi Project Name.</td></tr>
+        <tr><td>PO Date tidak terbaca</td><td>Tulis dengan format <span class="mono">dd/mm/yyyy</span>.</td></tr>
+        <tr><td>Barang tanpa berat</td><td>Isi Total Weight pada baris yang disebut.</td></tr>
+        <tr><td>Tabel barang kosong</td><td>Isi tabel barang pada leg ke customer luar.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4>⚠️ Perlu dicek</h4>
+    <p>PS masih bisa disimpan, tetapi baca dulu semua pesannya. Kalau sudah benar, klik <span class="btn">✓ Sudah saya cek — Simpan</span>.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Pesan</th><th>Artinya dan yang dilakukan</th></tr></thead>
+      <tbody>
+        <tr><td>Format nama project</td><td>Nama belum baku. Pakai saran sistem kalau benar.</td></tr>
+        <tr><td>Nama beda dengan leg lain</td><td>Samakan nama semua leg. Kalau tidak, revenue dan margin bisa terpisah.</td></tr>
+        <tr><td>Bulan kirim sebelum PO</td><td>Tahun di "Del." kemungkinan salah. Betulkan file.</td></tr>
+        <tr><td>Versi lain masih ada</td><td>Ada versi PS lain. Sesudah simpan, hapus versi lama pada hari yang sama.</td></tr>
+        <tr><td>Dugaan PS dobel</td><td>Ada PS lain dengan nama, customer, dan berat yang sama. Hapus salah satu kalau memang pengganti.</td></tr>
+        <tr><td>Ejaan customer</td><td>Berbeda dengan data lama. Pakai saran sistem kalau benar.</td></tr>
+        <tr><td>Lewat batas input</td><td>Bulan itu sudah lewat H+3. Boleh disimpan, lalu beri tahu penyusun laporan.</td></tr>
+        <tr><td>Format nomor PS</td><td>Betulkan nomor PS di file.</td></tr>
+        <tr><td>Produk tidak dikenali</td><td>Nilainya masuk "(Produk Belum Diisi)". Betulkan kode material atau nama project.</td></tr>
+        <tr><td>Kurs belum diisi</td><td>Isi kurs di file supaya nilainya tepat.</td></tr>
+        <tr><td>Tabel barang kosong</td><td>Pastikan leg ke customer sudah membawa barang.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Ada centang "Betulkan otomatis nama project / ejaan customer". Biarkan tercentang hanya kalau sarannya benar.</p>
+  </div>
+
+  <div class="part">
+    <h3>Langkah 5: pastikan PS sudah masuk</h3>
+    <ol class="steps">
+      <li><b>Klik <span class="btn">🕘 Riwayat Input</span> dan cari nomor PS-nya.</b></li>
+      <li><b>Klik baris bulannya di dashboard.</b> Pastikan PS ada di bulan yang benar.</li>
+    </ol>
+  </div>
+
+  <div class="part">
+    <h3>Kalau PS direvisi</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Keadaan</th><th>Yang dilakukan</th></tr></thead>
+      <tbody>
+        <tr><td><b>Nomor PS sama</b></td><td>Upload file yang sudah dibetulkan. Data lama otomatis tergantikan.</td></tr>
+        <tr><td><b>Nomor PS baru</b> (<span class="mono">.R1</span>, <span class="mono">.R2</span>, atau rute berubah)</td><td>Upload versi baru, lalu <b>hapus versi lama pada hari yang sama</b>. Kalau keduanya tersimpan, nilainya bisa terhitung dua kali.</td></tr>
+      </tbody>
+    </table></div>
+    <h4>Cara menghapus PS lama</h4>
+    <ol class="steps">
+      <li><b>Klik baris bulan PS di dashboard.</b></li>
+      <li><b>Klik ikon tempat sampah pada PS lama.</b> Periksa nomornya sekali lagi.</li>
+      <li><b>Klik <span class="btn">Ya, Hapus</span>.</b><p class="note">Penghapusan tidak bisa dibatalkan.</p></li>
+    </ol>
+  </div>
+
+  <div class="open" id="spbeda">
+    <h3>Kenapa angka SalesPulse masih bisa beda</h3>
+    <p>Bulan yang sudah benar-benar lengkap terbukti stabil: Maret, Mei, dan Agustus cocok saat dicek ulang. Selisih muncul dari hal-hal ini:</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Masalah</th><th>Akibatnya</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><b>Belum ada tutup buku.</b> PS bisa masuk kapan saja dan mengubah bulan lama.</td><td>Revenue Oktober Rp 32,10 B menjadi Rp 64,02 B pada hari yang sama, karena 11 PS masuk sesudah laporan pertama ditarik.</td><td><span class="pill p-blok">Keputusan Pak Jeri</span></td></tr>
+        <tr><td><b>Hanwa 02 Phase 1 punya dua PS:</b> SPA-000004 dan SPA-000005.</td><td>Dugaan dobel Rp 5,95 B dan 475 MT di April.</td><td><span class="pill p-cek">Menunggu Sales</span></td></tr>
+        <tr><td><b>Nama project beda antar-leg:</b> Arsen SSP#48B dan Youfa 10.</td><td>Total bulan tetap, tetapi margin Rp 354 juta tampil tanpa revenue. Ranking customer ikut meleset.</td><td><span class="pill p-cek">Menunggu Sales</span></td></tr>
+        <tr><td><b>Data lama belum rapi:</b> 39 nama tidak baku, 17 PS tanpa tabel barang, 4 PS Kewei 68 tertulis Del. 2025.</td><td>Total bulan tetap, tetapi rincian per PS sulit dicocokkan.</td><td><span class="pill p-cek">Menunggu Sales</span></td></tr>
+        <tr><td><b>Pemeriksa upload masih baru.</b> Aktif sejak 4 November dan belum ada upload sesudahnya.</td><td>Belum terbukti di pekerjaan nyata. Peringatan ⚠️ juga masih bisa dilewati.</td><td><span class="pill p-steel">Dipantau November</span></td></tr>
+        <tr><td><b>SalesPulse dan IQ Dash tidak terhubung.</b> Tidak ada yang otomatis mencocokkan keduanya.</td><td>Dari 46 pasangan company dan produk: 33 cocok, 5 hanya beda bulan, 8 benar-benar beda. Contoh BTS Sheet Pile 2.514 vs 1.939 MT. Sebanyak 2.116 MT belum tersambung ke kuota.</td><td><span class="pill p-cek">Menunggu David</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<section aria-labelledby="lap">
+  <h2 id="lap">Menarik Monthly Report</h2>
+  <ol class="steps">
+    <li><b>Tarik sesudah H+3 lewat.</b><p class="note">Sebelum itu, data bulan tersebut belum lengkap.</p></li>
+    <li><b>Di IQ Dash, pilih <span class="btn">Quota Year</span> 2026.</b></li>
+    <li><b>Klik Periode, lalu pilih <span class="btn">📅 Submit + Release</span>.</b></li>
+    <li><b>Isi Dari 1 Januari dan Sampai akhir bulan laporan, lalu klik <span class="btn">✓ Terapkan</span>.</b><p class="note">Jangan memakai All Time. Di laporan yang sama, kuota bisa tampil 298.695 MT dengan All Time dan 106.995 MT dengan periode.</p></li>
+    <li><b>Salin angka dari kartu dashboard. Jangan menghitung ulang.</b><p class="note">Utilized dan Realized berbeda. Pernah Utilized dihitung sendiri menjadi 20.829 MT, padahal kartu menunjukkan 25.063 MT.</p></li>
+    <li><b>Di SalesPulse, pilih tahun dan rentang bulan yang sama.</b></li>
+    <li><b>Tulis tanggal tarik di samping Available, dan simpan salinan datanya.</b></li>
+    <li><b>Jangan menyamakan tonase per bulan antar modul.</b> Ketiganya mencatat kejadian yang berbeda.
+      <div class="tbl"><table>
+        <thead><tr><th>Angka</th><th>Masuk bulan menurut</th><th>Oktober 2026</th></tr></thead>
+        <tbody>
+          <tr><td>Volume SalesPulse</td><td>PO Date</td><td class="num">3.830 MT</td></tr>
+          <tr><td>Utilized IQ Dash</td><td>Tanggal kuota dipakai</td><td class="num">3.225 MT</td></tr>
+          <tr><td>Realized IQ Dash</td><td>Tanggal PIB</td><td class="num">5.494 MT</td></tr>
+        </tbody>
+      </table></div></li>
+  </ol>
+</section>
+
 <footer>
-  <p><b>Ragu sebelum menyimpan?</b> Tanyakan dulu ke CorpSec. Menunda input satu jam lebih murah daripada menarik ulang laporan.</p>
-  <p>Sumber aturan: pemeriksa input SalesPulse dan log aktivitas IQ Dash, November 2026.</p>
+  <p><b>Ragu sebelum menyimpan?</b> Tanyakan dulu ke CorpSec. Angka dalam panduan ini per 9 November 2026.</p>
 </footer>
 </div>

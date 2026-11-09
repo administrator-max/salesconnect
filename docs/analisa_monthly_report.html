@@ -1,0 +1,153 @@
+<title>Selisih Monthly Report</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: memo satu kolom, urut jawaban → bukti → tindakan; angka selalu dalam tabel berkolom rata kanan. */
+:root{
+  --bg:#f3f4f2; --paper:#ffffff; --ink:#1b2126; --ink2:#4d5761; --line:#d9ddd8;
+  --steel:#2f5d7c; --steel-soft:#e3ecf2; --bad:#b42318; --bad-soft:#fde8e6; --warn:#9a6200; --warn-soft:#fdf1d8; --ok:#1d7a46; --ok-soft:#e2f3e8;
+  --f-display:"Archivo","Arial Narrow",Arial,sans-serif; --f-body:"Source Sans 3","Segoe UI",Arial,sans-serif; --f-mono:"JetBrains Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14181b; --paper:#1c2226; --ink:#e7eaec; --ink2:#a5afb7; --line:#313a40;
+  --steel:#7fb0d2; --steel-soft:#203440; --bad:#ff8a7d; --bad-soft:#3b1f1c; --warn:#f0b54a; --warn-soft:#3a2e15; --ok:#6fd39a; --ok-soft:#173527; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14181b; --paper:#1c2226; --ink:#e7eaec; --ink2:#a5afb7; --line:#313a40;
+  --steel:#7fb0d2; --steel-soft:#203440; --bad:#ff8a7d; --bad-soft:#3b1f1c; --warn:#f0b54a; --warn-soft:#3a2e15; --ok:#6fd39a; --ok-soft:#173527; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.55 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+.wrap{max-width:880px;margin:0 auto;display:grid;gap:26px}
+h1,h2{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(27px,5vw,38px);font-weight:800}
+h2{font-size:21px;font-weight:800}
+p{margin:0}
+.kicker{font:600 12px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--steel)}
+header{display:grid;gap:10px;border-bottom:3px solid var(--ink);padding-bottom:18px}
+.lead{max-width:66ch;font-size:17.5px}
+section{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:22px clamp(16px,3vw,28px);display:grid;gap:14px;min-width:0}
+.note{color:var(--ink2);font-size:14.5px;max-width:70ch}
+.tbl{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:8px 10px;border-top:1px solid var(--line);vertical-align:top}
+th{font:700 12px/1.3 var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);border-top:0;white-space:nowrap}
+.n{text-align:right;font-family:var(--f-mono);font-size:13.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.now td{font-weight:700;background:var(--steel-soft)}
+.pill{display:inline-block;font:700 11px/1 var(--f-body);letter-spacing:.05em;text-transform:uppercase;padding:4px 7px;border-radius:999px;white-space:nowrap}
+.p-bad{background:var(--bad-soft);color:var(--bad)} .p-warn{background:var(--warn-soft);color:var(--warn)} .p-ok{background:var(--ok-soft);color:var(--ok)} .p-s{background:var(--steel-soft);color:var(--steel)}
+.causes{display:grid;gap:0;list-style:none;margin:0;padding:0}
+.causes>li{display:grid;gap:4px;padding:14px 0;border-top:1px solid var(--line)}
+.causes>li:first-child{border-top:0;padding-top:0}
+.causes b{font-weight:700}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+ul.plain{margin:0;padding-left:1.1em;display:grid;gap:6px}
+footer{color:var(--ink2);font-size:14px}
+a{color:var(--steel)}
+</style>
+
+<div class="wrap">
+<header>
+  <span class="kicker">Untuk Pak Jeri · data per 9 November 2026</span>
+  <h1>Kenapa angka Monthly Report selalu berbeda</h1>
+  <p class="lead">Sebab terbesarnya bukan format input. Laporan ditarik saat data masih berubah, dan belum ada tutup buku. Format input memang ikut berperan, tetapi dampaknya lebih kecil dan semuanya sudah bisa ditunjuk barisnya.</p>
+</header>
+
+<section aria-labelledby="h-bukti">
+  <h2 id="h-bukti">Oktober: empat versi laporan dalam sehari</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Versi</th><th class="n">Revenue</th><th class="n">Submitted</th><th class="n">Utilized</th><th class="n">Realized</th><th class="n">Available</th><th>Sebab berubah</th></tr></thead>
+    <tbody>
+      <tr><td>2 Nov, 14:25</td><td class="n">Rp 32,10 B</td><td class="n">298.695</td><td class="n">32.205</td><td class="n">24.035</td><td class="n">4.375</td><td>Kuota ditarik All Time, tanpa filter periode</td></tr>
+      <tr><td>2 Nov, 15:56</td><td class="n">Rp 64,02 B</td><td class="n">298.695</td><td class="n">32.205</td><td class="n">24.035</td><td class="n">4.375</td><td>11 PS masuk mulai 14:40 sesudah versi pertama</td></tr>
+      <tr><td>2 Nov, 17:16</td><td class="n">Rp 64,02 B</td><td class="n">106.995</td><td class="n">20.829</td><td class="n">20.829</td><td class="n">4.022</td><td>Filter periode dipakai, tetapi Utilized dan Realized dihitung sendiri</td></tr>
+      <tr><td>2 Nov, 17:51</td><td class="n">Rp 64,02 B</td><td class="n">106.995</td><td class="n">25.063</td><td class="n">23.651</td><td class="n">3.793</td><td>Disamakan dengan kartu dashboard</td></tr>
+      <tr class="now"><td>Hari ini, filter sama</td><td class="n">Rp 64,02 B</td><td class="n">112.995</td><td class="n">25.063</td><td class="n">23.651</td><td class="n">3.687</td><td>Submit MSN &amp; SPA dicatat belakangan, lot November</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Angka kuota dalam MT, periode Januari–Oktober. Obtained tetap 22.860 MT sejak versi 17:16.</p>
+</section>
+
+<section aria-labelledby="h-sebab">
+  <h2 id="h-sebab">Lima sebab, urut dari yang terbesar</h2>
+  <ol class="causes">
+    <li><span><span class="pill p-bad">Belum ada</span></span><b>1. Laporan ditarik sebelum data tutup.</b>
+      <p>Laporan Oktober ditarik 2 November, padahal batas input baru 4 November. Tidak ada data yang dikunci, jadi setiap input susulan langsung mengubah bulan yang sudah dilaporkan. Utilized Oktober: 1.770 MT (20 Okt) → 3.225 MT (hari ini).</p></li>
+    <li><span><span class="pill p-warn">Perlu dibiasakan</span></span><b>2. Cara menarik angka berbeda antar laporan.</b>
+      <p>Filter All Time vs periode (298.695 vs 106.995 MT). Utilized dihitung ulang dari yang sudah terealisasi: Agustus tertulis 16.401 MT saat kartu 19.274 MT, Oktober tertulis 20.829 MT saat kartu 25.063 MT.</p></li>
+    <li><span><span class="pill p-warn">Sifat rumus</span></span><b>3. Available bukan saldo per akhir bulan.</b>
+      <p>Filter periode hanya memilih company. Saldonya tetap saldo hari ini. Jadi Available "per 31 Oktober" ikut turun karena lot BTS bertanggal 3 November. Available Januari–Maret turun dari 3.516 ke 3.001 MT, padahal Submitted, Obtained, Utilized, dan Realized Januari–Maret tidak berubah. Aturan ini disepakati pemilik data pada Agustus 2026.</p></li>
+    <li><span><span class="pill p-ok">Sudah diperbaiki</span></span><b>4. Kesalahan sistem yang merusak data.</b>
+      <ul class="plain">
+        <li>Form lama menimpa Obtained dengan MT permintaan. Obtained di laporan Agustus 27.040 MT, kini 21.540 MT. Dari selisih 5.500 MT, 5.000 MT terlacak ke EMS, LCP, dan BBB; 500 MT sisanya belum terlacak.</li>
+        <li>Re-Apply lama tidak tercatat sebagai Submit. Submitted Januari–Agustus naik 9.000 MT saat diselaraskan.</li>
+        <li>Form mencampur pengajuan 2027 ke kuota 2026, sehingga Submitted Oktober sempat tampil 12.000 MT.</li>
+        <li>Browser lama mengirim ulang data basi (29 Okt, 2 Nov, 4 Nov), sehingga lot BBB, BTS, KARA, dan LCP kembali 0.</li>
+      </ul></li>
+    <li><span><span class="pill p-s">Format input</span></span><b>5. Format dan disiplin input.</b>
+      <p>Lihat tabel berikutnya. Inilah bagian yang bisa dicegah tim lewat panduan.</p></li>
+  </ol>
+</section>
+
+<section aria-labelledby="h-format">
+  <h2 id="h-format">Yang disebabkan input: terbukti per baris</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Temuan</th><th>Dampak ke angka</th><th>Pemilik</th></tr></thead>
+    <tbody>
+      <tr><td>3 baris PIB JKT &amp; SGD bertanggal <code>24-09-2026</code></td><td><b>384 MT</b> tidak masuk bulan mana pun. Realized Sep seharusnya 2.140 MT (tertulis 1.756). Ini juga selisih 24.035 vs 23.651 di atas.</td><td>Operations</td></tr>
+      <tr><td>Hanwa 02 Phase 1: dua PS (SPA-000004 dan SPA-000005)</td><td>Dugaan dobel <b>Rp 5,95 B</b> dan 475 MT di April. Revenue April naik dari Rp 29,05 B ke Rp 35,00 B setelah PS diperbarui 2 Nov.</td><td>Sales</td></tr>
+      <tr><td>Submit MSN &amp; SPA dicatat 4 Nov dengan tanggal 6 Okt</td><td>Submitted Oktober <b>0 → 6.000 MT</b> sesudah laporan terbit.</td><td>CorpSec</td></tr>
+      <tr><td>GNG Submit #4: tanggal sama dengan Submit #3 (30 Jun), dicatat Oktober</td><td><b>3.000 MT</b> masuk Juni. Status terakhirnya menyebut Submit pada 7 Okt, jadi tanggalnya perlu dicek.</td><td>CorpSec</td></tr>
+      <tr><td>SJH Submit #2 tanpa tanggal</td><td><b>2.700 MT</b> tidak masuk Submitted bulanan.</td><td>CorpSec</td></tr>
+      <tr><td>6 lot tanpa tanggal utilisasi</td><td><b>1.247 MT</b> tanpa tanggal pakai di lot. Sistem jatuh ke tanggal lain, jadi bulannya bisa bergeser.</td><td>Sales</td></tr>
+      <tr><td>Nama project beda antar-leg: Arsen SSP#48B ("Del. May" vs "Del. April"), Youfa 10</td><td>Total bulan tetap, tetapi 2 rantai bermargin Rp 354 juta tampil tanpa revenue. Ranking customer dan margin % ikut meleset.</td><td>Sales</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">39 dari 175 nama PS 2026 tidak mengikuti format baku, dan 4 PS Kewei 68 menulis Del. 2025. Keduanya tidak mengubah total bulanan, karena bulan laporan diambil dari PO Date. Sejak 4 November, pemeriksa upload SalesPulse sudah menangkap pola ini sebelum disimpan.</p>
+</section>
+
+<section aria-labelledby="h-modul">
+  <h2 id="h-modul">SalesPulse dan IQ Dash memang tidak bisa sama per bulan</h2>
+  <p>Keduanya mencatat kejadian berbeda. Ini bukan kesalahan.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Angka</th><th>Masuk bulan menurut</th><th class="n">Oktober</th><th class="n">Jan–Okt</th></tr></thead>
+    <tbody>
+      <tr><td>Volume SalesPulse</td><td>PO Date</td><td class="n">3.830</td><td class="n">27.271</td></tr>
+      <tr><td>Utilized IQ Dash</td><td>Tanggal kuota dipakai</td><td class="n">3.225</td><td class="n">25.063</td></tr>
+      <tr><td>Realized IQ Dash</td><td>Tanggal PIB</td><td class="n">5.494</td><td class="n">23.651</td></tr>
+    </tbody>
+  </table></div>
+  <p>Saat dicocokkan per company dan produk, dari 46 pasangan produk kuota, <b>33 cocok</b> (selisih maksimal 5 MT) dan 5 hanya beda bulan. Sisanya <b>8 pasangan berselisih nyata</b> dan perlu dijawab pemilik data, misalnya BTS Sheet Pile (SP 2.514, IQ 1.939), GKL ERW (826 vs 1.300), dan EMS Samsung 01 (500 MT tanpa utilisasi di IQ). Ada 2.116 MT lain di SalesPulse yang tidak terpasang ke produk kuota mana pun, terbanyak Beam (1.744 MT).</p>
+</section>
+
+<section aria-labelledby="h-stabil">
+  <h2 id="h-stabil">Yang terbukti stabil</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Laporan</th><th>Ditarik</th><th class="n">Revenue terbit</th><th class="n">Hari ini</th><th>Kuota</th></tr></thead>
+    <tbody>
+      <tr><td>Maret</td><td>18 Agu</td><td class="n">Rp 28,37 B</td><td class="n">Rp 28,37 B</td><td>Submitted, Obtained, Utilized, Realized sama. Hanya Available berubah (sebab 3).</td></tr>
+      <tr><td>Mei</td><td>18 Agu</td><td class="n">Rp 21,76 B</td><td class="n">Rp 21,76 B</td><td>Utilized &amp; Realized sama. Submitted −3.400 MT dan Obtained +90 MT, berubah antara 18 Agu dan 21 Sep; tidak ada salinan data untuk melacak sebabnya.</td></tr>
+      <tr><td>Agustus</td><td>21 Sep</td><td class="n">Rp 42,75 B</td><td class="n">Rp 42,75 B</td><td>Realized sama. Submitted, Obtained, Utilized, dan Available berubah (sebab 2, 3, 4).</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Rumus SalesPulse tidak bermasalah: bulan yang sudah tutup tidak bergeser, kecuali ada PS yang diunggah atau diperbarui.</p>
+</section>
+
+<section aria-labelledby="h-tindak">
+  <h2 id="h-tindak">Yang perlu dilakukan</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Tindakan</th><th>Siapa</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Terapkan <a href="https://claude.ai/artifact/3NXFaEY8ycvq9Fj3tRLuim">panduan input yang sudah direvisi</a>, termasuk bagian baru untuk penyusun laporan</td><td>Semua tim</td><td><span class="pill p-ok">Siap</span></td></tr>
+      <tr><td>Tutup buku bulanan: data dikunci di hari kerja ke-3, laporan dibuat dari salinan itu, dan input susulan masuk sebagai koreksi bulan berikutnya</td><td>Keputusan Pak Jeri</td><td><span class="pill p-bad">Belum dibuat</span></td></tr>
+      <tr><td>Sistem membaca tanggal <code>24-09-2026</code> dan menolak tanggal tak terbaca saat impor. Realized Jan–Okt menjadi 24.034,873 MT, jadi laporan Oktober perlu catatan koreksi.</td><td>Perlu izin</td><td><span class="pill p-warn">Menunggu</span></td></tr>
+      <tr><td>Jawab: Hanwa 02 (satu atau dua pengiriman), tanggal GNG dan MSN/SPA, tanggal SJH, 6 lot tanpa tanggal, dan 8 pasangan berselisih</td><td>David, Putri</td><td><span class="pill p-warn">Menunggu</span></td></tr>
+      <tr><td>Pulihkan 75 sel yang rusak 29 Okt. Hanya kolom status dan nomor dokumen, bukan kolom MT.</td><td>Perlu izin</td><td><span class="pill p-warn">Ditunda</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  <p>Cara cek: enam salinan data IQ Dash (21 Sep – 9 Nov) dihitung ulang dengan rumus yang sama, sehingga selisih yang muncul murni dari data. Lalu dibandingkan dengan PDF laporan Maret, Mei, Agustus, dan Oktober, log aktivitas, serta data SalesPulse langsung. Tidak ada data yang diubah untuk analisa ini.</p>
+</footer>
+</div>
