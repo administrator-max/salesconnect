@@ -200,6 +200,7 @@ async function _pjtSimpanKeServer(co, pesanOk) {
 async function pjtSimpan() {
   const info = _pjtPanelInfo();
   if (!info || !pjtBoleh('salesRevReq')) return;
+  if (typeof mtTolakBilaAmbigu === 'function' && mtTolakBilaAmbigu()) return;
   const { co, year } = info;
   const items = [];
   document.querySelectorAll('#pjtRows .pjt-row').forEach(r => {
@@ -228,6 +229,7 @@ async function pjtSimpan() {
 }
 
 async function pjtKonfirmasi() {
+  if (typeof mtTolakBilaAmbigu === 'function' && mtTolakBilaAmbigu()) return;
   const info = _pjtPanelInfo();
   if (!info || !pjtBoleh('corpsecRevConfirm')) return;
   const { co, year } = info;

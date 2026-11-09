@@ -663,6 +663,7 @@ function _raReadMt(id) {
 
 /* CorpSec: konfirmasi SATU produk (ti) atau seluruhnya (ti null). */
 function raConfirm(code, id, ti) {
+  if (typeof mtTolakBilaAmbigu === 'function' && mtTolakBilaAmbigu()) return;
   const co  = getSPI(code) || (typeof PENDING !== 'undefined' && PENDING.find(p => p.code === code));
   const req = co && raFind(co, id);
   if (!req) return;
@@ -1693,6 +1694,7 @@ function buildRevMgmtSection(co) {
    req.targetProducts. Tanpa `ti` (pemanggil lama) seluruh target ikut
    dikonfirmasi, supaya perilaku lama tidak mendadak berubah. */
 function csConfirmRev(prod, pid, code, ti) {
+  if (typeof mtTolakBilaAmbigu === 'function' && mtTolakBilaAmbigu()) return;
   const co = getSPI(code); if (!co) return;
   const req = co.salesRevRequest && co.salesRevRequest[prod];
   if (!req) return;
@@ -1807,6 +1809,7 @@ const RR_PESAN_BELUM_PERTEK = "PERTEK Perubahan belum terbit — Obtained MT bel
   + "Approval Stage dan Remarks tetap bisa disimpan dengan Save Status Update.";
 
 function rrApplyObtained(code) {
+  if (typeof mtTolakBilaAmbigu === 'function' && mtTolakBilaAmbigu()) return;
   const co = getSPI(code); if (!co) return;
   const { total: obtTotal, byProd: obtByProd } = rrReadObtainedFromForm(co);
   if ((obtTotal > 0 || Object.keys(obtByProd).length) && rrObtainedBelumBoleh(co)) {
@@ -1868,6 +1871,7 @@ function rrApplyObtained(code) {
    counts in the overview KPI AND lands in Available — no manual fix-up.
    Idempotent server-side; safe to re-run. */
 async function rrRecordObtainedTerbit(code) {
+  if (typeof mtTolakBilaAmbigu === 'function' && mtTolakBilaAmbigu()) return;
   const co = getSPI(code); if (!co) return;
   const { byProd } = rrReadObtainedFromForm(co);
   const prods = Object.entries(byProd).filter(([, mt]) => Number(mt) > 0);
@@ -2220,8 +2224,8 @@ function saveEdit() {
   const badMt = (typeof mtInputsAmbiguous === 'function') ? mtInputsAmbiguous() : [];
   if (badMt.length) {
     badMt[0].focus();
-    alert('Ada ' + badMt.length + ' isian MT dengan format tidak jelas (mis. "2.000").\n\n'
-      + 'Pakai koma untuk pemisah ribuan — tulis 2,000 atau 2000.\n'
+    alert('Ada ' + badMt.length + ' isian MT dengan format tidak jelas (mis. "2.000" atau "123,5").\n\n'
+      + 'Ribuan pakai koma: 2,000 atau 2000. Desimal pakai titik: 123.50.\n'
       + 'Isian yang bermasalah ditandai merah.');
     return;
   }

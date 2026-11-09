@@ -419,7 +419,7 @@ function onSalesDirectChange(inp) {
   if (inp.dataset.mtAmbiguous) {
     const errAmb = g(`util-err-${pid}-${idx}`);
     if (errAmb) {
-      errAmb.textContent = 'Format tidak jelas — pakai koma untuk ribuan (2,000), bukan titik.';
+      errAmb.textContent = 'Format tidak jelas — ribuan pakai koma (2,000), desimal pakai titik (123.50).';
       errAmb.style.display = 'block';
       errAmb.style.color   = 'var(--red2)';
       errAmb.classList.add('show');
@@ -464,7 +464,7 @@ function onSalesDirectChange(inp) {
     // bounced. A dateless lot cannot be attributed to any period.
     inp.classList.remove('err');
     if (errEl) {
-      errEl.textContent = 'ETA JKT wajib diisi — tanpa tanggal, MT ini tidak masuk filter periode.';
+      errEl.textContent = 'Tgl Utilisasi wajib diisi — tanpa tanggal, MT ini tidak masuk filter periode.';
       errEl.classList.add('show');
     }
     if (saveBtn) saveBtn.disabled = true;
@@ -593,7 +593,7 @@ function saveSalesUtil(prod, idx) {
   if (newMT === null) {
     const errEl0 = g(`util-err-${pid}-${idx}`);
     if (errEl0) {
-      errEl0.textContent = 'Format tidak jelas — pakai koma untuk ribuan (2,000), bukan titik.';
+      errEl0.textContent = 'Format tidak jelas — ribuan pakai koma (2,000), desimal pakai titik (123.50).';
       errEl0.style.display = 'block';
       errEl0.style.color   = 'var(--red2)';
       errEl0.classList.add('show');

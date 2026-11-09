@@ -16,7 +16,7 @@ const { readFileSync, readdirSync } = require('node:fs');
 const { join } = require('node:path');
 
 const JS_DIR = join(__dirname, '..', 'assets', 'js');
-const { parseMT, mtAmbiguous, fmtNum, MT_LOCALE } = require(join(JS_DIR, '00-num.js'));
+const { parseMT, mtAmbiguous, mtKetikanSalah, fmtNum, MT_LOCALE } = require(join(JS_DIR, '00-num.js'));
 
 let pass = 0, fail = 0;
 const ok = (cond, name) => { cond ? pass++ : (fail++, console.log(`  ✖ ${name}`)); };
@@ -41,6 +41,32 @@ eq(parseMT('16.100'),    null, "parseMT('16.100') — JANGAN jadi 16.1");
 eq(parseMT('4.150'),     null, "parseMT('4.150') — JANGAN jadi 4.15");
 eq(parseMT('363.612'),   null, "parseMT('363.612') — 3 desimal, tak tertampung");
 eq(parseMT('1.234.567'), null, "parseMT('1.234.567') — ribuan gaya Indonesia");
+
+console.log('── parseMT: koma sebagai desimal WAJIB ditolak ──');
+eq(parseMT('1.234,5'),   null, "parseMT('1.234,5') — dulu terbaca 1.2345");
+eq(parseMT('123,5'),     null, "parseMT('123,5') — dulu terbaca 1235");
+eq(parseMT('2,5'),       null, "parseMT('2,5') — dulu terbaca 25");
+eq(parseMT('2,00'),      null, "parseMT('2,00')");
+eq(parseMT('2000,000'),  null, "parseMT('2000,000') — grup pertama terlalu panjang");
+eq(parseMT('1.23.45'),   null, "parseMT('1.23.45') — dua titik");
+eq(parseMT('12abc'),     null, "parseMT('12abc') — dulu terbaca 12");
+eq(parseMT('1,234,567.5'), 1234567.5, "parseMT('1,234,567.5') tetap sah");
+
+console.log('── mtKetikanSalah: mengetik normal tidak boleh ditandai ──');
+const ketik = (urutan, awal = '') => {
+  let prev = awal; const hasil = [];
+  for (const t of urutan) { hasil.push(mtKetikanSalah(t, prev)); prev = t; }
+  return hasil;
+};
+eq(ketik(['2', '20', '200', '2,000', '2,0005']).join(), 'false,false,false,false,false', 'ketik 20005, formatter menyisipkan koma');
+eq(mtKetikanSalah('2,00', '2,000'), false, 'backspace pada 2,000');
+eq(ketik(['2', '2,', '2,0', '2,00', '2,000']).join(), 'false,true,true,true,false', 'koma manual: merah sementara, sah di digit ke-3');
+eq(ketik(['1', '12', '123', '123,', '123,5']).join(), 'false,false,false,true,true', 'koma desimal 123,5 ditandai');
+eq(mtKetikanSalah('123', '123,'), false, 'hapus koma: sah lagi');
+eq(mtKetikanSalah('1.234,5', ''), true, 'tempel 1.234,5');
+eq(mtKetikanSalah('12,34567', ''), true, 'tempel pengelompokan salah');
+eq(mtKetikanSalah('1,234.56', ''), false, 'tempel 1,234.56 sah');
+eq(mtKetikanSalah('2,000', '2,000'), false, 'nilai awal tidak berubah');
 
 console.log('── parseMT: input tidak valid ──');
 eq(parseMT(''),        null, "parseMT('')");

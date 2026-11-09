@@ -548,7 +548,7 @@ function markMtInput(el, bad) {
   if (bad) {
     el.dataset.mtAmbiguous = '1';
     el.classList.add('err');
-    el.title = 'Format tidak jelas. Pakai koma untuk ribuan — tulis 2,000 atau 2000, bukan 2.000.';
+    el.title = 'Format tidak jelas — ribuan pakai koma (2,000), desimal pakai titik (123.50).';
   } else if (el.dataset.mtAmbiguous) {
     delete el.dataset.mtAmbiguous;
     el.classList.remove('err');
@@ -562,16 +562,29 @@ function mtInputsAmbiguous(root) {
     (root || document).querySelectorAll('[data-mt-ambiguous="1"]'));
 }
 
+/* Dipanggil tombol yang menyimpan tanpa lewat saveEdit(). true = jangan lanjut. */
+function mtTolakBilaAmbigu() {
+  const bad = mtInputsAmbiguous();
+  if (!bad.length) return false;
+  bad[0].focus();
+  alert('Ada ' + bad.length + ' isian MT dengan format tidak jelas (ditandai merah).\n\n'
+    + 'Ribuan pakai koma: 2,000 atau 2000. Desimal pakai titik: 123.50.');
+  return true;
+}
+
 /* Thousand-separator for inline pmt inputs (no fixed ID) */
 function fmtThousandInline(el) {
   // Allow decimal up to 2 digits (e.g. 1,234.56)
   // Strip anything that's not digit, comma, or dot
   let raw = el.value.replace(/[^0-9.,]/g, '');
-  // A trailing dot group of 3+ digits is either Indonesian thousands ("2.000")
-  // or more precision than this field holds. Both used to be silently mangled
-  // into a wrong number. Flag it and leave the text exactly as typed so the
-  // user can see and fix what they wrote.
-  if (mtAmbiguous(raw)) { markMtInput(el, true); return; }
+  // Teks yang tidak boleh ditebak ("2.000", "1.234,5", "123,5") dulu diubah diam-diam
+  // menjadi angka yang salah. Tandai dan biarkan apa adanya supaya bisa dibetulkan.
+  const sebelumnya = el.dataset.mtLast != null ? el.dataset.mtLast : el.defaultValue;
+  if (mtKetikanSalah(raw, sebelumnya)) {
+    el.dataset.mtLast = el.value;
+    markMtInput(el, true);
+    return;
+  }
   markMtInput(el, false);
   // Normalize: only keep first dot as decimal separator
   const parts = raw.replace(/,/g, '').split('.');
@@ -580,6 +593,7 @@ function fmtThousandInline(el) {
   // Format integer part with thousand separators
   const intFormatted = intPart ? Number(intPart).toLocaleString(MT_LOCALE) : '';
   el.value = decPart !== null ? intFormatted + '.' + decPart : intFormatted;
+  el.dataset.mtLast = el.value;
   // Update submit total live
   let st = 0;
   document.querySelectorAll('.pmt-submit-inp').forEach(i => {

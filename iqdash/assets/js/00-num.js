@@ -24,16 +24,40 @@ function fmtNum(v, opts) {
   return n.toLocaleString(MT_LOCALE, opts);
 }
 
+/* Titik yang tidak bisa dibaca sebagai desimal en-US:
+     (a) grup 3+ digit di akhir: ribuan gaya Indonesia ("2.000") atau lebih
+         presisi daripada yang tertampung (2 desimal);
+     (b) koma sesudah titik: desimal gaya Indonesia ("1.234,5");
+     (c) lebih dari satu titik ("1.23.45"). */
+function mtTitikSalah(str) {
+  const s = String(str == null ? '' : str).trim();
+  if (!s) return false;
+  if (/\..*,/.test(s) || (s.match(/\./g) || []).length > 1) return true;
+  const m = s.match(/[.](\d+)$/);
+  return !!m && m[1].length > 2;
+}
+
 /* Is this text ambiguous enough that we must NOT guess at its value?
-   A trailing dot group of 3+ digits is either
-     (a) an Indonesian thousand separator — "2.000" meaning 2000, or
-     (b) more precision than these fields can hold (they cap at 2 dp).
-   Both used to be silently mangled. Neither may be guessed at. */
+   Selain titik di atas, koma harus benar-benar pemisah ribuan. "123,5" dulu
+   dibaca 1235 dan "2,5" dibaca 25 (koma dibuang begitu saja), tanpa peringatan. */
 function mtAmbiguous(str) {
   const s = String(str == null ? '' : str).trim();
   if (!s) return false;
-  const m = s.match(/[.](\d+)$/);
-  return !!m && m[1].length > 2;
+  if (mtTitikSalah(s)) return true;
+  return s.includes(',') && !/^-?\d{1,3}(,\d{3})+(\.\d*)?$/.test(s);
+}
+
+/* Pemeriksaan saat MENGETIK. Kolom MT diformat ulang setiap ketukan, jadi koma
+   buatan formatter wajar berada di posisi "salah" sesaat: 2,000 + "5" = "2,0005",
+   dan backspace pada 2,000 = "2,00". Keduanya harus tetap lolos. Yang ditolak:
+     - koma yang diketik sendiri lalu diikuti kurang dari 3 digit ("123,5");
+     - teks tempelan (bertambah lebih dari satu karakter) yang ambigu.
+   Kolom kembali sah begitu digit ke-3 masuk ("2,000"), atau komanya dihapus. */
+function mtKetikanSalah(raw, sebelumnya) {
+  if (mtTitikSalah(raw)) return true;
+  const tumbuh = String(raw).length - String(sebelumnya == null ? '' : sebelumnya).length;
+  if (tumbuh > 0 && /,\d{0,2}$/.test(raw)) return true;
+  return tumbuh > 1 && mtAmbiguous(raw);
 }
 
 /* Single parse entry point for every MT text field.
@@ -41,7 +65,7 @@ function mtAmbiguous(str) {
    ambiguous. null means "do not save" — callers must never coerce it to 0. */
 function parseMT(str) {
   const s = String(str == null ? '' : str).trim();
-  if (!s || mtAmbiguous(s)) return null;
+  if (!s || mtAmbiguous(s) || !/^-?[\d,]*\.?\d*$/.test(s)) return null;
   const n = parseFloat(s.replace(/,/g, ''));
   return Number.isFinite(n) ? n : null;
 }
@@ -49,5 +73,5 @@ function parseMT(str) {
 /* Node (tests) only — harmless in the browser, where this file is a classic
    script and the declarations above are already globals. */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { MT_LOCALE, fmtNum, mtAmbiguous, parseMT };
+  module.exports = { MT_LOCALE, fmtNum, mtTitikSalah, mtAmbiguous, mtKetikanSalah, parseMT };
 }
