@@ -16,27 +16,75 @@ function makeRevPid(prodName) {
    collectShipmentData, reapply table
 ═══════════════════════════════════════ */
 
-/* ── Pemakaian yang SUDAH tercatat tapi bukan lot ─────────────────────────
-   Utilisasi dari master (utilCycles, mis. "Utilization #1 · 100 MT ·
-   31/08/2026") ikut dihitung di "Used", tapi dulu tidak tampil di form —
-   yang terlihat hanya baris lot kosong. Tim mengira isiannya hilang lalu
-   mengisi ulang, dan ditolak "Melebihi kuota" (DIOR & BBB, 06-Nov-2026).
-   Blok ini menampilkannya, hanya-baca. */
-function _blokSudahTercatat(co, prod) {
-  const sisa = utilBaselineForProd(co, prod);
-  if (!(sisa > 0.0005)) return '';
+/* ── Semua shipment tampil, bukan hanya lot baru (David, 09-Nov-2026) ───────
+   Pemakaian dari master (utilCycles) dulu hanya kotak teks di atas tabel, dan
+   lot yang tersimpan di bawah ejaan lain (GI BORON untuk kuota GI ALLOY, 8
+   company) tidak tampil sama sekali. Tim mengira isiannya hilang lalu mengisi
+   ulang (DIOR & BBB, 06-Nov-2026). Kini semuanya baris di tabel yang sama,
+   hanya-baca, supaya indeks lot yang bisa diedit tidak bergeser. */
+function _barisTerkunci(co, prod) {
   const K = p => (typeof canonicalProduct === 'function') ? canonicalProduct(String(p || '').trim()) : String(p || '').trim();
   const kp = K(prod);
-  const baris = (co.utilCycles || []).filter(u => u && K(u.product) === kp && Number(u.mt) > 0);
-  const fmt = n => Number(n).toLocaleString(MT_LOCALE);
-  const isi = baris.length
-    ? baris.map(u => `<li>${u.cycle || 'Utilisasi'} · <b>${fmt(u.mt)} MT</b> · ${u.date || 'tanpa tanggal'}</li>`).join('')
-    : `<li><b>${fmt(sisa)} MT</b> · tanpa rincian tanggal</li>`;
-  return `<div class="pmt-note" style="margin:6px 0 8px;padding:8px 10px;border-left:3px solid var(--blue,#3b82f6)">
-      <div><b>Sudah tercatat ${fmt(sisa)} MT</b> (dari master, sudah masuk "Used" — jangan diinput ulang di lot):</div>
-      <ul style="margin:4px 0 0 18px;padding:0">${isi}</ul>
-      <div style="margin-top:4px;opacity:.8">Lot di bawah hanya untuk pemakaian <b>baru</b>. Kalau tanggal/MT di atas salah, minta CorpSec membetulkannya.</div>
-    </div>`;
+  const out = [];
+  const sisa = utilBaselineForProd(co, prod);
+  if (sisa > 0.0005) {
+    const eKey = Object.keys(co.etaByProd || {}).find(k => K(k) === kp);
+    const eta = eKey ? co.etaByProd[eKey] : '';
+    const baris = (co.utilCycles || []).filter(u => u && K(u.product) === kp && Number(u.mt) > 0);
+    let jumlah = 0;
+    baris.forEach(u => {
+      jumlah += Number(u.mt);
+      out.push({ jenis: 'M', mt: Number(u.mt), tgl: u.date || '', eta, note: u.cycle || 'Utilisasi' });
+    });
+    if (sisa - jumlah > 0.0005) out.push({ jenis: 'M', mt: sisa - jumlah, tgl: '', eta, note: 'Dari master, tanpa rincian tanggal' });
+  }
+  const dipakai = co.shipments || {};
+  const obt = getObtainedByProd(co);
+  Object.keys(dipakai).forEach(k => {
+    if (k === prod || obt[k] != null || K(k) !== kp) return;
+    (dipakai[k] || []).forEach(l => {
+      const u = Number(l.utilMT) || 0, r = Number(l.realMT) || 0;
+      if (!(u > 0) && !(r > 0)) return;
+      const rincian = [String(l.note || '').trim(), r > 0 ? `Realisasi ${r.toLocaleString(MT_LOCALE)} MT` : '',
+        l.pibDate ? `PIB ${l.pibDate}` : ''].filter(Boolean).join(' · ');
+      out.push({ jenis: 'L', mt: u, tgl: l.utilDate || '', eta: l.etaJKT || '', note: rincian, real: r, pib: l.pibDate || '' });
+    });
+  });
+  return out;
+}
+
+const _escLot = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const _gayaTerkunci = 'background:rgba(59,130,246,.07);font-size:11px;color:var(--txt2)';
+
+function _htmlTerkunciSales(co, prod) {
+  const rows = _barisTerkunci(co, prod);
+  if (!rows.length) return '';
+  return `<tbody class="lot-terkunci">${rows.map(r => `<tr style="${_gayaTerkunci}">
+      <td class="t-c"><span class="lot-badge" title="Sudah tercatat, hanya-baca">${r.jenis}</span></td>
+      <td><b>${r.mt > 0 ? r.mt.toLocaleString(MT_LOCALE) + ' MT' : '—'}</b></td>
+      <td>${_escLot(r.tgl) || '—'}</td>
+      <td>${_escLot(r.eta) || '—'}</td>
+      <td>${_escLot(r.note)}</td>
+      <td></td>
+    </tr>`).join('')}</tbody>`;
+}
+
+function _catatanTerkunci(co, prod) {
+  if (!_barisTerkunci(co, prod).length) return '';
+  return `<div style="margin:6px 0;font-size:10.5px;color:var(--txt3)">Baris biru sudah tercatat${utilBaselineForProd(co, prod) > 0.0005 ? ' dan sudah masuk "Used"' : ''}: jangan diinput ulang. Kalau tanggal atau MT-nya salah, minta CorpSec membetulkan. Baris putih untuk pemakaian baru.</div>`;
+}
+
+function _htmlTerkunciOps(co, prod) {
+  const rows = _barisTerkunci(co, prod).filter(r => r.jenis === 'L');
+  if (!rows.length) return '';
+  return `<tbody class="lot-terkunci">${rows.map(r => `<tr style="${_gayaTerkunci}">
+      <td class="t-c"><span class="lot-badge" title="Sudah tercatat, hanya-baca">${r.jenis}</span></td>
+      <td>${_escLot(r.note)}</td>
+      <td class="t-r">${r.mt > 0 ? r.mt.toLocaleString(MT_LOCALE) : '—'}</td>
+      <td class="t-r">${r.real > 0 ? r.real.toLocaleString(MT_LOCALE) : '—'}</td>
+      <td>${_escLot(r.pib) || '—'}</td>
+      <td></td><td></td>
+    </tr>`).join('')}</tbody>`;
 }
 
 function buildSalesOpsForm(co) {
@@ -82,7 +130,7 @@ function buildSalesOpsForm(co) {
           Available: ${availMT.toLocaleString(MT_LOCALE)} MT
         </span>
       </div>
-      ${_blokSudahTercatat(co, prod)}
+      ${_catatanTerkunci(co, prod)}
 
       <table class="sship-table">
         <thead>
@@ -98,6 +146,7 @@ function buildSalesOpsForm(co) {
             <th style="width:24px"></th>
           </tr>
         </thead>
+        ${_htmlTerkunciSales(co, prod)}
         <tbody id="sales-tbody-${prod.replace(/[^a-zA-Z0-9]/g,'_')}">
           ${lots.map((lot, idx) => buildSalesRow(prod, idx, lot, obtMT)).join('')}
         </tbody>
@@ -164,6 +213,7 @@ function buildSalesOpsForm(co) {
             <th style="width:24px"></th>
           </tr>
         </thead>
+        ${_htmlTerkunciOps(co, prod)}
         <tbody id="ops-tbody-${prod.replace(/[^a-zA-Z0-9]/g,'_')}">
           ${lots.map((lot, idx) => buildOpsRow(prod, idx, lot)).join('')}
         </tbody>
@@ -450,7 +500,7 @@ function onSalesDirectChange(inp) {
     if (errEl) {
       const _sdh = utilBaselineForProd(co, prod);
       errEl.textContent = `Melebihi kuota ${Math.abs(available).toLocaleString(MT_LOCALE)} MT (max ${(obtMT - otherMT).toLocaleString(MT_LOCALE)} MT)`
-        + (_sdh > 0.0005 ? ` — ${_sdh.toLocaleString(MT_LOCALE)} MT sudah tercatat dari master (lihat kotak di atas), jangan diinput ulang.` : '');
+        + (_sdh > 0.0005 ? ` — ${_sdh.toLocaleString(MT_LOCALE)} MT sudah tercatat dari master (lihat baris biru di atas), jangan diinput ulang.` : '');
       errEl.classList.add('show');
     }
     if (saveBtn) saveBtn.disabled = true;
@@ -472,7 +522,32 @@ function onSalesDirectChange(inp) {
     inp.classList.remove('err');
     if (errEl) errEl.classList.remove('show');
     if (saveBtn) saveBtn.disabled = false;
+    /* MT yang sudah lengkap ikut tersimpan otomatis, sama seperti tanggal, ETA,
+       dan note. Dulu hanya MT yang menunggu Simpan: tanggalnya masuk, MT-nya
+       hilang saat form ditutup. Kolom kosong tidak ikut: bisa saja sedang
+       diketik ulang, dan menghapus lot harus lewat Simpan. */
+    const lotNow = co.shipments[prod] && co.shipments[prod][idx];
+    if (lotNow && newMT > 0 && newMT !== curMT) {
+      lotNow.utilMT = newMT;
+      _segarkanTotalLot(co, prod);
+      scheduleShipmentsPersist();
+    }
   }
+}
+
+/* Lencana Available dan total "x / y MT used" untuk satu produk. */
+function _segarkanTotalLot(co, prod) {
+  const pid = prod.replace(/[^a-zA-Z0-9]/g, '_');
+  const obtMT = (getObtainedByProd(co))[prod] || 0;
+  const usedMT = effectiveUtilForProd(co, prod);
+  const availMT = obtMT - usedMT;
+  const badge = g(`sales-avail-${pid}`);
+  if (badge) {
+    badge.textContent = `Available: ${availMT.toLocaleString(MT_LOCALE)} MT`;
+    badge.className = `sprod-avail-badge${availMT < 0 ? ' warn' : ''}`;
+  }
+  const totalEl = g(`sales-total-${pid}`);
+  if (totalEl) totalEl.textContent = `${usedMT.toLocaleString(MT_LOCALE)} / ${obtMT.toLocaleString(MT_LOCALE)} MT used`;
 }
 
 /* ── Keep onSalesAddChange for backward compat (no-op now) ── */
@@ -480,15 +555,45 @@ function onSalesAddChange(inp) { onSalesDirectChange(inp); }
 
 /* ── Sales: Save direct utilization edit ── */
 /* ── Patch shipment + utilization data to PostgreSQL server ── */
-async function patchShipmentsToServer(co) {
-  if (!co || !co.code) return;
+/* Satu kiriman yang masih menunggu giliran sudah cukup: isinya dibaca saat
+   giliran tiba, jadi otomatis membawa ketikan terbaru. Lihat _antreSimpan(). */
+const _lotMenunggu = {};
+function patchShipmentsToServer(co) {
+  if (!co || !co.code) return Promise.resolve({ ok: false });
+  if (_lotMenunggu[co.code]) return _lotMenunggu[co.code];
+  const janji = _antreSimpan(co.code, () => {
+    delete _lotMenunggu[co.code];
+    return _kirimLotSekali(co);
+  });
+  _lotMenunggu[co.code] = janji;
+  return janji;
+}
+
+/* Penolakan tidak boleh diam-diam: tanpa pesan ini layar tetap menampilkan
+   angkanya, lalu hilang saat halaman dimuat ulang. */
+function _lotGagal(co, status) {
+  co._lotGagalSimpan = true;
+  const pesan = status === 409
+    ? `${co.code}: input terakhir BELUM tersimpan karena data sudah diubah orang lain. Catat isiannya, tekan F5, lalu isi lagi.`
+    : `${co.code}: input terakhir BELUM tersimpan ke server. Cek koneksi, lalu klik Simpan lagi.`;
+  if (typeof showToast === 'function') showToast('⚠ ' + pesan, 'error');
+  return { ok: false, status, pesan };
+}
+
+async function _kirimLotSekali(co) {
   /* Irisan tahun: server MENGHAPUS lot setiap produk yang dikirim tapi tidak
      ada di payload — lot tahun lain untuk produk yang sama ikut hilang, dan
      lot baru tidak bertahun. Lewat patchToServer, yang menggabung lot semua
      tahun (_gabungIrisanTahun). Temuan sisir 09-Okt-2026. */
-  if (co._quotaYearSliced && typeof patchToServer === 'function') {
-    try { await patchToServer(co); } catch (err) { console.error('patchShipmentsToServer (irisan) error:', err); }
-    return;
+  if (co._quotaYearSliced && typeof _patchToServerInti === 'function') {
+    try {
+      await _patchToServerInti(co);
+      co._lotGagalSimpan = false;
+      return { ok: true };
+    } catch (err) {
+      console.error('patchShipmentsToServer (irisan) error:', err);
+      return _lotGagal(co, err && err.status);
+    }
   }
   try {
     const obtByProd = getObtainedByProd(co);
@@ -538,25 +643,28 @@ async function patchShipmentsToServer(co) {
     });
     if (resp.status === 409) {
       console.warn(`PATCH shipments ${co.code} — 409 concurrency conflict`);
-      if (typeof showToast === 'function') {
-        showToast(`⚠ ${co.code} diubah pengguna lain — refresh untuk dapat data terbaru sebelum lanjut edit.`, 'error');
-      }
-      return;
+      return _lotGagal(co, 409);
     }
     if (!resp.ok) {
       console.error(`PATCH /api/company/${co.code} failed`, resp.status);
       // Keep the user's edit in localStorage so it can retry next boot
       if (typeof saveToStorage === 'function') saveToStorage(co && co.code);
-      return;
+      return _lotGagal(co, resp.status);
     }
     // Refresh concurrency token from server response
     const result = await resp.json().catch(() => ({}));
     if (result && result.updatedAt) co._updatedAt = result.updatedAt;
+    co._lotGagalSimpan = false;
+    /* Berhasil: entri buffer dibuang. Kalau dibiarkan, `base`-nya tetap versi
+       lama dan kegagalan berikutnya dibuang saat halaman dibuka lagi. */
+    if (typeof clearStorageForCode === 'function') clearStorageForCode(co.code);
+    return { ok: true };
   } catch (err) {
     console.error('patchShipmentsToServer error:', err);
     // Network error — keep snapshot in localStorage; migrateLocalToServer
     // will retry on next boot.
     if (typeof saveToStorage === 'function') saveToStorage(co && co.code);
+    return _lotGagal(co, 0);
   }
 }
 
@@ -566,15 +674,60 @@ async function patchShipmentsToServer(co) {
    ETA/note had no autosave at all — close the modal mid-edit, lose
    the data. This debounces a single shipments PATCH ~600ms after the
    last keystroke so DB persistence becomes implicit. */
-let _shipDebounceTimer = null;
+/* Company dipegang saat diketik, bukan dicari lagi saat timer jalan: kalau form
+   sudah ditutup atau pindah company dalam 600 ms itu, dulu isiannya tidak
+   terkirim, atau terkirim bersama company yang salah. */
+const _shipDebounce = {};
 function scheduleShipmentsPersist() {
-  clearTimeout(_shipDebounceTimer);
-  _shipDebounceTimer = setTimeout(() => {
-    const co = getCurrentEditCo();
-    if (!co) return;
-    if (typeof saveToStorage === 'function') saveToStorage(co && co.code);
+  const co = getCurrentEditCo();
+  if (!co || !co.code) return;
+  clearTimeout(_shipDebounce[co.code]);
+  _shipDebounce[co.code] = setTimeout(() => {
+    delete _shipDebounce[co.code];
+    if (typeof saveToStorage === 'function') saveToStorage(co.code);
     patchShipmentsToServer(co);
   }, 600);
+}
+
+/* Muat ulang halaman saat simpanan belum selesai atau baru saja gagal = input
+   hilang. Browser menanyakan dulu. */
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('beforeunload', e => {
+    const gagal = [...(typeof SPI !== 'undefined' ? SPI : []), ...(typeof PENDING !== 'undefined' ? PENDING : [])]
+      .some(c => c && c._lotGagalSimpan);
+    const jalan = typeof adaSimpanBerjalan === 'function' && adaSimpanBerjalan();
+    if (gagal || jalan || Object.keys(_shipDebounce).length) { e.preventDefault(); e.returnValue = ''; }
+  });
+}
+
+/* "✓ Tersimpan" hanya setelah server menjawab. Dulu menyala sebelum dikirim,
+   lalu hilang karena barisnya dibangun ulang; kalau ditolak, tidak ada tandanya. */
+function _tandaiTombolSimpan(pid, idx, janji) {
+  const id = `util-save-${pid}-${idx}`;
+  const awal = g(id);
+  if (awal) { awal.textContent = 'Menyimpan…'; awal.disabled = true; }
+  janji.then(h => {
+    const b = g(id);
+    if (!b) return;
+    b.disabled = false;
+    if (h && h.ok) {
+      b.textContent = '✓ Tersimpan';
+      b.style.background = 'var(--green)';
+      setTimeout(() => {
+        const n = g(id);
+        if (n) { n.textContent = 'Simpan'; n.style.background = 'var(--blue)'; }
+      }, 1400);
+    } else {
+      b.textContent = 'Simpan';
+      const err = g(`util-err-${pid}-${idx}`);
+      if (err) {
+        err.textContent = (h && h.pesan) || 'Belum tersimpan. Klik Simpan lagi.';
+        err.style.display = 'block';
+        err.style.color = 'var(--red2)';
+        err.classList.add('show');
+      }
+    }
+  });
 }
 
 function saveSalesUtil(prod, idx) {
@@ -671,17 +824,6 @@ function saveSalesUtil(prod, idx) {
   // Commit
   lot.utilMT = newMT;
 
-  // Visual feedback — flash save button green briefly
-  const saveBtn = g(`util-save-${pid}-${idx}`);
-  if (saveBtn) {
-    const orig = saveBtn.textContent;
-    saveBtn.textContent = '✓ Tersimpan';
-    saveBtn.style.background = 'var(--green)';
-    setTimeout(() => {
-      if (saveBtn) { saveBtn.textContent = orig; saveBtn.style.background = 'var(--blue)'; }
-    }, 1400);
-  }
-
   // Update input to formatted value
   directInp.value = newMT > 0 ? newMT.toLocaleString(MT_LOCALE) : '';
 
@@ -747,9 +889,12 @@ function saveSalesUtil(prod, idx) {
      terbuka. Tombol ini menulis UTILISASI, jadi semuanya ikut bergerak. */
   if (typeof refreshAllSurfaces === 'function') refreshAllSurfaces();
 
-  // Persist to localStorage + server DB
+  // Persist to localStorage + server DB. Kirim sekarang, jadi autosave yang
+  // masih menunggu tidak perlu menyusul.
   if (typeof saveToStorage === 'function') saveToStorage(co && co.code);
-  patchShipmentsToServer(co);
+  clearTimeout(_shipDebounce[co.code]);
+  delete _shipDebounce[co.code];
+  _tandaiTombolSimpan(pid, idx, patchShipmentsToServer(co));
 }
 
 /* ── Sync Ops read-only Util MT column when Sales changes ── */
@@ -882,6 +1027,11 @@ function onSalesUtilDateChange(inp) {
     co.shipments[prod][idx].utilDate = inp.value.trim();
   }
   if (inp.value.trim()) { inp.style.borderColor = ''; inp.title = ''; }
+  /* Tombol Simpan dimatikan selama tanggal kosong, tetapi dulu hanya dinilai
+     ulang saat kolom MT berubah. Urutan kolom di form MT dulu baru tanggal,
+     jadi Simpan tetap mati walau tanggal sudah diisi. */
+  const inpMT = document.querySelector(`.sales-util-direct-inp[data-prod="${prod}"][data-idx="${idx}"]`);
+  if (inpMT && inpMT.value.trim()) onSalesDirectChange(inpMT);
   livePreview();
   scheduleShipmentsPersist();
 }

@@ -463,7 +463,7 @@ function _gabungIrisanTahun(co) {
 
 async function _patchIrisanTahun(co) {
   const { merged, asal } = _gabungIrisanTahun(co);
-  const hasil = await patchToServer(merged);
+  const hasil = await _patchToServerInti(merged);   // sudah di dalam antrean
 
   /* Sinkronkan objek asal (sumber semua irisan) dengan yang baru tersimpan. */
   const khususIrisan = new Set(['cycles', 'shipments', 'utilCycles', '_quotaYearSliced', '_allCycles',
@@ -486,7 +486,33 @@ async function _patchIrisanTahun(co) {
   return hasil;
 }
 
-async function patchToServer(co) {
+/* ── Antrean simpan per company (09-Nov-2026) ─────────────────────────────
+   Keluhan David: "sudah merasa input, namun hilang". Salah satu jalannya:
+   mengetik tanggal memicu simpan otomatis, lalu Simpan/Save ditekan saat simpan
+   pertama masih berjalan (Google Sheets butuh beberapa detik). Permintaan kedua
+   membawa token versi LAMA, server menolaknya 409 "diubah pengguna lain",
+   padahal yang mengubah orang itu sendiri, dan penolakan tidak masuk log.
+   Satu per satu per company: token dan isi dibaca saat giliran tiba, jadi selalu
+   yang terbaru. Uji: tests/test_simpan_lot_antre.cjs */
+const _rantaiSimpan = {};
+function _antreSimpan(code, kerja) {
+  const sebelum = _rantaiSimpan[code] || Promise.resolve();
+  const giliran = sebelum.then(kerja);
+  const ekor = giliran.catch(() => {}).then(() => {
+    if (_rantaiSimpan[code] === ekor) delete _rantaiSimpan[code];
+  });
+  _rantaiSimpan[code] = ekor;
+  return giliran;
+}
+/** Masih ada simpanan yang berjalan atau menunggu giliran? */
+function adaSimpanBerjalan() { return Object.keys(_rantaiSimpan).length > 0; }
+
+function patchToServer(co) {
+  if (!co || !co.code) return Promise.resolve();
+  return _antreSimpan(co.code, () => _patchToServerInti(co));
+}
+
+async function _patchToServerInti(co) {
   if (!co || !co.code) return;
 
   /* ── Pagar tahun kuota ───────────────────────────────────────────────────
