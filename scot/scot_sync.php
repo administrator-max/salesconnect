@@ -174,7 +174,12 @@ function scot_excel_records(array $sheets): array {
                 $s = $v === null ? '' : trim(str_replace(["\r\n", "\r"], "\n", (string) $v));
                 if ($s === '' || $s === '-') { $rec[$k] = null; continue; }
                 if (in_array($k, SCOT_DATE, true)) $rec[$k] = scot_xl_tanggal($s);
-                elseif (in_array($k, SCOT_NUMERIC, true)) $rec[$k] = is_numeric($s) ? round((float) $s, 3) + 0 : null;
+                elseif (in_array($k, SCOT_NUMERIC, true)) {
+                    $rec[$k] = is_numeric($s) ? round((float) $s, 3) + 0 : null;
+                    // Rumus "ETA − ETD" di Excel dengan ETD kosong menghasilkan serial tanggal
+                    // (mis. 46329). Jumlah hari di atas 1000 pasti bukan durasi → anggap kosong.
+                    if (substr($k, -5) === '_days' && $rec[$k] !== null && abs($rec[$k]) > 1000) $rec[$k] = null;
+                }
                 else $rec[$k] = $s;
             }
             if (empty($rec['project_name'])) continue;

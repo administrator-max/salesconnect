@@ -35,7 +35,7 @@ $bytes = xlsx_mini([
     ['As of : 26 Feb 2026'],
     ['No.', 'Cargo Type', 'Consignee'],
     $baris(['no' => 1, 'cargo_type' => 'Import', 'consignee' => 'PT Selaras Prima Angkasa', 'project_name' => 'Arsen 54 LOT 2', 'quantity_mt' => 483.686, 'eta' => 46122, 'pib_billing' => '-', 'status' => 'Done']),
-    $baris(['no' => 2, 'cargo_type' => 'Import', 'consignee' => 'Angkas Artha Dinamika', 'project_name' => 'Arsen 56B', 'quantity_mt' => 149.33, 'sppb' => '04/09/2026']),
+    $baris(['no' => 2, 'cargo_type' => 'Import', 'consignee' => 'Angkas Artha Dinamika', 'project_name' => 'Arsen 56B', 'quantity_mt' => 149.33, 'sppb' => '04/09/2026', 'actual_sailing_days' => 46329, 'est_sailing_days' => 21]),
     $baris(['no' => 3, 'cargo_type' => 'Import', 'consignee' => 'PT Selaras Prima Angkasa', 'project_name' => 'Centra Lays 03 - Del. October 2026', 'quantity_mt' => 13.65]),
     $baris(['no' => 4, 'cargo_type' => 'Import']),   // tanpa project → dilewati
 ]);
@@ -46,6 +46,7 @@ ok($rec[0]['year'] === 2026, 'tahun dari nama sheet "Ship Analyze26"');
 ok($rec[0]['eta'] === '2026-04-10', 'serial tanggal Excel 46122 → 2026-04-10 (' . $rec[0]['eta'] . ')');
 ok($rec[0]['pib_billing'] === null, '"-" dibaca kosong');
 ok($rec[1]['sppb'] === '2026-09-04', 'teks 04/09/2026 → 2026-09-04 (hari/bulan)');
+ok($rec[1]['actual_sailing_days'] === null && $rec[1]['est_sailing_days'] == 21, 'hari 46329 (rumus ETA−ETD tanpa ETD) dibuang; 21 hari tetap');
 
 $db = [
     ['id' => '106', 'year' => '2026', 'cargo_type' => 'Import', 'consignee' => 'Gantari Kara Loka', 'project_name' => 'Arsen 54 LOT 2', 'quantity_mt' => '5005', 'eta' => '2026-04-10', 'pib_billing' => '2026-04-09', 'status' => 'Done'],
