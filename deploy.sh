@@ -17,11 +17,15 @@
 #
 # Credentials come from LOCAL git config (never committed — see .gitignore/
 # .git/config). Set them once:
-#   git config git-ftp.url      'ftp://45.130.231.110/'
+#   git config git-ftp.url      'ftp://srv100.niagahoster.com/'
 #   git config git-ftp.user     'salesconnect@salesconnect.tapworkspace.com'
 #   git config git-ftp.password '********'
-# (Plain ftp:// — on Windows curl+schannel the FTPS data channel hangs; the
-#  server also serves plain FTP fine.)
+# TLS IS REQUIRED (since 2026-11-18): the server now answers cleartext logins
+# with "421 cleartext sessions ... not accepted", which curl reports only as a
+# timeout. The script therefore always sends --ssl-reqd (explicit FTPS on port
+# 21). The certificate is issued to srv100.niagahoster.com, so the URL must use
+# that hostname, not the IP — an old IP-based git-ftp.url is rewritten below
+# rather than switching certificate verification off.
 #
 # Run from a machine WITH network to the FTP host (Windows: Git Bash).
 # ─────────────────────────────────────────────────────────────────────────────
@@ -33,17 +37,19 @@ FUSER=$(git config --get git-ftp.user || true)
 FPASS=$(git config --get git-ftp.password || true)
 if [ -z "$URL" ] || [ -z "$FUSER" ] || [ -z "$FPASS" ]; then
   echo "ERROR: FTP credentials missing in local git config. Set them (NOT committed):"
-  echo "  git config git-ftp.url 'ftp://45.130.231.110/'"
+  echo "  git config git-ftp.url 'ftp://srv100.niagahoster.com/'"
   echo "  git config git-ftp.user 'salesconnect@salesconnect.tapworkspace.com'"
   echo "  git config git-ftp.password 'YOUR_PASSWORD'"
   exit 1
 fi
 BASE="${URL%/}"   # strip trailing slash
+# Old configs point at the IP; the TLS certificate only names the hostname.
+BASE="${BASE/45.130.231.110/srv100.niagahoster.com}"
 
 # curl reads creds from this file (keeps them out of argv/ps); deleted on exit.
 CONF=$(mktemp)
 trap 'rm -f "$CONF"' EXIT
-printf 'user = "%s:%s"\n--ftp-pasv\n--connect-timeout 25\n--max-time 300\n' "$FUSER" "$FPASS" > "$CONF"
+printf 'user = "%s:%s"\n--ssl-reqd\n--ftp-pasv\n--connect-timeout 25\n--max-time 300\n' "$FUSER" "$FPASS" > "$CONF"
 
 # ── .git-ftp-ignore patterns (files present in git but NOT deployed) ──────────
 IGN=()

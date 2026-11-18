@@ -27,8 +27,10 @@ FUSER=$(git config --get git-ftp.user || true)
 FPASS=$(git config --get git-ftp.password || true)
 [ -z "$URL" ] || [ -z "$FUSER" ] || [ -z "$FPASS" ] && { echo "Kredensial FTP belum diset (git config git-ftp.*)"; exit 1; }
 BASE="${URL%/}"
+BASE="${BASE/45.130.231.110/srv100.niagahoster.com}"   # sertifikat TLS atas nama host, bukan IP
 CONF=$(mktemp); trap 'rm -f "$CONF"' EXIT
-printf 'user = "%s:%s"\n--ftp-pasv\n--connect-timeout 25\n--max-time 60\n' "$FUSER" "$FPASS" > "$CONF"
+# --ssl-reqd: sejak 18-Nov-2026 server menolak FTP tanpa TLS (421) — lihat deploy.sh.
+printf 'user = "%s:%s"\n--ssl-reqd\n--ftp-pasv\n--connect-timeout 25\n--max-time 60\n' "$FUSER" "$FPASS" > "$CONF"
 
 notify() {  # notify JUDUL PESAN — balon notifikasi Windows (tanpa modul tambahan)
   powershell.exe -NoProfile -WindowStyle Hidden -Command "
