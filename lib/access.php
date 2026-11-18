@@ -46,7 +46,7 @@ return [
     // Sesuai arahan Direktur (26 Agustus 2026). Liwa, Hendra, dan Angely
     // memegang SEMUA dashboard — ketiganya muncul di setiap baris di bawah.
     'access' => [
-        // CRM Projects (eks crmproject.gunungprisma.com, Selaras Prima Artha) —
+        // CRM Projects (eks crmproject.gunungprisma.com, Selaras Prima Angkasa) —
         // tim Selaras Prima (irma/angely/jessica) + Aldi, Ridwan, Trian, Liwa
         // ditambahkan menyusul untuk kebutuhan testing/oversight (11 September 2026).
         // Ditaruh PALING ATAS di sini secara sengaja — urutan kartu di landing
@@ -91,6 +91,6 @@ return [
         'iqdash'     => ['icon' => '📊', 'title' => 'Import Quota Monitor', 'href' => 'iqdash/',
                          'desc'  => 'Steel import quota (PERTEK/SPI) lifecycle &amp; realization tracking.'],
         'crmproject' => ['icon' => '🤝', 'title' => 'CRM Projects', 'href' => 'crmproject/',
-                         'desc'  => 'Market blueprint, pipeline &amp; customer CRM Selaras Prima Artha.'],
+                         'desc'  => 'Market blueprint, pipeline &amp; customer CRM Selaras Prima Angkasa.'],
     ],
 ];
