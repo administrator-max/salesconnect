@@ -281,6 +281,7 @@ async function loadP1() {
 }
 
 function renderStockistTable(tbodyId, rows) {
+  rows = rows.slice().sort((a, b) => String(a.company_name || '').localeCompare(String(b.company_name || ''), 'id', { sensitivity: 'base' }));
   const apiStatus = r => r.api_status
     ? '<span class="' + (r.api_status === 'API-P' ? 'apip' : 'apiu') + '">' + r.api_status + '</span>'
     : '—';

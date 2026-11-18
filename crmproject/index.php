@@ -111,11 +111,11 @@ $sc_u = sc_user();
   <div class="g2" style="margin-bottom:28px;">
     <div class="card">
       <div class="ch"><div class="ct"><div class="ci">🏪</div>Stockists</div><span style="font-size:11px;font-weight:700;color:var(--teal);" id="mc-stockist-total">— MT</span></div>
-      <div class="cb np"><table class="dt"><thead><tr><th>#</th><th>Company</th><th>Location</th><th class="num">Vol (MT)</th><th>Size</th><th>Remarks</th><th>API</th></tr></thead><tbody id="stockStockistBody"></tbody></table></div>
+      <div class="cb np"><table class="dt dt-compact"><thead><tr><th>#</th><th>Company</th><th>Location</th><th class="num">Vol (MT)</th><th>Size</th><th>Remarks</th><th>API</th></tr></thead><tbody id="stockStockistBody"></tbody></table></div>
     </div>
     <div class="card">
       <div class="ch"><div class="ct"><div class="ci">🔧</div>Fabricators</div><span style="font-size:11px;font-weight:700;color:var(--teal);" id="mc-fab-total">— MT</span></div>
-      <div class="cb np"><table class="dt"><thead><tr><th>#</th><th>Company</th><th>Location</th><th class="num">Vol (MT)</th><th>Size</th><th>Remarks</th><th>API</th></tr></thead><tbody id="stockFabBody"></tbody></table></div>
+      <div class="cb np"><table class="dt dt-compact"><thead><tr><th>#</th><th>Company</th><th>Location</th><th class="num">Vol (MT)</th><th>Size</th><th>Remarks</th><th>API</th></tr></thead><tbody id="stockFabBody"></tbody></table></div>
     </div>
   </div>
 
