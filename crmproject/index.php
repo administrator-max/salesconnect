@@ -74,7 +74,7 @@ $sc_u = sc_user();
     <div class="mc"><div class="micon">🌐</div><div class="mlbl">Global Mfr.</div><div class="mval" id="mc-global-mfr">—</div><div class="msub">Brands tracked</div></div>
     <div class="mc"><div class="micon">🇨🇳</div><div class="mlbl">China Mfr.</div><div class="mval" id="mc-china-mfr">—</div><div class="msub">Mills in China</div></div>
     <div class="mc accent"><div class="micon">🚢</div><div class="mlbl">Trading Offices</div><div class="mval" id="mc-trading-offices">—</div><div class="msub" id="mc-trading-vol">— MT total vol.</div></div>
-    <div class="mc teal"><div class="micon">🏗️</div><div class="mlbl">OEM / Fab / Distr.</div><div class="mval sm" id="mc-stockist-counts">—/—/—</div><div class="msub" id="mc-stockist-sub">Loading…</div></div>
+    <div class="mc teal"><div class="micon">🏗️</div><div class="mlbl">Stockist / Fab.</div><div class="mval sm" id="mc-stockist-counts">—/—</div><div class="msub" id="mc-stockist-sub">Loading…</div></div>
     <div class="mc success"><div class="micon">🚜</div><div class="mlbl">HE Suppliers</div><div class="mval" id="mc-he-count">—</div><div class="msub" id="mc-he-ow">OW — MT</div></div>
     <div class="mc danger"><div class="micon">⛏️</div><div class="mlbl">Project Owners</div><div class="mval" id="mc-project-owners">—</div><div class="msub">Mining end-users</div></div>
   </div>
@@ -106,20 +106,16 @@ $sc_u = sc_user();
   <div class="cluster-header">
     <div class="cluster-pill" style="background:var(--teal);">🏗️ Cluster 2 — Stockist Fabrication</div>
     <div class="cluster-line" style="background:linear-gradient(90deg,var(--teal),transparent);"></div>
-    <div class="cluster-desc">OEM + Fabricator + Distributor</div>
+    <div class="cluster-desc">Stockist + Fabricator</div>
   </div>
-  <div class="g3" style="margin-bottom:28px;">
+  <div class="g2" style="margin-bottom:28px;">
     <div class="card">
-      <div class="ch"><div class="ct"><div class="ci">🏭</div>OEM Stockist</div><span style="font-size:11px;font-weight:700;color:var(--teal);" id="mc-oem-total">— MT</span></div>
-      <div class="cb np"><table class="dt"><thead><tr><th>#</th><th>Company</th><th>Location</th><th class="num">Vol (MT)</th><th>Size</th><th>Remarks</th><th>API</th></tr></thead><tbody id="stockOEMBody"></tbody></table></div>
+      <div class="ch"><div class="ct"><div class="ci">🏪</div>Stockists</div><span style="font-size:11px;font-weight:700;color:var(--teal);" id="mc-stockist-total">— MT</span></div>
+      <div class="cb np"><table class="dt"><thead><tr><th>#</th><th>Company</th><th>Location</th><th class="num">Vol (MT)</th><th>Size</th><th>Remarks</th><th>API</th></tr></thead><tbody id="stockStockistBody"></tbody></table></div>
     </div>
     <div class="card">
       <div class="ch"><div class="ct"><div class="ci">🔧</div>Fabricators</div><span style="font-size:11px;font-weight:700;color:var(--teal);" id="mc-fab-total">— MT</span></div>
       <div class="cb np"><table class="dt"><thead><tr><th>#</th><th>Company</th><th>Location</th><th class="num">Vol (MT)</th><th>Size</th><th>Remarks</th><th>API</th></tr></thead><tbody id="stockFabBody"></tbody></table></div>
-    </div>
-    <div class="card">
-      <div class="ch"><div class="ct"><div class="ci">🏪</div>Distributors</div><span style="font-size:11px;font-weight:700;color:var(--teal);" id="mc-dist-total">— MT</span></div>
-      <div class="cb np"><table class="dt"><thead><tr><th>#</th><th>Company</th><th>Location</th><th class="num">Vol (MT)</th><th>Size</th><th>Remarks</th><th>API</th></tr></thead><tbody id="stockDistBody"></tbody></table></div>
     </div>
   </div>
 
@@ -424,7 +420,7 @@ $sc_u = sc_user();
             <option value="global">🌐 Mill — Global</option>
             <option value="china">🇨🇳 Mill — China</option>
             <option value="trading">🚢 Trading Office</option>
-            <option value="Distributor">🏪 Distributor</option>
+            <option value="Stockist">🏪 Stockist</option>
             <option value="Fabricator">🔧 Fabricator</option>
           </select>
         </div>
@@ -443,7 +439,7 @@ $sc_u = sc_user();
 ═══════════════════════════════════ -->
 <div class="page" id="page-px">
   <div class="ph">
-    <div><div class="pt">Supplier List</div><div class="ps">Mill, Trading Office &amp; Distributor / Fabricator network</div></div>
+    <div><div class="pt">Supplier List</div><div class="ps">Mill, Trading Office &amp; Stockist / Fabricator network</div></div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-primary" onclick="openAddSupplier(currentSlTab||'global')">+ Add Supplier</button>
     </div>
@@ -453,13 +449,13 @@ $sc_u = sc_user();
     <div class="mc"><div class="micon">🏭</div><div class="mlbl">Total Mills</div><div class="mval" id="mc-sl-mills">—</div><div class="msub">Global + China</div></div>
     <div class="mc accent"><div class="micon">🚢</div><div class="mlbl">Trading Offices</div><div class="mval" id="mc-sl-trading">—</div><div class="msub" id="mc-sl-trading-vol">— MT</div></div>
     <div class="mc teal"><div class="micon">🔧</div><div class="mlbl">Fabricators</div><div class="mval" id="mc-sl-fab">—</div><div class="msub" id="mc-sl-fab-vol">— MT</div></div>
-    <div class="mc success"><div class="micon">🏪</div><div class="mlbl">Distributors</div><div class="mval" id="mc-sl-dist">—</div><div class="msub" id="mc-sl-dist-vol">— MT</div></div>
+    <div class="mc success"><div class="micon">🏪</div><div class="mlbl">Stockists</div><div class="mval" id="mc-sl-dist">—</div><div class="msub" id="mc-sl-dist-vol">— MT</div></div>
   </div>
 
   <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:0;">
     <button id="sl-tab-mill"    onclick="showSlTab('mill')"    class="sl-tab sl-tab-active">🏭 Mill</button>
     <button id="sl-tab-trading" onclick="showSlTab('trading')" class="sl-tab">🚢 Trading Office</button>
-    <button id="sl-tab-dist"    onclick="showSlTab('dist')"    class="sl-tab">🏪 Distributor</button>
+    <button id="sl-tab-dist"    onclick="showSlTab('dist')"    class="sl-tab">🏪 Stockist</button>
     <button id="sl-tab-fab"     onclick="showSlTab('fab')"     class="sl-tab">🔧 Fabricator</button>
   </div>
 
@@ -578,9 +574,8 @@ $sc_u = sc_user();
       <div class="form-group full">
         <label class="form-label">Supplier Type *</label>
         <select class="form-select" id="cts_type">
-          <option value="Distributor">🏪 Distributor</option>
+          <option value="Stockist">🏪 Stockist</option>
           <option value="Fabricator">🔧 Fabricator</option>
-          <option value="OEM">🏗️ OEM</option>
         </select>
       </div>
       <div class="form-group">
@@ -726,7 +721,7 @@ $sc_u = sc_user();
           <option value="global">🌐 Mill — Global</option>
           <option value="china">🇨🇳 Mill — China</option>
           <option value="trading">🚢 Trading Office</option>
-          <option value="distributor">🏪 Distributor</option>
+          <option value="distributor">🏪 Stockist</option>
           <option value="fabricator">🔧 Fabricator</option>
         </select>
       </div>
@@ -760,7 +755,7 @@ $sc_u = sc_user();
         </div>
       </div>
 
-      <!-- Stockist (Distributor/Fabricator) fields -->
+      <!-- Stockist/Fabricator fields -->
       <div id="sl-fields-stockist" style="display:none;">
         <div class="form-grid">
           <div class="form-group full"><label class="form-label">Company Name *</label><input type="text" class="form-input" id="sl_company_s"></div>

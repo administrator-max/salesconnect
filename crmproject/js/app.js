@@ -200,8 +200,8 @@ async function loadP1() {
     txt('mc-china-mfr',       overview.chinaMfr);
     txt('mc-trading-offices', trading.length);
     txt('mc-trading-vol',     fmtN(overview.tradingTotal) + ' MT total vol.');
-    txt('mc-stockist-counts', overview.stockOEM.count + ' / ' + overview.stockFab.count + ' / ' + overview.stockDist.count);
-    txt('mc-stockist-sub',    fmtN(overview.stockOEM.vol) + ' · ' + fmtN(overview.stockFab.vol) + ' · ' + fmtN(overview.stockDist.vol) + ' MT');
+    txt('mc-stockist-counts', overview.stockStockist.count + ' / ' + overview.stockFab.count);
+    txt('mc-stockist-sub',    fmtN(overview.stockStockist.vol) + ' · ' + fmtN(overview.stockFab.vol) + ' MT');
     txt('mc-he-count',        he.length);
     txt('mc-he-ow',           'OW ' + fmtN(overview.heOW) + ' MT');
     txt('mc-project-owners',  projOwners.length);
@@ -232,15 +232,12 @@ async function loadP1() {
     ).join(''));
 
     // Stockist tables
-    const oem  = stockists.filter(s => s.category === 'OEM');
+    const stk  = stockists.filter(s => s.category === 'Stockist');
     const fab  = stockists.filter(s => s.category === 'Fabricator');
-    const dist = stockists.filter(s => s.category === 'Distributor');
-    renderStockistTable('stockOEMBody',  oem);
-    renderStockistTable('stockFabBody',  fab);
-    renderStockistTable('stockDistBody', dist);
-    txt('mc-oem-total',  fmtN(oem.reduce( (s,r) => s + +r.annual_volume_mt, 0)) + ' MT');
-    txt('mc-fab-total',  fmtN(fab.reduce( (s,r) => s + +r.annual_volume_mt, 0)) + ' MT');
-    txt('mc-dist-total', fmtN(dist.reduce((s,r) => s + +r.annual_volume_mt, 0)) + ' MT');
+    renderStockistTable('stockStockistBody', stk);
+    renderStockistTable('stockFabBody',      fab);
+    txt('mc-stockist-total', fmtN(stk.reduce((s,r) => s + +r.annual_volume_mt, 0)) + ' MT');
+    txt('mc-fab-total',      fmtN(fab.reduce((s,r) => s + +r.annual_volume_mt, 0)) + ' MT');
 
     // HE suppliers table
     const totalUnits = he.reduce((s,h) => s + +h.est_units_sold, 0);
@@ -997,7 +994,7 @@ function openCopyToSupplier(accountId) {
   $('cts_contact_name').value  = (a.contacts && a.contacts[0]) ? a.contacts[0].name  || '' : '';
   $('cts_contact_phone').value = (a.contacts && a.contacts[0]) ? a.contacts[0].phone || '' : '';
   $('cts_notes').value         = a.synthesis || a.nextstep || '';
-  $('cts_type').value          = 'Distributor';
+  $('cts_type').value          = 'Stockist';
   $('ctsModal').classList.add('open');
 }
 
@@ -1005,7 +1002,7 @@ function closeCtsModal() { $('ctsModal').classList.remove('open'); }
 
 async function saveCopyToSupplier() {
   var company = $('cts_company').value.trim();
-  var type    = $('cts_type').value; // Distributor | Fabricator | OEM
+  var type    = $('cts_type').value; // Stockist | Fabricator
   var contact = $('cts_contact_name').value.trim();
   var phone   = $('cts_contact_phone').value.trim();
   var notes   = $('cts_notes').value.trim();
@@ -1287,7 +1284,7 @@ async function confirmAddCompany() {
       } catch(e) { showToast('Could not save to CRM: ' + e.message, 'error'); return; }
     } else if (saveTo === 'supplier') {
       try {
-        var stype = $('acSupplierType') ? $('acSupplierType').value : 'Distributor';
+        var stype = $('acSupplierType') ? $('acSupplierType').value : 'Stockist';
         var url, payload;
         if (stype === 'global') {
           url     = 'api/market/manufacturers/global';
@@ -1299,7 +1296,7 @@ async function confirmAddCompany() {
           url     = 'api/market/trading';
           payload = { company_name: company, brand: '', annual_volume_mt: 0, market_share_pct: 0, color_hex: '#0B3D6B' };
         } else {
-          // Distributor or Fabricator
+          // Stockist or Fabricator
           url     = 'api/market/stockists';
           payload = { company_name: company, category: stype, location: '', annual_volume_mt: 0 };
         }
@@ -1555,7 +1552,7 @@ async function loadPX() {
     const glb  = mfr.global || [];
     const chn  = mfr.china  || [];
     const fab  = stockists.filter(s => s.category === 'Fabricator');
-    const dist = stockists.filter(s => s.category === 'Distributor');
+    const dist = stockists.filter(s => s.category === 'Stockist');
     _slData = { global: glb, china: chn, trading, dist, fab };
 
     txt('mc-sl-mills',    glb.length + chn.length);
@@ -1594,7 +1591,7 @@ function renderSupplierCards(items) {
     var typeBadge = type === 'global'      ? '<span style="background:#E8F5E9;color:#1E8449;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">🌐 Global</span>'
                   : type === 'china'       ? '<span style="background:#FFF8E1;color:#B7770D;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">🇨🇳 China</span>'
                   : type === 'trading'     ? '<span style="background:#E3F0FF;color:#1A5AA0;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">🚢 Trading</span>'
-                  : type === 'distributor' ? '<span style="background:#F3E8FF;color:#7B3FA0;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">🏪 Distributor</span>'
+                  : type === 'distributor' ? '<span style="background:#F3E8FF;color:#7B3FA0;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">🏪 Stockist</span>'
                   : '<span style="background:#FFE8E8;color:#A03F3F;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">🔧 Fabricator</span>';
 
     var apiPill  = s.api_status ? '<span class="' + (s.api_status==='API-P'?'apip':'apiu') + '">' + s.api_status + '</span>' : '';
@@ -1696,7 +1693,7 @@ function openEditSupplier(type, id) {
     if ($('sl_contact_name_s')) $('sl_contact_name_s').value = r.contact_name || '';
     if ($('sl_contact_phone_s'))$('sl_contact_phone_s').value= r.contact_phone || '';
     if ($('sl_website_s'))      $('sl_website_s').value      = r.website || '';
-    if ($('sl_category'))       $('sl_category').value       = r.category || 'Distributor';
+    if ($('sl_category'))       $('sl_category').value       = r.category || 'Stockist';
   }
   txt('supplierModalTitle', 'Edit Supplier');
   $('supplierModal').classList.add('open');
@@ -1715,7 +1712,7 @@ function showSupplierFields(type) {
            : type === 'trading' ? 'sl-fields-trading' : 'sl-fields-stockist';
   var el = $(show); if (el) el.style.display = '';
   if ($('sl_category')) {
-    $('sl_category').value = type === 'distributor' ? 'Distributor' : type === 'fabricator' ? 'Fabricator' : 'OEM';
+    $('sl_category').value = type === 'distributor' ? 'Stockist' : 'Fabricator';
   }
 }
 
@@ -1754,7 +1751,7 @@ async function saveSupplier() {
     url = id ? 'api/market/trading/' + id : 'api/market/trading';
   } else {
     body = {
-      category:         $('sl_category')       ? $('sl_category').value       : 'Distributor',
+      category:         $('sl_category')       ? $('sl_category').value       : 'Stockist',
       company_name:     $('sl_company_s')       ? $('sl_company_s').value      : '',
       location:         $('sl_location')        ? $('sl_location').value       : '',
       annual_volume_mt: parseFloat($('sl_volume_s') ? $('sl_volume_s').value : 0) || 0,

@@ -95,7 +95,7 @@ try {
                 json_out([
                     'globalMfr' => count($g), 'chinaMfr' => count($c),
                     'tradingTotal' => $tradingTotal,
-                    'stockOEM' => $byCat('OEM'), 'stockFab' => $byCat('Fabricator'), 'stockDist' => $byCat('Distributor'),
+                    'stockStockist' => $byCat('Stockist'), 'stockFab' => $byCat('Fabricator'),
                     'heUnits' => $heUnits, 'heOW' => $heOW,
                 ]);
             }
