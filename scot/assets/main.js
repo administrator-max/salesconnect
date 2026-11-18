@@ -195,3 +195,57 @@ loadScotConfig().then(fetchShipments);
   }
   setInterval(() => { if (!modalIsOpen()) fetchShipments(); }, 15000);
 })();
+
+// ==========================================
+// SINKRON DARI EXCEL DRIVE (scot_sync.php)
+// ==========================================
+// Tim Ops update di file Excel "Dispatch Delivery Master Data for Dashboard".
+// Halaman ini meminta server mengecek file itu saat dibuka dan tiap 3 menit;
+// server sendiri membatasi cek ke Drive (≥2 menit) dan hanya menulis bila file
+// berubah. Tombol di header = cek sekarang tanpa menunggu.
+function fmtSyncWaktu(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' ' +
+         d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+}
+function renderSync(st) {
+  const b = document.getElementById('sync-x');
+  if (!b) return;
+  if (st && st.status === 'galat') {
+    b.innerHTML = '⚠ Sinkron Excel gagal';
+    b.title = st.error || '';
+    b.style.color = '#b91c1c';
+    return;
+  }
+  b.style.color = '#047857';
+  b.innerHTML = '🔄 Excel · ' + fmtSyncWaktu(st && st.sinkron_at);
+  const h = (st && st.hasil) || {};
+  b.title = 'Data diambil dari Excel "' + ((st && st.file) || 'Dispatch Delivery Master Data') + '".\n'
+    + 'Excel terakhir diubah: ' + fmtSyncWaktu(st && st.excel_diubah) + (st && st.excel_diubah_oleh ? ' oleh ' + st.excel_diubah_oleh : '') + '\n'
+    + 'Sinkron terakhir: ' + fmtSyncWaktu(st && st.sinkron_at) + ' — ' + (h.diperbarui || 0) + ' diperbarui, ' + (h.baru || 0) + ' baru\n'
+    + 'Update data di Excel; isian di dashboard tertimpa bila Excel berisi nilai lain.\nKlik untuk cek sekarang.';
+}
+async function syncExcel(paksa) {
+  const b = document.getElementById('sync-x');
+  if (paksa && b) { b.disabled = true; b.innerHTML = '⏳ Mengecek Excel…'; }
+  try {
+    const res = await fetch('api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paksa: !!paksa }) });
+    const st = await res.json().catch(() => ({}));
+    renderSync(res.ok ? st : Object.assign({ status: 'galat' }, st));
+    if (st.status === 'sinkron') {
+      const h = st.hasil || {};
+      if ((h.diperbarui || 0) + (h.baru || 0) > 0) {
+        tst(`Excel tersinkron: ${h.diperbarui || 0} diperbarui, ${h.baru || 0} baru`, 'ok');
+        fetchShipments();
+      } else if (paksa) tst('Excel tersinkron — tidak ada perubahan', 'ok');
+    } else if (paksa && st.status === 'tetap') tst('Excel belum berubah sejak sinkron terakhir', 'ok');
+    else if (!res.ok) tst('Sinkron Excel gagal: ' + (st.error || res.status), 'er');
+  } catch (e) {
+    renderSync({ status: 'galat', error: e.message });
+  } finally { if (b) b.disabled = false; }
+}
+fetch('api/sync').then(r => r.json()).then(renderSync).catch(() => {});
+syncExcel(false);
+setInterval(() => syncExcel(false), 180000);

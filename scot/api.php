@@ -170,6 +170,27 @@ try {
             }
             break;
 
+        /* Sinkron dari Excel Drive (scot_sync.php).
+           GET  → status terakhir (tanpa jaringan).
+           POST → cek Drive; terapkan bila file berubah. {"paksa":true} = abaikan jeda. */
+        case 'sync':
+            require_once __DIR__ . '/scot_sync.php';
+            if ($method === 'GET') json_out(['status' => 'info'] + scot_sync_state());
+            if ($method === 'POST') {
+                $b = json_body();
+                try {
+                    $r = scot_sync_run($gs, $SID, !empty($b['paksa']), false);
+                    unset($r['rencana']);
+                    json_out($r);
+                } catch (Throwable $e) {
+                    $st = scot_sync_state();
+                    $st['galat'] = $e->getMessage(); $st['galat_at'] = date('c');
+                    scot_sync_state_put($st);
+                    json_out(['status' => 'galat', 'error' => $e->getMessage()] + $st, 502);
+                }
+            }
+            break;
+
         case 'documents':
             if ($method === 'GET' && $id !== null) {
                 $d = find_by_id($gs, $SID, 'documents', $id);
