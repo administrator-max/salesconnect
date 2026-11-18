@@ -219,6 +219,12 @@ function renderSync(st) {
     b.style.color = '#b91c1c';
     return;
   }
+  if (st && st.status === 'jeda') {
+    b.innerHTML = '⏸ Sinkron Excel dijeda';
+    b.title = 'Sinkron otomatis dari Excel sedang dihentikan sementara (Excel sedang dirapikan tim Ops).\nData dashboard tidak berubah sampai dinyalakan lagi.';
+    b.style.color = '#92400e';
+    return;
+  }
   b.style.color = '#047857';
   b.innerHTML = '🔄 Excel · ' + fmtSyncWaktu(st && st.sinkron_at);
   const h = (st && st.hasil) || {};
@@ -240,7 +246,8 @@ async function syncExcel(paksa) {
         tst(`Excel tersinkron: ${h.diperbarui || 0} diperbarui, ${h.baru || 0} baru`, 'ok');
         fetchShipments();
       } else if (paksa) tst('Excel tersinkron — tidak ada perubahan', 'ok');
-    } else if (paksa && st.status === 'tetap') tst('Excel belum berubah sejak sinkron terakhir', 'ok');
+    } else if (paksa && st.status === 'jeda') tst('Sinkron Excel sedang dijeda — data tidak diubah', 'ok');
+    else if (paksa && st.status === 'tetap') tst('Excel belum berubah sejak sinkron terakhir', 'ok');
     else if (!res.ok) tst('Sinkron Excel gagal: ' + (st.error || res.status), 'er');
   } catch (e) {
     renderSync({ status: 'galat', error: e.message });

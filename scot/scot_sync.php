@@ -24,6 +24,10 @@ require_once __DIR__ . '/scot_util.php';
 
 const SCOT_EXCEL_FILE_ID_DEFAULT = '1wIYBmnmfBykxADNRZzqutnLsmVZeft4y';
 const SCOT_SYNC_CEK_DETIK = 120;   // jeda minimal antar-cek metadata Drive
+// Saklar jeda: true = tidak ada yang ditulis ke dashboard (halaman, tombol, maupun CLI "jalan").
+// 18-Nov-2026 dijeda atas permintaan tim Ops yang sedang merapikan Excel; nyalakan lagi
+// (false + deploy scot/scot_sync.php) setelah mereka bilang Excel siap.
+const SCOT_SYNC_JEDA = true;
 const SCOT_EXCEL_KOLOM = ['no','cargo_type','consignee','project_name','product','quantity_mt',
     'bl_number','shipping_line','vessel_name','voyage_number','pol','pod','shipment_route',
     'etd','eta','shipment_type','est_sailing_days','actual_sailing_days','pib_billing','bpn',
@@ -291,6 +295,7 @@ function scot_sync_plan(array $excel, array $db): array {
 function scot_sync_run(GoogleSheets $gs, string $sid, bool $paksa = false, bool $coba = false): array {
     $st = scot_sync_state();
     $now = time();
+    if (SCOT_SYNC_JEDA && !$coba) return ['status' => 'jeda'] + $st;
     if (!$paksa && !$coba && ($now - (int) ($st['cek_at'] ?? 0)) < SCOT_SYNC_CEK_DETIK) {
         return ['status' => 'skip', 'alasan' => 'baru dicek'] + $st;
     }
