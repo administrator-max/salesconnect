@@ -14,7 +14,7 @@ $imp = ['shipType'=>'container20','customer'=>'Acme','kurs'=>17000,'importDuty'=
     'addCost'=>50,'commission'=>10,'commUnit'=>'usd','marginType'=>'percent','margin'=>7,'payTerms'=>'NET 30 Days',
     'items'=>[['name'=>'A','qty'=>'10','cif'=>'800','remark'=>'x'],['name'=>'B','qty'=>'5','cif'=>'900','remark'=>'']]];
 [$h,$it,$mg] = cc_decompose('import_1','import','Acme',$imp,'C','U');
-ok($h['ship_type']==='container20' && $h['is_pipa']==='TRUE' && count($it)===2 && count($mg)===0, 'import decompose');
+ok($h['pipa']==='FALSE' && $h['ship_type']==='container20' && $h['is_pipa']==='TRUE' && count($it)===2 && count($mg)===0, 'import decompose');
 ok($it[0]['name']==='A' && $it[0]['qty']==='10' && $it[0]['cif']==='800' && $it[0]['item_no']===1, 'import item cols');
 $r = cc_recompose($h,$it,$mg);
 ok($r['shipType']==='container20' && $r['kurs']===17000.0 && $r['isPipa']===true && $r['commUnit']==='usd', 'import recompose scalars');

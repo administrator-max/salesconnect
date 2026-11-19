@@ -29,6 +29,8 @@ const CS_HEADER_COLS = [
     'margin_type', 'margin', 'pay_terms',
     // domestic params
     'wht_rate', 'truck_cost', 'truck_from', 'truck_to',
+    // ditambah 19-Nov-2026: checkbox PIPA (Break Bulk, trucking = tonase/30 x tarif retase)
+    'pipa',
 ];
 const CS_ITEM_COLS   = ['costing_id', 'type', 'item_no', 'name', 'qty', 'cif', 'qty_kg', 'buy_price', 'margin_idx', 'remark'];
 const CS_MARGIN_COLS = ['costing_id', 'margin_no', 'name', 'val'];
@@ -58,6 +60,7 @@ function cc_decompose(string $id, string $type, string $customer, array $data, s
         $h['hedge_days']   = $data['hedgeDays']   ?? '';
         $h['destination']  = $data['tujuan']      ?? '';
         $h['is_pipa']      = !empty($data['isPipa']) ? 'TRUE' : 'FALSE';
+        $h['pipa']         = !empty($data['pipa'])   ? 'TRUE' : 'FALSE';
         $h['stripping']    = $data['stripping']   ?? '';
         $h['add_cost']     = $data['addCost']     ?? '';
         $h['commission']   = $data['commission']  ?? '';
@@ -113,6 +116,7 @@ function cc_recompose(array $h, array $itemRows, array $marginRows): array {
             'wht' => cs_num($h['wht'] ?? ''), 'portCharges' => cs_num($h['port_charges'] ?? ''),
             'hedgeRate' => cs_num($h['hedge_rate'] ?? ''), 'hedgeDays' => cs_num($h['hedge_days'] ?? ''),
             'tujuan' => $h['destination'] ?? '', 'isPipa' => cs_b($h['is_pipa'] ?? ''),
+            'pipa' => cs_b($h['pipa'] ?? ''),
             'stripping' => cs_num($h['stripping'] ?? ''), 'addCost' => cs_num($h['add_cost'] ?? ''),
             'commission' => cs_num($h['commission'] ?? ''), 'commUnit' => $h['comm_unit'] ?? 'idr',
             'marginType' => $h['margin_type'] ?? 'fixed', 'margin' => cs_num($h['margin'] ?? ''),
@@ -145,6 +149,12 @@ function cc_ensure_header(GoogleSheets $gs, string $sid): void {
     $headers = $gs->headers($sid, CS_TAB);
     $missing = array_values(array_diff(CS_HEADER_COLS, $headers));
     if (!$missing) return;
+    // Grid tab pas selebar kolom terpakai: lebarkan dulu, kalau tidak header baru
+    // ditolak "exceeds grid limits". Kolom kosong lebih di ujung tidak berbahaya.
+    $sheetId = $gs->sheetMeta($sid)[CS_TAB] ?? null;
+    if ($sheetId !== null) {
+        $gs->batchUpdate($sid, [['appendDimension' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'length' => count($missing)]]]);
+    }
     $gs->updateRange($sid, CS_TAB . '!A1', [array_merge($headers, $missing)]);
     $gs->cacheClear();
 }

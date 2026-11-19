@@ -125,7 +125,7 @@ function cfg_registry(): array {
             ],
             'pbm_rates' => [
                 'tab' => 'cfg_pbm_rates', 'key' => 'ship_type', 'cols' => ['ship_type', 'pbm', 'sort_order', 'active'],
-                'seed' => [['breakbulk', '230', '1', 'TRUE'], ['container20', '350', '2', 'TRUE'], ['container40', '509', '3', 'TRUE']],
+                'seed' => [['breakbulk', '255', '1', 'TRUE'], ['container20', '350', '2', 'TRUE'], ['container40', '509', '3', 'TRUE']],
             ],
         ],
 
