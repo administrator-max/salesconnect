@@ -23,9 +23,10 @@ if ($apply && !in_array('pipa', $hdr, true)) cc_ensure_header($gs, $sid);
 $t = $gs->table($sid, 'cfg_pbm_rates', false);
 foreach ($t['rows'] as $r) {
     echo "  pbm {$r['ship_type']} = {$r['pbm']}\n";
-    if ($r['ship_type'] === 'breakbulk' && (string) $r['pbm'] !== '255') {
+    // Semua shipment type 255 (konfirmasi user 19-Nov: "Semua pokoknya 255 PBM nya")
+    if ((string) $r['pbm'] !== '255') {
         $row = $r; unset($row['_row']); $row['pbm'] = '255';   // baris lengkap: updateAssoc menimpa seluruh baris
-        echo "  -> breakbulk {$r['pbm']} -> 255" . ($apply ? '' : ' (dry-run)') . "\n";
+        echo "  -> {$r['ship_type']} {$r['pbm']} -> 255" . ($apply ? '' : ' (dry-run)') . "\n";
         if ($apply) $gs->updateAssoc($sid, 'cfg_pbm_rates', $r['_row'], $row);
     }
 }

@@ -201,7 +201,7 @@ let TRK_CT = {
     Purwakarta: { f20: 3240000, f40: 3480000, cb: 3960000 }
 };
 
-let PBM_MAP = { breakbulk: 255, container20: 350, container40: 509 };  // overwritten from cfg_pbm_rates
+let PBM_MAP = { breakbulk: 255, container20: 255, container40: 255 };  // overwritten from cfg_pbm_rates
 
 let PAY_OPTS = [
     "Cash Before Delivery (CBD)",
